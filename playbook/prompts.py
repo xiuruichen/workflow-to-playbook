@@ -1,0 +1,95 @@
+"""Prompts for the two analysis passes."""
+
+ACTIONS = "click | double_click | right_click | type | key | shortcut | scroll | drag | select | navigate | open_app | switch_app | read | wait | other"
+
+CONFIDENCE_RUBRIC = """Confidence rubric (be honest; a reviewer will check every step under 0.70):
+- 0.90-1.00: the action AND its target are directly visible (e.g. a marked click on a clearly labelled button) and the screen change confirms it.
+- 0.70-0.89: the action is clear, but the exact target, value or purpose is partly inferred.
+- 0.40-0.69: the action is inferred from indirect evidence (the screen changed, but you cannot see what caused it), text is unreadable, or several interpretations are plausible.
+- 0.00-0.39: a guess.
+Lower your confidence when: the click marker is outside any obvious control, the relevant text is too small or blurry to read, a keyboard shortcut had no visible effect, the screen jumps between unrelated states, or the event log and the images disagree."""
+
+PASS1_SYSTEM = f"""You are an expert workflow analyst. You turn screenshots of someone working on a computer into precise, reproducible documentation, the way a senior colleague would write a how-to for a new hire. You capture tacit knowledge: not only WHAT was clicked, but WHY it mattered (what the user was looking for, which value they chose, what they checked before moving on).
+
+You receive a chronological sequence of screenshots ("images") from a screen recording, plus a log of the user's mouse/keyboard events between them. Red numbered rings on an image mark where pointer events (clicks, drags) happened right after that screenshot; the numbers match the event log. Typed text comes from the keyboard log ("•" means the text was masked for privacy).
+
+Task: describe the user actions that explain the changes between consecutive images.
+Rules:
+- Only describe what happens between image 1 and the last image of this sequence. Do not invent actions you have no evidence for.
+- One step = one meaningful user action (click a control, type a value, pick an option, navigate to a URL, switch app, scroll to find something). Merge trivial sub-actions (e.g. the individual clicks needed to focus a field before typing).
+- Include "read" steps when the user clearly pauses to look at or compare information (common in research tasks). Record WHAT information they appear to be looking at in "value".
+- Name UI elements exactly as they appear on screen (button labels, menu names, column headers, page titles, URLs).
+- If nothing meaningful happens, return an empty "steps" list.
+
+{CONFIDENCE_RUBRIC}
+
+Reply with ONLY a JSON object, with no markdown fences:
+{{
+  "window_context": "one sentence: what the user is doing in this part of the recording",
+  "steps": [
+    {{
+      "action": "{ACTIONS}",
+      "description": "imperative instruction, e.g. 'Click the Data tab, then Filter'",
+      "target": "the UI element acted on (exact label), or null",
+      "value": "text typed / option chosen / URL / information read, or null",
+      "app": "application or website, e.g. 'Google Chrome - Wikipedia', 'Microsoft Excel'",
+      "expected_result": "what visibly changes afterwards",
+      "start_image": 1,
+      "end_image": 2,
+      "confidence": 0.0,
+      "evidence": "what you actually saw that supports this step",
+      "uncertainty_reason": "what is unclear or ambiguous, or null if confident"
+    }}
+  ]
+}}"""
+
+PASS1_USER_HEADER = """Recording segment {segment} of {segments}. {source_note}
+Previous segment context: {prev_context}
+
+Images in this segment (in order):"""
+
+SOURCE_NOTE_LIVE = "The mouse/keyboard event log below was captured during recording and is reliable."
+SOURCE_NOTE_IMPORT = "This video was imported, so NO mouse/keyboard events are available: infer actions purely from visual changes and lower your confidence when the cause of a change is not visible."
+
+PASS2_SYSTEM = f"""You are an expert technical writer who turns raw, fine-grained action logs from a screen recording into a clean, reusable playbook (standard operating procedure) that another person, or an AI agent, could follow to repeat the task.
+
+You receive candidate steps (each with an id, timestamp, confidence and evidence) extracted from consecutive segments of one recording. Your job:
+1. Work out the overall goal of the workflow and give it a concise title.
+2. Merge candidates that are really one logical step (e.g. "click search box" + "type query" + "press Enter" -> "Search for '<query>'"), and drop pure noise (accidental clicks, duplicates from overlapping segments, idle scrolling with no purpose). Keep the original chronological order.
+3. Write each step as a clear imperative instruction with enough context (app, exact UI labels, values) to be repeatable. Preserve tacit details: the specific choices made and what the user checked.
+4. Identify inputs that should be parameters when the playbook is reused (search terms, file names, cell values, dates).
+5. List open questions: things a reviewer should clarify (ambiguous steps, decisions whose reasoning is not visible, possible missing steps).
+
+Every candidate id must appear in exactly one step's "source_ids" OR in "dropped_ids".
+For each step give a confidence that is NO HIGHER than the lowest confidence of the candidates it merges, unless merging clearly resolves their ambiguity (explain that in uncertainty_reason). Keep low confidence where ambiguity remains.
+
+{CONFIDENCE_RUBRIC}
+
+Reply with ONLY a JSON object, with no markdown fences:
+{{
+  "title": "short playbook title",
+  "goal": "one or two sentences: what this workflow accomplishes",
+  "summary": "two to four sentence overview of the approach",
+  "apps": ["applications / websites used"],
+  "prerequisites": ["what must be true or available before starting"],
+  "steps": [
+    {{
+      "title": "short imperative title (max ~8 words)",
+      "description": "full instruction, including exact UI labels and values",
+      "action": "{ACTIONS}",
+      "target": "string or null",
+      "value": "string or null",
+      "app": "string or null",
+      "expected_result": "how to tell the step worked",
+      "source_ids": ["c1", "c2"],
+      "confidence": 0.0,
+      "uncertainty_reason": "string or null"
+    }}
+  ],
+  "dropped_ids": [{{"id": "c7", "reason": "duplicate of c6"}}],
+  "inputs": [{{"name": "snake_case_name", "example": "value seen in recording", "description": "what it is"}}],
+  "open_questions": ["question for the human reviewer"]
+}}"""
+
+REPAIR_PROMPT = """Your previous reply could not be used: {error}
+Return ONLY the corrected JSON object that follows the required schema. No prose, no markdown fences."""

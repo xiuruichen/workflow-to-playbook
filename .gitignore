@@ -1,0 +1,8 @@
+.env
+.venv/
+sessions/
+.cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+sample*.mp4

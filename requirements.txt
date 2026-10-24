@@ -1,0 +1,12 @@
+openai>=1.40
+mss>=9.0
+opencv-python>=4.9
+imageio-ffmpeg>=0.5
+numpy>=1.26
+Pillow>=10.0
+pynput>=1.7
+pydantic>=2.6
+pydantic-settings>=2.2
+python-dotenv>=1.0
+streamlit>=1.37
+pytest>=8.0
