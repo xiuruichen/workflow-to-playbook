@@ -32,6 +32,7 @@ T = TypeVar("T", bound=BaseModel)
 Progress = Callable[[float, str], None]
 
 PASSIVE_ACTIONS = {"read", "wait"}
+_IMAGE_REF = re.compile(r"\b[Ii]mages? ?#?(\d+)\b")
 PENALTY_NO_EVENT = 0.15
 PENALTY_REPAIRED = 0.10
 PENALTY_LONG_GAP = 0.10
@@ -104,6 +105,7 @@ class _Pass2Step(BaseModel):
     source_ids: list[str] = Field(default_factory=list)
     confidence: float | None = None
     uncertainty_reason: str | None = None
+    review_note: str | None = None
 
     @field_validator("confidence", mode="before")
     @classmethod
@@ -236,7 +238,8 @@ class VisionClient:
     """OpenAI-compatible chat client with throttling, retries, model fallback, disk cache
     and JSON repair. `status` receives human-readable updates (waits, retries, switches)."""
 
-    def __init__(self, settings: Settings, client: Any = None, status: Callable[[str], None] | None = None):
+    def __init__(self, settings: Settings, client: Any = None, status: Callable[[str], None] | None = None,
+                 remember: bool = True):
         self.s = settings
         self.model = settings.gemini_model
         self.notes: list[str] = []
@@ -263,6 +266,12 @@ class VisionClient:
         self.calls = 0
         self.cache_hits = 0
         self._available: list[str] | None = None
+        self._status_path = self.cache_dir / "model_status.json"
+        # Models known to be out of quota / unavailable from earlier runs, until their reset time.
+        for model, info in (self._load_status() if remember else {}).items():
+            self.dead_models[model] = info["why"]
+        if self.model in self.dead_models:
+            self._switch_model(self.dead_models[self.model] + " (remembered from an earlier run)", block_s=None)
 
     def _cache_path(self, messages: list[dict]) -> Path:
         key = hashlib.sha256(json.dumps([self.model, messages], sort_keys=True).encode()).hexdigest()
@@ -311,7 +320,7 @@ class VisionClient:
                     why = "has no free-tier quota left" if exhausted else "kept hitting its rate limit"
                     if retry_after and retry_after > MAX_WAIT_S:
                         why += f" (resets in ~{retry_after / 3600:.1f} h)"
-                    self._switch_model(why)
+                    self._switch_model(why, block_s=(retry_after or 3600) if exhausted else None)
                     attempt = 0
                     continue
                 attempt += 1
@@ -322,11 +331,11 @@ class VisionClient:
             except (openai.NotFoundError, openai.BadRequestError) as exc:
                 if isinstance(exc, openai.BadRequestError) and "model" not in str(exc).lower():
                     raise AnalysisError(f"Request failed: {str(exc)[:500]}") from exc
-                self._switch_model("is not available to this API key")
+                self._switch_model("is not available to this API key", block_s=7 * 86400)
                 attempt = 0
             except (openai.APIConnectionError, openai.APITimeoutError, openai.InternalServerError, _EmptyResponse) as exc:
                 if attempt >= MAX_RETRIES:
-                    self._switch_model(f"kept failing ({type(exc).__name__})")
+                    self._switch_model(f"kept failing ({type(exc).__name__})", block_s=None)
                     attempt = 0
                     continue
                 attempt += 1
@@ -350,8 +359,31 @@ class VisionClient:
             prefs = [m for m in prefs if m in self._available]
         return [m for m in prefs if m != self.model and m not in self.dead_models]
 
-    def _switch_model(self, why: str) -> None:
+    def _load_status(self) -> dict[str, dict]:
+        try:
+            data = json.loads(self._status_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        now = time.time()
+        return {m: v for m, v in data.items() if isinstance(v, dict) and v.get("until", 0) > now and "why" in v}
+
+    def _save_status(self, model: str, why: str | None, block_s: float | None) -> None:
+        """Remember (block_s > 0) or forget (why is None) a model's unusable status."""
+        data = self._load_status()
+        if why is None:
+            data.pop(model, None)
+        else:
+            data[model] = {"why": why, "until": time.time() + block_s}
+        try:
+            self._status_path.write_text(json.dumps(data, indent=1), encoding="utf-8")
+        except OSError:
+            pass
+
+    def _switch_model(self, why: str, block_s: float | None) -> None:
+        """Move on to the next fallback model. `block_s` remembers the failure across runs."""
         self.dead_models[self.model] = why
+        if block_s:
+            self._save_status(self.model, why, block_s)
         candidates = self.fallback_models()
         if not candidates:
             tried = "; ".join(f"{m} {w}" for m, w in self.dead_models.items())
@@ -535,10 +567,16 @@ class Analyzer:
             conf -= PENALTY_LONG_GAP
             notes.append(f"Inferred across a {k1.t - k0.t:.0f}s gap between screenshots; intermediate actions may be missing")
 
+        def fix(text: str | None) -> str | None:
+            """Replace the model's 'Image 4' references (meaningless to readers) with timestamps."""
+            if not text:
+                return text
+            return _IMAGE_REF.sub(lambda m: f"[{fmt_ts(kfs[int(m.group(1)) - 1].t)}]" if 1 <= int(m.group(1)) <= len(kfs) else m.group(0), text)
+
         return StepCandidate(
             id=f"c{n + 1}",
             action=action,
-            description=st.description,
+            description=fix(st.description),
             target=st.target,
             value=st.value,
             app=st.app,
@@ -549,8 +587,8 @@ class Analyzer:
             t_end=max(k1.t, t_start),
             model_confidence=st.confidence,
             confidence=max(0.0, conf),
-            evidence=st.evidence,
-            uncertainty_reason=st.uncertainty_reason,
+            evidence=fix(st.evidence),
+            uncertainty_reason=fix(st.uncertainty_reason),
             calibration_notes=notes,
         )
 
@@ -596,6 +634,11 @@ class Analyzer:
                 resp, repaired = self.vc.complete_json(
                     [{"role": "system", "content": prompts.PASS2_SYSTEM}, {"role": "user", "content": user}], _Pass2Resp
                 )
+                if "lite" in self.vc.model:
+                    pb_notes.append(
+                        f"Steps were consolidated by a Lite model ({self.vc.model}) because stronger models were out of "
+                        "quota; merging is usually weaker. Re-run `analyze` after the quota resets for a cleaner playbook."
+                    )
             except AnalysisError as exc:
                 if not exc.recoverable:
                     raise
@@ -642,6 +685,7 @@ class Analyzer:
                 confidence=conf,
                 evidence=" | ".join(_dedupe([c.evidence for c in srcs]))[:800],
                 uncertainty_reason=reason,
+                review_note=(p2.review_note or None) if p2 else None,
                 calibration_notes=notes,
                 source_ids=[c.id for c in srcs],
             )
@@ -701,7 +745,7 @@ def check_models(settings: Settings | None = None, client: Any = None) -> list[t
     import openai
 
     s = settings or get_settings()
-    vc = VisionClient(s, client)
+    vc = VisionClient(s, client, remember=False)  # test every model, even ones remembered as exhausted
     available = vc.available_models()
     results = []
     for m in _dedupe([s.gemini_model] + [x.strip() for x in s.gemini_fallback_models.split(",")]):
@@ -711,6 +755,7 @@ def check_models(settings: Settings | None = None, client: Any = None) -> list[t
         try:
             vc.client.chat.completions.create(model=m, messages=[{"role": "user", "content": "Reply with OK"}], max_tokens=5)
             results.append((m, True, "ok"))
+            vc._save_status(m, None, None)  # works again: forget any remembered block
         except openai.RateLimitError as exc:
             exhausted, after = classify_rate_limit(exc)
             if "limit: 0" in str(exc):

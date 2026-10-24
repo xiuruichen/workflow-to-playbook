@@ -1,0 +1,62 @@
+{
+  "session_id": "20261024-145602-import",
+  "source": "import",
+  "video": "recording.mp4",
+  "duration": 20.0,
+  "width": 1280,
+  "height": 720,
+  "fps": 10.0,
+  "created": "2026-10-24T14:56:02",
+  "keyframes": [
+    {
+      "id": 0,
+      "t": 0.0,
+      "path": "keyframes/0000_start_0000.00.jpg",
+      "trigger": "start",
+      "event_indices": []
+    },
+    {
+      "id": 1,
+      "t": 5.5,
+      "path": "keyframes/0001_scene_0005.50.jpg",
+      "trigger": "scene",
+      "event_indices": []
+    },
+    {
+      "id": 2,
+      "t": 6.5,
+      "path": "keyframes/0002_scene_0006.50.jpg",
+      "trigger": "scene",
+      "event_indices": []
+    },
+    {
+      "id": 3,
+      "t": 9.5,
+      "path": "keyframes/0003_scene_0009.50.jpg",
+      "trigger": "scene",
+      "event_indices": []
+    },
+    {
+      "id": 4,
+      "t": 13.0,
+      "path": "keyframes/0004_scene_0013.00.jpg",
+      "trigger": "scene",
+      "event_indices": []
+    },
+    {
+      "id": 5,
+      "t": 17.0,
+      "path": "keyframes/0005_scene_0017.00.jpg",
+      "trigger": "scene",
+      "event_indices": []
+    },
+    {
+      "id": 6,
+      "t": 18.0,
+      "path": "keyframes/0006_scene_0018.00.jpg",
+      "trigger": "scene",
+      "event_indices": []
+    }
+  ],
+  "events": []
+}

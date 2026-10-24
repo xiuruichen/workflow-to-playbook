@@ -1,7 +1,9 @@
 """Generate a small synthetic "workflow" screen recording for smoke tests.
 
-The video shows a fake browser search, a results page, an article, then copying a number
-into a fake spreadsheet. Text is large enough for a vision model to read.
+The video shows a fake browser search, a results page, an article, then entering the
+number into a fake spreadsheet. All data is fictional. The number is entered with two
+digits swapped (168,412 -> 186,412), a deliberate mistake the analyzer should flag.
+Text is large enough for a vision model to read.
 
     python tests/make_sample_video.py [out.mp4]
 """
@@ -96,14 +98,22 @@ def sheet(value: str, toast: bool = False):
 
 
 def make_sample_video(path: Path) -> Path:
+    import imageio_ffmpeg
+
     path = Path(path)
-    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), FPS, (W, H))
+    # H.264 so the video plays in browsers (the HTML viewer, Streamlit, GitHub).
+    writer = imageio_ffmpeg.write_frames(
+        str(path), (W, H), fps=FPS, codec="libx264", pix_fmt_in="bgr24", quality=None,
+        output_params=["-crf", "30", "-movflags", "+faststart"],
+    )
+    writer.send(None)
 
     def hold(img, seconds, cursor=(640, 600)):
         frame = img.copy()
         _cursor(frame, *cursor)
+        payload = frame.tobytes()
         for _ in range(int(seconds * FPS)):
-            writer.write(frame)
+            writer.send(payload)
 
     query = "city population 2024"
     hold(search_home(""), 2.5, (620, 330))
@@ -113,9 +123,9 @@ def make_sample_video(path: Path) -> Path:
     hold(results(), 3.0, (200, 200))
     hold(article(), 3.5, (500, 262))
     hold(sheet(""), 2.5, (520, 195))
-    hold(sheet("168,412"), 2.5, (520, 195))
-    hold(sheet("168,412", toast=True), 2.5, (520, 195))
-    writer.release()
+    hold(sheet("186,412"), 2.5, (520, 195))  # typo: digits swapped vs. the article
+    hold(sheet("186,412", toast=True), 2.5, (520, 195))
+    writer.close()
     return path
 
 

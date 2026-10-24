@@ -116,6 +116,9 @@ class Step(BaseModel):
     confidence: float
     evidence: str = ""
     uncertainty_reason: str | None = None
+    # Something a reviewer should double-check even when the action itself is clear
+    # (e.g. the value typed differs from the source on screen, or a likely mistake).
+    review_note: str | None = None
     calibration_notes: list[str] = Field(default_factory=list)
     source_ids: list[str] = Field(default_factory=list)
     needs_review: bool = False
@@ -158,7 +161,7 @@ class Playbook(BaseModel):
 
     def refresh_flags(self) -> None:
         for s in self.steps:
-            s.needs_review = s.confidence < self.threshold
+            s.needs_review = s.confidence < self.threshold or bool(s.review_note)
 
     def save(self, session_dir: Path) -> None:
         (session_dir / "playbook.json").write_text(self.model_dump_json(indent=2), encoding="utf-8")

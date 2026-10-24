@@ -36,9 +36,10 @@ def _analyze_and_render(session: Path) -> int:
         return 1
     path = write_playbook(pb, session)
     print(f"\nPlaybook: {path}")
-    print(f"  {len(pb.steps)} steps, {len(pb.review_steps)} flagged for review (< {pb.threshold:.2f})")
+    print(f"  {len(pb.steps)} steps, {len(pb.review_steps)} need review")
     for s in pb.review_steps:
-        print(f"   ⚠ Step {s.index} @ {s.t_start:.0f}s ({s.confidence:.2f}): {s.title}")
+        why = "low confidence" if s.confidence < pb.threshold else "check"
+        print(f"   ⚠ Step {s.index} @ {s.t_start:.0f}s ({why}, {s.confidence:.2f}): {s.title}")
     return 0
 
 

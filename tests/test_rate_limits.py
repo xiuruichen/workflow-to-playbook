@@ -108,3 +108,17 @@ def test_check_models_reports_each_model(cfg):
     assert results["model-a"] == (False, "no free-tier quota for this model")
     assert results["model-b"] == (True, "ok")
     assert results["model-c"] == (False, "not offered to this API key")
+
+
+def test_exhausted_model_is_remembered_until_reset(cfg):
+    client = ScriptedClient({"model-a": [rate_error(DAILY)]}, ["model-a", "model-b"])
+    VisionClient(cfg, client).chat([{"role": "user", "content": "first"}])
+    client.calls.clear()
+    vc = VisionClient(cfg, client)  # a later run skips model-a without calling it
+    assert vc.model == "model-b"
+    vc.chat([{"role": "user", "content": "second"}])
+    assert client.calls == ["model-b"]
+    # `check` still tests model-a, and forgets the block once it works again
+    client.script["model-a"] = ["OK"]
+    assert dict((m, ok) for m, ok, _ in check_models(cfg, client))["model-a"] is True
+    assert VisionClient(cfg, client).model == "model-a"

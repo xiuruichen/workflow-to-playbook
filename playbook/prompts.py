@@ -19,6 +19,8 @@ Rules:
 - One step = one meaningful user action (click a control, type a value, pick an option, navigate to a URL, switch app, scroll to find something). Merge trivial sub-actions (e.g. the individual clicks needed to focus a field before typing).
 - Include "read" steps when the user clearly pauses to look at or compare information (common in research tasks). Record WHAT information they appear to be looking at in "value".
 - Name UI elements exactly as they appear on screen (button labels, menu names, column headers, page titles, URLs).
+- Ignore interactions with the recording tool itself (a browser tab titled "Workflow → Playbook" or at localhost:8501 with Start/Stop recording buttons); they are not part of the workflow.
+- If a value the user types or pastes differs from the value visible in the source they appear to copy it from, say so in "evidence" and quote both values.
 - If nothing meaningful happens, return an empty "steps" list.
 
 {CONFIDENCE_RUBRIC}
@@ -58,7 +60,8 @@ You receive candidate steps (each with an id, timestamp, confidence and evidence
 2. Merge candidates that are really one logical step (e.g. "click search box" + "type query" + "press Enter" -> "Search for '<query>'"), and drop pure noise (accidental clicks, duplicates from overlapping segments, idle scrolling with no purpose). Keep the original chronological order.
 3. Write each step as a clear imperative instruction with enough context (app, exact UI labels, values) to be repeatable. Preserve tacit details: the specific choices made and what the user checked.
 4. Identify inputs that should be parameters when the playbook is reused (search terms, file names, cell values, dates).
-5. List open questions: things a reviewer should clarify (ambiguous steps, decisions whose reasoning is not visible, possible missing steps).
+5. Flag steps a human should double-check even when the action itself is clear, using "review_note": a value entered that differs from its source, a likely typo or mistake, an unexplained choice between alternatives, an action that seems to be undone or repeated. Quote the conflicting values. Use null when nothing looks off; do not use it merely because confidence is low.
+6. List open questions: things a reviewer should clarify (ambiguous steps, decisions whose reasoning is not visible, possible missing steps).
 
 Every candidate id must appear in exactly one step's "source_ids" OR in "dropped_ids".
 For each step give a confidence that is NO HIGHER than the lowest confidence of the candidates it merges, unless merging clearly resolves their ambiguity (explain that in uncertainty_reason). Keep low confidence where ambiguity remains.
@@ -83,7 +86,8 @@ Reply with ONLY a JSON object, with no markdown fences:
       "expected_result": "how to tell the step worked",
       "source_ids": ["c1", "c2"],
       "confidence": 0.0,
-      "uncertainty_reason": "string or null"
+      "uncertainty_reason": "string or null",
+      "review_note": "what looks wrong or worth double-checking, or null"
     }}
   ],
   "dropped_ids": [{{"id": "c7", "reason": "duplicate of c6"}}],

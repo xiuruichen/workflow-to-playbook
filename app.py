@@ -12,7 +12,7 @@ import streamlit as st
 
 from playbook.analyzer import AnalysisError, analyze_session, check_models, fmt_ts
 from playbook.config import get_settings
-from playbook.generator import render_markdown, write_playbook
+from playbook.generator import render_markdown, review_reasons, write_playbook
 from playbook.models import Manifest, Playbook
 from playbook.recorder import Recorder, import_video, list_sessions
 
@@ -159,13 +159,15 @@ with tab_review:
         st.info("Analyze a session to see its playbook.")
     else:
         pb = Playbook.load(session_dir)
-        sid = pb.session_id
+        # Widget keys include the analysis time, so re-analyzing a session never shows
+        # (or saves) edits made to the previous version of its playbook.
+        sid = f"{pb.session_id}-{pb.generated_at}"
         pb.title = st.text_input("Title", pb.title, key=f"{sid}-title")
         pb.goal = st.text_area("Goal", pb.goal, key=f"{sid}-goal", height=70)
         flagged = [s for s in pb.steps if s.needs_review]
         c = st.columns(4)
         c[0].metric("Steps", len(pb.steps))
-        c[1].metric("Flagged (< %.2f)" % pb.threshold, len(flagged))
+        c[1].metric("Need review", len(flagged), help=f"Confidence below {pb.threshold:.2f}, or something looked inconsistent")
         c[2].metric("Verified", sum(s.verified for s in pb.steps))
         c[3].metric("Model", pb.model)
         for note in pb.notes:
@@ -188,13 +190,14 @@ with tab_review:
                     continue
                 with st.container(border=True):
                     head, btn = st.columns([5, 1])
-                    badge = "✅" if s.verified else ("⚠️" if s.needs_review else "🟢")
+                    badge = "✅" if s.verified else ("⚠️" if s.confidence < pb.threshold else "🔎" if s.review_note else "🟢")
                     head.markdown(f"**Step {s.index}** · {badge} {s.confidence:.2f} · `{s.action}`")
                     if btn.button(f"▶ {fmt_ts(s.t_start)}", key=f"{sid}-seek-{s.index}"):
                         ss.seek = int(s.t_start)
                         st.rerun()
                     if s.needs_review and not s.verified:
-                        st.warning(f"**Needs review:** {s.uncertainty_reason or 'Low confidence.'}\n\n*Evidence:* {s.evidence or '—'}"
+                        reasons = "\n".join(f"- {r}" for r in review_reasons(s, pb.threshold))
+                        st.warning(f"**Needs review**\n{reasons}\n\n*Evidence:* {s.evidence or '—'}"
                                    + (f"\n\n*Adjustments:* {'; '.join(s.calibration_notes)}" if s.calibration_notes else ""))
                     img_col, txt_col = st.columns([2, 3])
                     shot = s.keyframe_after or s.keyframe_before
@@ -209,6 +212,7 @@ with tab_review:
         if a.button("💾 Save edits", type="primary"):
             write_playbook(pb, session_dir)
             st.success(f"Saved {session_dir / 'playbook.md'}")
-        b.download_button("⬇ Download playbook.md", md, file_name=f"{sid}-playbook.md", mime="text/markdown")
+        b.download_button("⬇ Download playbook.md", md, file_name=f"{pb.session_id}-playbook.md", mime="text/markdown")
+        st.caption(f"Interactive viewer (video + clickable steps): `{session_dir / 'playbook.html'}`. Open it in a browser.")
         with st.expander("Markdown preview (source)"):
             st.code(md, language="markdown")

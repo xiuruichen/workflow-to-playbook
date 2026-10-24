@@ -20,7 +20,7 @@ keyframes.py (change detection, video import, click annotation)
 analyzer.py  pass 1: windows of keyframes + events ──► Gemini ──► StepCandidates (calibrated)
              pass 2: all candidates + first/last frame ──► Gemini ──► Playbook (merged steps)
      │
-generator.py ──► playbook.md / playbook.json
+generator.py ──► playbook.md / playbook.html / playbook.json
 app.py (Streamlit) and playbook/__main__.py (CLI) orchestrate the above.
 ```
 
@@ -29,12 +29,25 @@ app.py (Streamlit) and playbook/__main__.py (CLI) orchestrate the above.
 ## Design decisions
 
 - **Event-anchored keyframes beat fixed-interval sampling.** A timer either misses fast actions or wastes API calls on idle screens. Before/after pairs around real input events give the model exactly the frames that explain each action, and the click location (drawn as a numbered ring) removes most of the ambiguity about *what* was clicked.
-- **Two passes.** Small windows keep per-frame detail high. The consolidation pass sees the whole workflow, so it can name the goal and merge micro-actions into meaningful steps. Windows share a boundary keyframe, so every transition is analyzed exactly once.
+- **Two passes.** Windows of ~10 keyframes keep per-frame detail high. The consolidation pass sees the whole workflow, so it can name the goal and merge micro-actions into meaningful steps. Windows share a boundary keyframe, so every transition is analyzed exactly once.
 - **Calibrated confidence, not raw model confidence.** LLM self-reported confidence is poorly calibrated. Simple rules based on facts the model can't see (no input event, repaired JSON, long gaps) make the flag more meaningful. The model also has to give *evidence* and an *uncertainty reason*, which turns a flag into a concrete question for the reviewer.
+- **Two kinds of review flag.** Low confidence (⚠️) means *the system doesn't know what happened*. A review note (🔎) means *it knows what happened, but something looks wrong*: a typed value that differs from its source, a likely typo, an undone action. The second kind came out of the first real test (see below) and is arguably the more valuable one: it surfaces the human's mistakes and unexplained decisions, which is exactly where tacit knowledge (or its absence) shows.
 - **Never silently lose information.** A segment that fails to analyze becomes a confidence-0 step ("review the recording manually"). Candidates that pass 2 forgets are kept as raw steps. Dropped candidates are logged in `analysis.json`.
-- **Free-tier friendly.** Throttling, exponential backoff, response caching (re-runs and resumes cost nothing), downscaled JPEGs, and automatic fallback to another Flash model if the configured one is unavailable.
+- **Free-tier friendly.** Throttling, retries that respect Google's suggested wait, response caching (re-runs and resumes cost nothing), downscaled JPEGs, an ordered fallback chain of models (each has its own daily quota), and remembering exhausted models until their quota resets.
 - **OpenAI-compatible client.** Switching to another vision provider (OpenRouter, a local vLLM/Ollama server, OpenAI) only needs `GEMINI_BASE_URL`, `GEMINI_MODEL` and the key.
 - **Video time = wall time.** The recorder duplicates frames when capture lags, so `#t=<event time>` always lands on the right moment.
+
+## Findings so far
+
+**First real test** (3-minute live recording: looking up the populations of five cities in Edge/Chrome and entering them into Excel; 70 keyframes, 71 input events):
+
+- The playbook correctly reconstructed the workflow: 11 steps alternating "search for X's population" / "record it in Excel", with the right values and timestamps, and inferred inputs (`city_name`, `population_value`).
+- The consolidation pass noticed **two genuine data-entry discrepancies** (315,613 entered vs 315,663 shown; 3,163,843 entered vs 3,863,148 searched) and a stray click on an empty cell. But it reported them only as open questions while the steps scored 0.95 and were not flagged. That gap motivated the review-note flag.
+- Re-running with review notes flagged the Los Angeles mismatch (quoting both values) and a stray keystroke before "Boston". It missed the Cincinnati one: the typed value and the search result fell in different segments, so only the consolidation pass could connect them, and that pass ran on a Flash-Lite model after the stronger models ran out of quota. The Lite consolidation also merged poorly (32 steps vs 11). **Lesson:** the consolidation pass needs the strongest model available; cross-segment consistency checks are a good candidate for a deterministic check later (compare values typed against values read in earlier steps).
+- No steps fell below 0.70. Either the recording was clean, or the model is overconfident. This is the main open question for evaluation (below).
+- **Free-tier reality:** Gemini 2.5 Flash is no longer offered to new keys, some listed models have a free quota of 0, and the daily quota per model can run out after roughly 10–20 requests. The fallback chain plus larger windows (~9 requests for a 3-minute task) make the free tier workable.
+
+**Synthetic example** (`examples/city-population-lookup/`): a fictional search → spreadsheet workflow with a deliberate digit swap (168,412 → 186,412). It is imported as video, so there are no input events. All 4 steps were reconstructed, and the typo was flagged with both values quoted.
 
 ## Known limitations
 

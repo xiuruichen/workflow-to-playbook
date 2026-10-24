@@ -75,6 +75,7 @@ class _Raw:
 
 
 SPECIAL_ENDS_BURST = {"enter", "tab", "esc"}
+IGNORED_KEYS = {"caps_lock", "num_lock", "scroll_lock"}  # state toggles, not actions
 MODIFIERS = {"ctrl", "ctrl_l", "ctrl_r", "alt", "alt_l", "alt_r", "alt_gr", "cmd", "cmd_l", "cmd_r", "shift", "shift_l", "shift_r"}
 
 
@@ -189,6 +190,8 @@ class Recorder:
             if name in MODIFIERS:
                 self._mods.add(_norm_mod(name))
                 return
+            if name in IGNORED_KEYS:
+                return
             mods = frozenset(self._mods)
             if {"ctrl", "shift"} <= mods and name == "q":
                 self._stop.set()
@@ -218,6 +221,18 @@ class Recorder:
             self.error = f"Recording failed: {exc!r}"
             self._stop.set()
 
+    def _reset_capture_state(self) -> None:
+        self._ring: deque[tuple[float, np.ndarray]] = deque(maxlen=int(self.s.capture_fps * 3) + 2)
+        self._pending_after: list[tuple[float, int]] = []  # (due_time, event_index)
+        self._burst: list[str] = []
+        self._burst_t = 0.0
+        self._burst_last = 0.0
+        self._last_kf_thumb = None
+        self._last_kf_t = -1e9
+        self._prev_thumb = None
+        self._scroll: Event | None = None
+        self._last_click = None
+
     def _run_capture(self) -> None:
         import imageio_ffmpeg
         import mss
@@ -242,17 +257,7 @@ class Recorder:
                 output_params=["-preset", "ultrafast", "-crf", "28", "-movflags", "+faststart"],
             )
             writer.send(None)
-
-            self._ring: deque[tuple[float, np.ndarray]] = deque(maxlen=int(s.capture_fps * 3) + 2)
-            self._pending_after: list[tuple[float, int]] = []  # (due_time, event_index)
-            self._burst: list[str] = []
-            self._burst_t = 0.0
-            self._burst_last = 0.0
-            self._last_kf_thumb = None
-            self._last_kf_t = -1e9
-            self._last_change_t = 0.0
-            self._prev_thumb = None
-            self._scroll: Event | None = None
+            self._reset_capture_state()
 
             interval = 1.0 / s.capture_fps
             frames_written = 0

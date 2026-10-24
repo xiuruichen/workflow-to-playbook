@@ -1,0 +1,158 @@
+{
+  "title": "Research and Record City Population Data",
+  "goal": "Find the 2024 population estimate for a specific city online and record it in a research spreadsheet.",
+  "summary": "The workflow involves searching for city population data using a web browser, navigating to an official data source, and transcribing the identified value into a specific cell in an Excel spreadsheet.",
+  "apps": [
+    "Chrome",
+    "Sheets"
+  ],
+  "prerequisites": [
+    "Access to a web browser with internet connectivity",
+    "Access to the 'City Research.xlsx' spreadsheet"
+  ],
+  "inputs": [
+    {
+      "name": "search_query",
+      "example": "city population 2024",
+      "description": "The query used to find population data."
+    },
+    {
+      "name": "city_name",
+      "example": "Springfield",
+      "description": "The name of the city being researched."
+    },
+    {
+      "name": "spreadsheet_file",
+      "example": "City Research.xlsx",
+      "description": "The name of the spreadsheet file where data is recorded."
+    },
+    {
+      "name": "target_cell",
+      "example": "B2",
+      "description": "The specific cell where the population value should be entered."
+    }
+  ],
+  "open_questions": [
+    "Should the population value '186,412' be corrected to '168,412' in the spreadsheet to match the source data?"
+  ],
+  "steps": [
+    {
+      "index": 1,
+      "title": "Search for city population data",
+      "description": "In Chrome, type 'city population 2024' into the Searchly search bar and click the 'Search' button.",
+      "action": "type",
+      "target": "Search",
+      "value": "city population 2024",
+      "app": "Chrome - Searchly",
+      "expected_result": "Search results for the query are displayed.",
+      "t_start": 0.0,
+      "t_end": 5.5,
+      "keyframe_before": "keyframes/0000_start_0000.00.jpg",
+      "keyframe_after": "keyframes/0001_scene_0005.50.jpg",
+      "model_confidence": 0.8,
+      "confidence": 0.7999999999999999,
+      "evidence": "[00:00:05] shows the search query typed in the box and the cursor hovering over the 'Search' button.",
+      "uncertainty_reason": null,
+      "review_note": null,
+      "calibration_notes": [
+        "Imported video: no input events recorded, so the action is inferred from visual change only"
+      ],
+      "source_ids": [
+        "c1"
+      ],
+      "needs_review": false,
+      "verified": false
+    },
+    {
+      "index": 2,
+      "title": "Navigate to official city data",
+      "description": "Click on the first search result link titled 'Springfield - Official City Data'.",
+      "action": "click",
+      "target": "Springfield - Official City Data",
+      "value": null,
+      "app": "Chrome - Searchly",
+      "expected_result": "The browser navigates to the official city data page for Springfield.",
+      "t_start": 5.5,
+      "t_end": 6.5,
+      "keyframe_before": "keyframes/0001_scene_0005.50.jpg",
+      "keyframe_after": "keyframes/0002_scene_0006.50.jpg",
+      "model_confidence": 0.8,
+      "confidence": 0.7999999999999999,
+      "evidence": "[00:00:06] shows the search results page with the cursor over the first link.",
+      "uncertainty_reason": null,
+      "review_note": null,
+      "calibration_notes": [
+        "Imported video: no input events recorded, so the action is inferred from visual change only"
+      ],
+      "source_ids": [
+        "c2"
+      ],
+      "needs_review": false,
+      "verified": false
+    },
+    {
+      "index": 3,
+      "title": "Identify the 2024 population estimate",
+      "description": "Locate and read the population estimate for 2024 on the city data page.",
+      "action": "read",
+      "target": "Population (2024 estimate):",
+      "value": "168,412",
+      "app": "Chrome - https://springfield.example/data",
+      "expected_result": "The population value '168,412' is identified.",
+      "t_start": 6.5,
+      "t_end": 9.5,
+      "keyframe_before": "keyframes/0002_scene_0006.50.jpg",
+      "keyframe_after": "keyframes/0003_scene_0009.50.jpg",
+      "model_confidence": 0.9,
+      "confidence": 0.9,
+      "evidence": "[00:00:09] shows the cursor positioned next to the population value '168,412'.",
+      "uncertainty_reason": null,
+      "review_note": null,
+      "calibration_notes": [],
+      "source_ids": [
+        "c3"
+      ],
+      "needs_review": false,
+      "verified": false
+    },
+    {
+      "index": 4,
+      "title": "Record population in spreadsheet",
+      "description": "Switch to the 'City Research.xlsx' spreadsheet and type the population value into cell B2 for Springfield, then wait for the 'All changes saved' confirmation.",
+      "action": "type",
+      "target": "Cell B2",
+      "value": "186,412",
+      "app": "Sheets - City Research.xlsx",
+      "expected_result": "The value is entered and the spreadsheet confirms the changes are saved.",
+      "t_start": 9.5,
+      "t_end": 18.0,
+      "keyframe_before": "keyframes/0003_scene_0009.50.jpg",
+      "keyframe_after": "keyframes/0006_scene_0018.00.jpg",
+      "model_confidence": 0.8,
+      "confidence": 0.8,
+      "evidence": "[00:00:13] shows the spreadsheet application in focus. | The user typed '186,412' in cell B2 ([00:00:17]), which is a typo compared to the source value '168,412' seen in [00:00:09]. | [00:00:18] shows a toast notification at the bottom right stating 'All changes saved'.",
+      "uncertainty_reason": null,
+      "review_note": "The value entered '186,412' differs from the value read '168,412' in the previous step, suggesting a transcription error.",
+      "calibration_notes": [
+        "Imported video: no input events recorded, so the action is inferred from visual change only"
+      ],
+      "source_ids": [
+        "c4",
+        "c5",
+        "c6"
+      ],
+      "needs_review": true,
+      "verified": false
+    }
+  ],
+  "session_id": "20261024-145602-import",
+  "source": "import",
+  "video": "recording.mp4",
+  "duration": 20.0,
+  "model": "gemini-3-flash-preview",
+  "threshold": 0.7,
+  "generated_at": "2026-10-24T14:59:23",
+  "notes": [
+    "Built from an imported video without mouse/keyboard data; confidence is lower and more steps are flagged."
+  ]
+}

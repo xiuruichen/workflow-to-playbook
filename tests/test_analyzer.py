@@ -121,3 +121,19 @@ def test_images_and_events_are_sent(settings, make_session):
     assert sum(p["type"] == "image_url" for p in parts) == 4
     text = json.dumps(parts)
     assert "click at (100,100)" in text and "typed" in text and "hello" in text
+
+
+def test_review_note_flags_a_confident_step(settings, make_session):
+    noted = dict(PASS2, steps=[{"title": "Click Search", "source_ids": ["c1"], "confidence": 0.95,
+                                "review_note": "Searched for 315,613 but the page shows 315,663"}])
+    pb, _ = run(settings, make_session(), pass2=(noted,))
+    step = next(s for s in pb.steps if s.source_ids == ["c1"])
+    assert step.confidence > settings.confidence_threshold
+    assert step.needs_review and "315,663" in step.review_note
+
+
+def test_image_numbers_in_model_text_become_timestamps(settings, make_session):
+    p1 = {"steps": [{"action": "click", "description": "Click Search", "start_image": 2, "end_image": 3,
+                     "confidence": 0.9, "evidence": "Image 2 shows the button; images 3 confirms"}]}
+    pb, _ = run(settings, make_session(), pass1=(p1,), pass2=("bad", "bad"))
+    assert pb.steps[0].evidence == "[00:00:02] shows the button; [00:00:04] confirms"

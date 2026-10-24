@@ -1,0 +1,143 @@
+{
+  "model": "gemini-3-flash-preview",
+  "api_calls": 1,
+  "cache_hits": 1,
+  "windows": [
+    {
+      "segment": 1,
+      "keyframes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "t_start": 0.0,
+      "t_end": 18.0,
+      "context": "The user is researching city population data on the web and recording it in a spreadsheet.",
+      "repaired": false,
+      "steps": 6
+    }
+  ],
+  "candidates": [
+    {
+      "id": "c1",
+      "action": "type",
+      "description": "Type 'city population 2024' into the search bar and click the 'Search' button.",
+      "target": "Search",
+      "value": "city population 2024",
+      "app": "Chrome - Searchly",
+      "expected_result": "Search results for the query are displayed.",
+      "start_keyframe": 0,
+      "end_keyframe": 1,
+      "t_start": 0.0,
+      "t_end": 5.5,
+      "model_confidence": 0.95,
+      "confidence": 0.7999999999999999,
+      "evidence": "[00:00:05] shows the search query typed in the box and the cursor hovering over the 'Search' button.",
+      "uncertainty_reason": null,
+      "calibration_notes": [
+        "Imported video: no input events recorded, so the action is inferred from visual change only"
+      ]
+    },
+    {
+      "id": "c2",
+      "action": "click",
+      "description": "Click on the first search result link 'Springfield - Official City Data'.",
+      "target": "Springfield - Official City Data",
+      "value": null,
+      "app": "Chrome - Searchly",
+      "expected_result": "The browser navigates to the official city data page for Springfield.",
+      "start_keyframe": 1,
+      "end_keyframe": 2,
+      "t_start": 5.5,
+      "t_end": 6.5,
+      "model_confidence": 0.95,
+      "confidence": 0.7999999999999999,
+      "evidence": "[00:00:06] shows the search results page with the cursor over the first link.",
+      "uncertainty_reason": null,
+      "calibration_notes": [
+        "Imported video: no input events recorded, so the action is inferred from visual change only"
+      ]
+    },
+    {
+      "id": "c3",
+      "action": "read",
+      "description": "Read the population estimate for 2024.",
+      "target": "Population (2024 estimate):",
+      "value": "168,412",
+      "app": "Chrome - https://springfield.example/data",
+      "expected_result": "The user identifies the value to be recorded.",
+      "start_keyframe": 2,
+      "end_keyframe": 3,
+      "t_start": 6.5,
+      "t_end": 9.5,
+      "model_confidence": 0.9,
+      "confidence": 0.9,
+      "evidence": "[00:00:09] shows the cursor positioned next to the population value '168,412'.",
+      "uncertainty_reason": null,
+      "calibration_notes": []
+    },
+    {
+      "id": "c4",
+      "action": "switch_app",
+      "description": "Switch from the web browser to the spreadsheet application.",
+      "target": "Sheets - City Research.xlsx",
+      "value": null,
+      "app": "Sheets - City Research.xlsx",
+      "expected_result": "The spreadsheet is now the active window.",
+      "start_keyframe": 3,
+      "end_keyframe": 4,
+      "t_start": 9.5,
+      "t_end": 13.0,
+      "model_confidence": 1.0,
+      "confidence": 0.85,
+      "evidence": "[00:00:13] shows the spreadsheet application in focus.",
+      "uncertainty_reason": null,
+      "calibration_notes": [
+        "Imported video: no input events recorded, so the action is inferred from visual change only"
+      ]
+    },
+    {
+      "id": "c5",
+      "action": "type",
+      "description": "Type the population value into cell B2 for Springfield.",
+      "target": "Cell B2",
+      "value": "186,412",
+      "app": "Sheets - City Research.xlsx",
+      "expected_result": "The value is entered into the spreadsheet.",
+      "start_keyframe": 4,
+      "end_keyframe": 5,
+      "t_start": 13.0,
+      "t_end": 17.0,
+      "model_confidence": 0.95,
+      "confidence": 0.7999999999999999,
+      "evidence": "The user typed '186,412' in cell B2 ([00:00:17]), which is a typo compared to the source value '168,412' seen in [00:00:09].",
+      "uncertainty_reason": null,
+      "calibration_notes": [
+        "Imported video: no input events recorded, so the action is inferred from visual change only"
+      ]
+    },
+    {
+      "id": "c6",
+      "action": "wait",
+      "description": "Wait for the spreadsheet to save the changes.",
+      "target": null,
+      "value": "All changes saved",
+      "app": "Sheets - City Research.xlsx",
+      "expected_result": "A confirmation message appears indicating the file is saved.",
+      "start_keyframe": 5,
+      "end_keyframe": 6,
+      "t_start": 17.0,
+      "t_end": 18.0,
+      "model_confidence": 1.0,
+      "confidence": 1.0,
+      "evidence": "[00:00:18] shows a toast notification at the bottom right stating 'All changes saved'.",
+      "uncertainty_reason": null,
+      "calibration_notes": []
+    }
+  ],
+  "dropped": []
+}
