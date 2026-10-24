@@ -168,7 +168,8 @@ with tab_review:
         c = st.columns(4)
         c[0].metric("Steps", len(pb.steps))
         c[1].metric("Need review", len(flagged), help=f"Confidence below {pb.threshold:.2f}, or something looked inconsistent")
-        c[2].metric("Verified", sum(s.verified for s in pb.steps))
+        c[2].metric("Reviewed", sum(s.review != "unreviewed" for s in pb.steps),
+                    help="Steps you marked correct or wrong. These labels can later train confidence calibration.")
         c[3].metric("Model", pb.model)
         for note in pb.notes:
             st.info(note)
@@ -190,12 +191,12 @@ with tab_review:
                     continue
                 with st.container(border=True):
                     head, btn = st.columns([5, 1])
-                    badge = "✅" if s.verified else ("⚠️" if s.confidence < pb.threshold else "🔎" if s.review_note else "🟢")
+                    badge = {"correct": "✅", "wrong": "❌"}.get(s.review) or ("⚠️" if s.confidence < pb.threshold else "🔎" if s.review_note else "🟢")
                     head.markdown(f"**Step {s.index}** · {badge} {s.confidence:.2f} · `{s.action}`")
                     if btn.button(f"▶ {fmt_ts(s.t_start)}", key=f"{sid}-seek-{s.index}"):
                         ss.seek = int(s.t_start)
                         st.rerun()
-                    if s.needs_review and not s.verified:
+                    if s.review == "wrong" or (s.needs_review and s.review != "correct"):
                         reasons = "\n".join(f"- {r}" for r in review_reasons(s, pb.threshold))
                         st.warning(f"**Needs review**\n{reasons}\n\n*Evidence:* {s.evidence or '—'}"
                                    + (f"\n\n*Adjustments:* {'; '.join(s.calibration_notes)}" if s.calibration_notes else ""))
@@ -205,7 +206,9 @@ with tab_review:
                         img_col.image(str(session_dir / shot))
                     s.title = txt_col.text_input("Title", s.title, key=f"{sid}-t-{s.index}")
                     s.description = txt_col.text_area("Instruction", s.description, key=f"{sid}-d-{s.index}", height=90)
-                    s.verified = txt_col.checkbox("Verified by me", s.verified, key=f"{sid}-v-{s.index}")
+                    labels = {"unreviewed": "Not reviewed", "correct": "✅ Correct", "wrong": "❌ Wrong"}
+                    s.review = txt_col.radio("Your review", list(labels), index=list(labels).index(s.review),
+                                             format_func=labels.get, horizontal=True, key=f"{sid}-v-{s.index}")
 
         md = render_markdown(pb)
         a, b = st.columns(2)

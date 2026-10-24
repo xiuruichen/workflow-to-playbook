@@ -17,8 +17,8 @@ from .models import Playbook, Step
 
 
 def review_reasons(step: Step, threshold: float) -> list[str]:
-    """Why a step is flagged: low confidence and/or something that looks wrong."""
-    reasons = []
+    """Why a step is flagged: marked wrong, low confidence and/or something that looks wrong."""
+    reasons = ["Marked wrong by a reviewer"] if step.review == "wrong" else []
     if step.confidence < threshold:
         reasons.append(f"Low confidence ({step.confidence:.2f}): {step.uncertainty_reason or 'the model was not sure about this step.'}")
     if step.review_note:
@@ -26,9 +26,16 @@ def review_reasons(step: Step, threshold: float) -> list[str]:
     return reasons
 
 
+def _open(step: Step) -> bool:
+    """Still needs attention: flagged and not confirmed, or marked wrong."""
+    return step.review == "wrong" or (step.needs_review and step.review != "correct")
+
+
 def _badge(step: Step, threshold: float) -> str:
-    if step.verified:
+    if step.review == "correct":
         return f"✅ verified (model {step.confidence:.2f})"
+    if step.review == "wrong":
+        return f"❌ marked wrong (model {step.confidence:.2f})"
     if step.confidence < threshold:
         return f"⚠️ {step.confidence:.2f}"
     if step.review_note:
@@ -125,7 +132,7 @@ def _render_step(pb: Playbook, s: Step) -> list[str]:
     out += [f"- **{k}:** {v}" for k, v in details if v]
     out.append("")
 
-    if s.needs_review and not s.verified:
+    if _open(s):
         reasons = review_reasons(s, pb.threshold)
         out += [f"> ⚠️ **NEEDS REVIEW** ({s.confidence:.2f})"]
         out += [f"> - {r}" for r in reasons]
@@ -208,8 +215,8 @@ def render_html(pb: Playbook) -> str:
     if flagged:
         parts.append("<label class='filter'><input type='checkbox' id='onlyflag'> Show only steps that need review</label>")
     for s in pb.steps:
-        flag = s.needs_review and not s.verified
-        badge = "verified" if s.verified else f"{s.confidence:.2f}"
+        flag = _open(s)
+        badge = {"correct": "verified", "wrong": "marked wrong"}.get(s.review, f"{s.confidence:.2f}")
         parts.append(f"<div class='step{' flag' if flag else ''}' id='{_anchor(s)}' data-t='{int(s.t_start)}'>")
         parts.append(f"<div class='meta'><button class='ts' title='Play from here'>▶ {fmt_ts(s.t_start)}</button>"
                      f"<span class='muted'>Step {s.index} · {e(s.action)} · confidence {badge}</span></div>")

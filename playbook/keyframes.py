@@ -1,6 +1,8 @@
 """Keyframe utilities shared by live recording and video import.
 
-- change detection on small grayscale thumbnails (cheap enough to run every frame)
+- change detection at two scales: a coarse thumbnail for big changes (page loads, app
+  switches) and a finer image for small but meaningful ones (a typed value, a line of
+  terminal output), cheap enough to run every frame
 - JPEG writing with downscaling
 - annotation of input events (click markers, labels) for the vision model
 - scene-change keyframe extraction from an existing video file
@@ -8,6 +10,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
@@ -17,8 +20,13 @@ import numpy as np
 from .models import Event, Keyframe
 
 THUMB_WIDTH = 160
-PIXEL_DELTA = 25  # grayscale delta that counts a pixel as "changed"
-DUPLICATE_SCORE = 0.002  # below this two frames are considered identical
+PIXEL_DELTA = 25  # grayscale delta that counts a pixel as "changed" (coarse)
+FINE_WIDTH = 640
+FINE_DELTA = 40  # grayscale delta that counts a pixel as "changed" (fine; ignores compression noise)
+# At most this many changed fine pixels = same screen. Measured: caret blinks, spinners and
+# ticking timers change ~10-135 px; a typed word or new line of output changes ~160+ px.
+SAME_MAX_PX = 150
+SETTLED_MIN_PX = 300  # a settled change at least this large is worth a keyframe (e.g. new terminal output)
 
 
 def thumb(frame: np.ndarray) -> np.ndarray:
@@ -26,6 +34,37 @@ def thumb(frame: np.ndarray) -> np.ndarray:
     h, w = frame.shape[:2]
     small = cv2.resize(frame, (THUMB_WIDTH, max(1, int(h * THUMB_WIDTH / w))), interpolation=cv2.INTER_AREA)
     return cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+
+
+@dataclass
+class Signature:
+    """Two-scale grayscale fingerprint of a frame."""
+
+    coarse: np.ndarray
+    fine: np.ndarray
+
+
+def signature(frame: np.ndarray) -> Signature:
+    h, w = frame.shape[:2]
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    fine = gray if w <= FINE_WIDTH else cv2.resize(gray, (FINE_WIDTH, max(1, int(h * FINE_WIDTH / w))), interpolation=cv2.INTER_AREA)
+    coarse = cv2.resize(gray, (THUMB_WIDTH, max(1, int(h * THUMB_WIDTH / w))), interpolation=cv2.INTER_AREA)
+    return Signature(coarse, fine)
+
+
+def changed_px(a: Signature, b: Signature) -> int:
+    """Number of noticeably changed pixels at FINE_WIDTH."""
+    fb = b.fine if b.fine.shape == a.fine.shape else cv2.resize(b.fine, (a.fine.shape[1], a.fine.shape[0]))
+    return int(np.count_nonzero(cv2.absdiff(a.fine, fb) > FINE_DELTA))
+
+
+def same_screen(a: Signature, b: Signature) -> bool:
+    return changed_px(a, b) <= SAME_MAX_PX
+
+
+def notable_change(a: Signature, b: Signature, threshold: float) -> bool:
+    """A big change (fraction of the coarse image) or a smaller one that is clearly real."""
+    return change_score(a.coarse, b.coarse) > threshold or changed_px(a, b) > SETTLED_MIN_PX
 
 
 def change_score(a: np.ndarray, b: np.ndarray) -> float:
@@ -134,8 +173,8 @@ def extract_from_video(
         save_jpeg(frame, path, max_width)
         keyframes.append(Keyframe(id=kid, t=round(t, 2), path=path.relative_to(session_dir).as_posix(), trigger=trigger))
 
-    ref_thumb = None  # thumbnail of the last saved keyframe
-    prev = None  # (t, frame, thumb) of the previous sample
+    ref = None  # signature of the last saved keyframe
+    prev = None  # (t, frame, signature) of the previous sample
     pending = False  # a change started and we are waiting for the screen to settle
     pending_since = 0.0
     last_saved_t = -1e9
@@ -152,27 +191,27 @@ def extract_from_video(
             break
         t = idx / fps
         idx += 1
-        th = thumb(frame)
-        if ref_thumb is None:
+        sig = signature(frame)
+        if ref is None:
             save(frame, t, "start")
-            ref_thumb, last_saved_t = th, t
+            ref, last_saved_t = sig, t
         else:
-            if not pending and change_score(ref_thumb, th) > change_threshold:
+            if not pending and notable_change(ref, sig, change_threshold):
                 pending, pending_since = True, t
-                if prev is not None and change_score(ref_thumb, prev[2]) > DUPLICATE_SCORE and prev[0] - last_saved_t >= min_gap_s / 2:
+                if prev is not None and not same_screen(ref, prev[2]) and prev[0] - last_saved_t >= min_gap_s / 2:
                     save(prev[1], prev[0], "scene")  # last frame before the change
             if pending and prev is not None:
                 # Save once the screen stops changing (or give up waiting on animations/video).
-                settled = change_score(prev[2], th) < change_threshold / 4 or t - pending_since > 5.0
+                settled = same_screen(prev[2], sig) or t - pending_since > 5.0
                 if settled and t - last_saved_t >= min_gap_s:
                     save(frame, t, "scene")
-                    ref_thumb, last_saved_t, pending = th, t, False
-        prev = (t, frame, th)
+                    ref, last_saved_t, pending = sig, t, False
+        prev = (t, frame, sig)
         if progress and total:
             progress(min(idx / total, 1.0), f"Scanning video {t:.0f}s")
     cap.release()
 
     duration = total / fps if total else t
-    if prev is not None and (ref_thumb is None or change_score(ref_thumb, prev[2]) > DUPLICATE_SCORE):
+    if prev is not None and (ref is None or not same_screen(ref, prev[2])):
         save(prev[1], prev[0], "end")
     return keyframes, duration, width, height, fps

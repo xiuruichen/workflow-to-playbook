@@ -31,7 +31,7 @@ import cv2
 import numpy as np
 
 from .config import Settings, get_settings
-from .keyframes import DUPLICATE_SCORE, change_score, save_jpeg, thumb, resize_max_width
+from .keyframes import notable_change, resize_max_width, same_screen, save_jpeg, signature
 from .models import Event, Keyframe, Manifest
 
 
@@ -49,6 +49,41 @@ def _enable_dpi_awareness() -> None:
 
 
 _enable_dpi_awareness()
+
+WindowInfo = tuple[int, str | None, str | None]  # (window handle, app exe, title)
+
+
+def foreground_window() -> WindowInfo | None:
+    """The focused window as (handle, exe name, title), or None if unknown / not on Windows."""
+    if sys.platform != "win32":
+        return None
+    try:
+        from ctypes import wintypes
+
+        user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+        user32.GetForegroundWindow.restype = wintypes.HWND
+        hwnd = user32.GetForegroundWindow()
+        if not hwnd:
+            return None
+        n = user32.GetWindowTextLengthW(wintypes.HWND(hwnd))
+        title = ctypes.create_unicode_buffer(n + 1)
+        user32.GetWindowTextW(wintypes.HWND(hwnd), title, n + 1)
+        pid = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(wintypes.HWND(hwnd), ctypes.byref(pid))
+        app = None
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        handle = kernel32.OpenProcess(0x1000, False, pid.value)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if handle:
+            try:
+                size = wintypes.DWORD(1024)
+                path = ctypes.create_unicode_buffer(1024)
+                if kernel32.QueryFullProcessImageNameW(wintypes.HANDLE(handle), 0, path, ctypes.byref(size)):
+                    app = Path(path.value).name
+            finally:
+                kernel32.CloseHandle(wintypes.HANDLE(handle))
+        return int(hwnd), app, (title.value.strip()[:120] or None)
+    except Exception:
+        return None
 
 
 def new_session_dir(settings: Settings, suffix: str = "") -> Path:
@@ -75,6 +110,10 @@ class _Raw:
 
 
 SPECIAL_ENDS_BURST = {"enter", "tab", "esc"}
+# Presses of these keys in quick succession collapse into one event ("pressed down ×6").
+REPEATABLE_KEYS = {"up", "down", "left", "right", "page_up", "page_down", "home", "end", "delete", "backspace", "tab"}
+REPEAT_WINDOW_S = 1.0
+FOCUS_SETTLE_S = 0.5  # a newly focused window must stay focused this long (skips Alt+Tab cycling)
 IGNORED_KEYS = {"caps_lock", "num_lock", "scroll_lock"}  # state toggles, not actions
 MODIFIERS = {"ctrl", "ctrl_l", "ctrl_r", "alt", "alt_l", "alt_r", "alt_gr", "cmd", "cmd_l", "cmd_r", "shift", "shift_l", "shift_r"}
 
@@ -108,6 +147,7 @@ class Recorder:
         self.events: list[Event] = []
         self.keyframes: list[Keyframe] = []
         self._events_log = None
+        self._window_fn = foreground_window  # replaceable in tests / simulations
 
     # ------------------------------------------------------------------ public API
     def start(self) -> Path:
@@ -227,11 +267,14 @@ class Recorder:
         self._burst: list[str] = []
         self._burst_t = 0.0
         self._burst_last = 0.0
-        self._last_kf_thumb = None
+        self._last_kf_sig = None
         self._last_kf_t = -1e9
-        self._prev_thumb = None
+        self._prev_sig = None
         self._scroll: Event | None = None
         self._last_click = None
+        self._last_key: tuple[int, float] | None = None  # (event index, time) of the last repeatable key
+        self._window: WindowInfo | None = None  # focused window as of the last poll
+        self._window_candidate: tuple[WindowInfo, float] | None = None
 
     def _run_capture(self) -> None:
         import imageio_ffmpeg
@@ -286,12 +329,8 @@ class Recorder:
                     writer.send(payload)
                     frames_written += 1
 
-                if first:
-                    self._save_kf(small, now, "start")
-                    first = False
-                if not self.paused:
-                    self._process_input(now, small)
-                    self._visual_triggers(now, small)
+                self._tick(now, small, first)
+                first = False
 
                 if now - last_status > 5:
                     self.on_status(f"Recording {now:5.0f}s | {len(self.events)} events | {len(self.keyframes)} keyframes")
@@ -305,28 +344,42 @@ class Recorder:
                 else:
                     next_tick = time.perf_counter()
 
-            # Flush anything in flight and capture a final frame.
-            self._flush_burst(now)
-            self._flush_scroll()
-            for _, ev_idx in self._pending_after:
-                self._save_kf(small, now, "event_after", ev_idx)
-            self._save_kf(small, now, "end", dedupe=False)
             writer.close()
+        self._finish(now, small, mon_w, mon_h)
+        self.on_status(f"Saved {now:.0f}s recording, {len(self.events)} events, {len(self.keyframes)} keyframes")
 
+    def _tick(self, now: float, small: np.ndarray, first: bool) -> None:
+        """Per-frame processing (shared with the scenario simulator in scenarios.py)."""
+        if first:
+            self._save_kf(small, now, "start")
+        if not self.paused:
+            self._process_input(now, small)
+            self._poll_window(now)  # after input, so events carry the window they happened in
+            self._visual_triggers(now, small)
+
+    def _finish(self, now: float, small: np.ndarray, width: int, height: int) -> Manifest:
+        """Flush in-flight events, save the final keyframe and write manifest.json."""
+        assert self.session_dir is not None
+        self._flush_burst(now)
+        self._flush_scroll()
+        for _, ev_idx in self._pending_after:
+            self._save_kf(small, now, "event_after", ev_idx)
+        self._pending_after = []
+        self._save_kf(small, now, "end", dedupe=False)
         manifest = Manifest(
             session_id=self.session_dir.name,
             source="live",
             video="recording.mp4",
             duration=round(now, 2),
-            width=mon_w,
-            height=mon_h,
-            fps=s.capture_fps,
+            width=width,
+            height=height,
+            fps=self.s.capture_fps,
             created=datetime.now().isoformat(timespec="seconds"),
             keyframes=self.keyframes,
             events=self.events,
         )
         manifest.save(self.session_dir)
-        self.on_status(f"Saved {now:.0f}s recording, {len(self.events)} events, {len(self.keyframes)} keyframes")
+        return manifest
 
     # ------------------------------------------------------------------ keyframes
     def _frame_before(self, t: float) -> np.ndarray:
@@ -340,8 +393,8 @@ class Recorder:
         return best
 
     def _save_kf(self, frame: np.ndarray, t: float, trigger: str, event_index: int | None = None, dedupe: bool = True) -> int:
-        th = thumb(frame)
-        if dedupe and self.keyframes and self._last_kf_thumb is not None and change_score(self._last_kf_thumb, th) < DUPLICATE_SCORE:
+        sig = signature(frame)
+        if dedupe and self.keyframes and self._last_kf_sig is not None and same_screen(self._last_kf_sig, sig):
             kf = self.keyframes[-1]  # identical screen: reuse the previous keyframe
             if event_index is not None and event_index not in kf.event_indices:
                 kf.event_indices.append(event_index)
@@ -351,19 +404,18 @@ class Recorder:
         rel = f"keyframes/{kid:04d}_{trigger}_{t:07.2f}.jpg"
         save_jpeg(frame, self.session_dir / rel, self.s.max_image_width)
         self.keyframes.append(Keyframe(id=kid, t=round(t, 2), path=rel, trigger=trigger, event_indices=[event_index] if event_index is not None else []))
-        self._last_kf_thumb, self._last_kf_t = th, t
+        self._last_kf_sig, self._last_kf_t = sig, t
         return kid
 
     def _visual_triggers(self, now: float, frame: np.ndarray) -> None:
-        th = thumb(frame)
-        stable = self._prev_thumb is not None and change_score(self._prev_thumb, th) < self.s.change_threshold / 4
-        self._prev_thumb = th
-        if self._pending_after or self._burst or self._last_kf_thumb is None:
+        sig = signature(frame)
+        stable = self._prev_sig is not None and same_screen(self._prev_sig, sig)
+        self._prev_sig = sig
+        if self._pending_after or self._burst or self._last_kf_sig is None:
             return
-        drift = change_score(self._last_kf_thumb, th)
-        if drift > self.s.change_threshold and stable and now - self._last_kf_t > 1.0:
-            self._save_kf(frame, now, "change")
-        elif now - self._last_kf_t > self.s.heartbeat_s and drift > DUPLICATE_SCORE:
+        if stable and now - self._last_kf_t > 1.0 and notable_change(self._last_kf_sig, sig, self.s.change_threshold):
+            self._save_kf(frame, now, "change")  # the screen changed without input and has settled
+        elif now - self._last_kf_t > self.s.heartbeat_s and not same_screen(self._last_kf_sig, sig):
             self._save_kf(frame, now, "heartbeat")
 
     # ------------------------------------------------------------------ input -> events
@@ -378,7 +430,33 @@ class Recorder:
     def _to_local(self, x: int, y: int) -> tuple[int, int]:
         return x - self._mon["left"], y - self._mon["top"]
 
+    def _poll_window(self, now: float) -> None:
+        """Track the focused window; emit a `focus` event when the user settles in a different one."""
+        if not self.s.capture_window_titles:
+            return
+        info = self._window_fn()
+        if info is None:
+            return
+        if self._window is None:
+            self._window = info
+            return
+        if info[0] == self._window[0]:
+            self._window = info  # same window; keep the latest title (e.g. browser tab changes)
+            self._window_candidate = None
+            return
+        if not info[2]:  # untitled transient windows (task switcher, start menu)
+            return
+        if self._window_candidate is None or self._window_candidate[0][0] != info[0]:
+            self._window_candidate = (info, now)
+            return
+        if now - self._window_candidate[1] >= FOCUS_SETTLE_S:
+            t = self._window_candidate[1]
+            self._window, self._window_candidate = info, None
+            self._add_event(Event(t=round(t, 2), kind="focus", app=info[1], window=info[2]))
+
     def _add_event(self, ev: Event, before_frame: np.ndarray | None = None) -> int:
+        if ev.kind != "focus" and self._window and self.s.capture_window_titles:
+            ev.app, ev.window = self._window[1], self._window[2]
         idx = len(self.events)
         self.events.append(ev)
         if self._events_log:
@@ -450,25 +528,36 @@ class Recorder:
             return
         if r.key in SPECIAL_ENDS_BURST:
             self._flush_burst(r.t)
-            self._add_event(Event(t=round(r.t, 2), kind="key", text=r.key))
+            self._add_key(r)
             return
-        if r.key == "backspace":
-            if self._burst:
-                self._burst.pop()
-                self._burst_last = r.t
-            else:
-                self._add_event(Event(t=round(r.t, 2), kind="key", text="backspace"))
+        if r.key == "backspace" and self._burst:
+            self._burst.pop()
+            self._burst_last = r.t
             return
         char = " " if r.key == "space" else r.key
-        if len(char) != 1:  # arrows, delete, F-keys, ...
+        if len(char) != 1:  # arrows, delete, backspace, F-keys, ...
             self._flush_burst(r.t)
-            self._add_event(Event(t=round(r.t, 2), kind="key", text=r.key))
+            self._add_key(r)
             return
         if not self._burst:
             self._burst_t = r.t
             self._burst_before = self._frame_before(r.t)
         self._burst.append(char)
         self._burst_last = r.t
+
+    def _add_key(self, r: _Raw) -> None:
+        """Add a special-key event, collapsing quick repeats of the same key into one."""
+        if r.key in REPEATABLE_KEYS and self._last_key and self.events:
+            idx, last_t = self._last_key
+            ev = self.events[idx]
+            if idx == len(self.events) - 1 and ev.kind == "key" and ev.text == r.key and r.t - last_t < REPEAT_WINDOW_S:
+                ev.count += 1
+                self._last_key = (idx, r.t)
+                # Push the "after" frame back so it shows the result of the last press.
+                self._pending_after = [p for p in self._pending_after if p[1] != idx] + [(r.t + self.s.settle_s, idx)]
+                return
+        idx = self._add_event(Event(t=round(r.t, 2), kind="key", text=r.key))
+        self._last_key = (idx, r.t) if r.key in REPEATABLE_KEYS else None
 
     def _flush_burst(self, now: float) -> None:
         if not self._burst:

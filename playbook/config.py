@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     change_threshold: float = 0.02  # fraction of changed pixels that counts as a "visual change"
     settle_s: float = 0.8  # delay after an event before grabbing the "after" frame
     mask_typed_text: bool = False
+    capture_window_titles: bool = True  # record the focused app/window title with each event (Windows)
     monitor: int = 1  # mss monitor index (1 = primary)
 
     # --- Storage ---

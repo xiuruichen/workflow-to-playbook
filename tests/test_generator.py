@@ -31,10 +31,20 @@ def test_low_confidence_and_inconsistent_steps_are_flagged():
 
 def test_verified_steps_are_not_flagged():
     pb = make_pb()
-    pb.steps[1].verified = pb.steps[2].verified = True
+    pb.steps[1].review = pb.steps[2].review = "correct"
     md = render_markdown(pb)
     assert "NEEDS REVIEW" not in md
     assert "verified" in md
+
+
+def test_steps_marked_wrong_stay_flagged_and_old_files_migrate():
+    pb = make_pb()
+    pb.steps[0].review = "wrong"
+    md = render_markdown(pb)
+    assert "❌ marked wrong" in md and "Marked wrong by a reviewer" in md
+    assert "3 of 3 steps need human review" in md
+    old = Step.model_validate({**pb.steps[0].model_dump(exclude={"review"}), "verified": True})
+    assert old.review == "correct" and old.verified
 
 
 def test_html_viewer_seeks_and_escapes():
@@ -52,3 +62,19 @@ def test_write_playbook_creates_files(tmp_path):
     assert path.read_text(encoding="utf-8").startswith("# City lookup")
     assert (tmp_path / "playbook.html").exists()
     assert Playbook.load(tmp_path).steps[2].review_note
+
+
+def test_labels_export(tmp_path):
+    import csv
+
+    from playbook.labels import export_labels
+
+    pb = make_pb()
+    pb.steps[0].review, pb.steps[2].review = "correct", "wrong"
+    session = tmp_path / "s1"
+    session.mkdir()
+    pb.save(session)
+    out = tmp_path / "labels.csv"
+    assert export_labels([session], out) == 2
+    rows = list(csv.DictReader(open(out, encoding="utf-8")))
+    assert [(r["step"], r["label"], r["has_review_note"]) for r in rows] == [("1", "1", "0"), ("3", "0", "1")]

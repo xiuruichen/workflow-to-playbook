@@ -73,3 +73,43 @@ def test_scrolls_are_merged(rec):
     feed(rec, [], now=4.0)
     (ev,) = rec.events
     assert (ev.kind, ev.dy, ev.x) == ("scroll", -5, 300)
+
+
+def test_repeated_navigation_keys_collapse(rec):
+    feed(rec, [_Raw(1.0 + i * 0.2, "key", key="down") for i in range(6)] + [_Raw(3.0, "key", key="enter")], now=3.1)
+    assert [(e.kind, e.text, e.count) for e in rec.events] == [("key", "down", 6), ("key", "enter", 1)]
+    assert rec.events[0].describe().startswith("pressed down ×6")
+    # a pause longer than the repeat window starts a new event
+    feed(rec, [_Raw(5.0, "key", key="down"), _Raw(7.0, "key", key="down")], now=7.1)
+    assert [e.count for e in rec.events[2:]] == [1, 1]
+
+
+def test_window_switch_emits_focus_event_and_stamps_events(rec):
+    windows = iter([(1, "EXCEL.EXE", "Budget.xlsx - Excel")] * 2 + [(2, "OUTLOOK.EXE", "Inbox - Outlook")] * 3)
+    rec._window_fn = lambda: next(windows)
+    rec._poll_window(0.0)  # initial window
+    feed(rec, [_Raw(0.5, "press", 400, 250, button="left"), _Raw(0.55, "release", 400, 250, button="left")], now=0.6)
+    rec._poll_window(0.6)
+    rec._poll_window(1.0)  # Outlook seen...
+    rec._poll_window(1.3)  # ...not settled yet
+    rec._poll_window(1.6)  # settled for >= 0.5 s -> focus event
+    click, focus = rec.events
+    assert (click.app, click.window) == ("EXCEL.EXE", "Budget.xlsx - Excel")
+    assert (focus.kind, focus.app, focus.t) == ("focus", "OUTLOOK.EXE", 1.0)
+    assert focus.describe() == 'switched to window "Inbox - Outlook" (OUTLOOK.EXE)'
+    assert click.describe().endswith('in "Budget.xlsx - Excel" (EXCEL.EXE)')
+
+
+def test_brief_window_flashes_are_ignored(rec):
+    windows = iter([(1, "a.exe", "A"), (2, "b.exe", "Task Switching"), (1, "a.exe", "A"), (1, "a.exe", "A")])
+    rec._window_fn = lambda: next(windows)
+    for t in (0.0, 0.2, 0.4, 1.5):
+        rec._poll_window(t)
+    assert rec.events == []
+
+
+def test_long_typed_text_is_truncated_in_prompts_only(rec):
+    feed(rec, [_Raw(1.0 + i * 0.01, "key", key="a") for i in range(400)], now=10.0)
+    (ev,) = rec.events
+    assert len(ev.text) == 400
+    assert "(+200 chars)" in ev.describe()

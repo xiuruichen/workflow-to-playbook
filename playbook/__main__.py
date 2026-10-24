@@ -7,6 +7,7 @@
     python -m playbook render [session]    # re-render playbook.md from playbook.json, no API calls
     python -m playbook list                # list sessions
     python -m playbook check               # test the API key and which models have free quota
+    python -m playbook labels              # export your step reviews (correct/wrong) to labels.csv
 """
 
 from __future__ import annotations
@@ -58,6 +59,8 @@ def main(argv: list[str] | None = None) -> int:
         sp.add_argument("session", nargs="?", default="latest", help="session id, path, or 'latest'")
     sub.add_parser("list", help="list recorded sessions")
     sub.add_parser("check", help="test the API key and which models currently work")
+    lab = sub.add_parser("labels", help="export reviewed steps (correct/wrong) as training data for calibration")
+    lab.add_argument("--out", type=Path, default=Path("labels.csv"))
     args = p.parse_args(argv)
 
     from .recorder import import_video, list_sessions, record_session, resolve_session
@@ -83,6 +86,12 @@ def main(argv: list[str] | None = None) -> int:
         from .generator import render_session
 
         print(render_session(resolve_session(args.session, settings)))
+        return 0
+    if args.cmd == "labels":
+        from .labels import export_labels
+
+        n = export_labels(list_sessions(settings), args.out)
+        print(f"Wrote {n} reviewed step(s) to {args.out}")
         return 0
     if args.cmd == "check":
         from .analyzer import AnalysisError, check_models

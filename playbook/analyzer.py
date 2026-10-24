@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from . import prompts
 from .config import Settings, get_settings
+from .consistency import annotate_steps, find_near_misses
 from .keyframes import annotate, encode_jpeg, load_image
 from .models import Event, InputVariable, Keyframe, Manifest, Playbook, Step, StepCandidate
 
@@ -91,6 +92,12 @@ class _Pass1Step(BaseModel):
 
 class _Pass1Resp(BaseModel):
     window_context: str = ""
+    visible_values: list[str] = Field(default_factory=list)
+
+    @field_validator("visible_values", mode="before")
+    @classmethod
+    def strings_only(cls, v: Any) -> list[str]:
+        return [str(x) for x in (v or []) if isinstance(x, (str, int, float)) and str(x).strip()][:30]
     steps: list[_Pass1Step] = Field(default_factory=list)
 
 
@@ -518,7 +525,7 @@ class Analyzer:
                 log.append(entry)
                 candidates.append(self._failed_segment(kfs, str(exc), len(candidates)))
                 continue
-            entry.update(context=resp.window_context, repaired=repaired, steps=len(resp.steps))
+            entry.update(context=resp.window_context, visible_values=resp.visible_values, repaired=repaired, steps=len(resp.steps))
             log.append(entry)
             prev_ctx = resp.window_context or prev_ctx
             for st in resp.steps:
@@ -621,7 +628,11 @@ class Analyzer:
                 }
                 for c in cands
             ]
-            contexts = "\n".join(f"- Segment {w['segment']} ({fmt_ts(w['t_start'])}): {w.get('context', '(failed)')}" for w in window_log)
+            contexts = "\n".join(
+                f"- Segment {w['segment']} ({fmt_ts(w['t_start'])}): {w.get('context', '(failed)')}"
+                + (f" Visible on screen: {'; '.join(w['visible_values'])}" if w.get("visible_values") else "")
+                for w in window_log
+            )
             first, last = manifest.keyframes[0], manifest.keyframes[-1]
             user = [
                 {"type": "text", "text": f"Recording length {fmt_ts(manifest.duration)}. Segment summaries:\n{contexts}\n\nCandidate steps:\n{json.dumps(payload, indent=1)}"},
@@ -712,6 +723,9 @@ class Analyzer:
         steps.sort(key=lambda s: s.t_start)
         for i, st in enumerate(steps, start=1):
             st.index = i
+        # Deterministic cross-check of typed values against values seen on screen (no API call).
+        seen_on_screen = [(v, w["t_start"]) for w in window_log for v in w.get("visible_values", [])]
+        annotate_steps(steps, find_near_misses(manifest.events, cands, seen_on_screen), fmt_ts)
 
         pb = Playbook(
             title=resp.title if resp else "Recorded workflow",

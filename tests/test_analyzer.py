@@ -137,3 +137,15 @@ def test_image_numbers_in_model_text_become_timestamps(settings, make_session):
                      "confidence": 0.9, "evidence": "Image 2 shows the button; images 3 confirms"}]}
     pb, _ = run(settings, make_session(), pass1=(p1,), pass2=("bad", "bad"))
     assert pb.steps[0].evidence == "[00:00:02] shows the button; [00:00:04] confirms"
+
+
+def test_consistency_check_flags_cross_segment_typo(settings, make_session):
+    events = [Event(t=2.0, kind="click", x=100, y=100), Event(t=4.0, kind="type", text="315,613")]
+    p1 = {"steps": [
+        {"action": "read", "description": "Read the population", "value": "Population: 315,663", "start_image": 1, "end_image": 2, "confidence": 0.9},
+        {"action": "type", "description": "Type the population", "value": "315,613", "start_image": 3, "end_image": 4, "confidence": 0.95},
+    ]}
+    pb, _ = run(settings, make_session(events=events), pass1=(p1,), pass2=("bad", "bad"))
+    typed_step = next(s for s in pb.steps if s.action == "type")
+    assert typed_step.needs_review and "315,663" in typed_step.review_note
+    assert not next(s for s in pb.steps if s.action == "read").needs_review
