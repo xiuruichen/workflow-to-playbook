@@ -1,0 +1,5 @@
+# Store text files with LF line endings in the repo; check out natively per OS.
+* text=auto eol=lf
+*.jpg binary
+*.png binary
+*.mp4 binary
