@@ -138,3 +138,7 @@ pytest            # no API key needed: the vision client is mocked
 ```
 
 See [NOTES.md](NOTES.md) for design rationale, limitations and the roadmap.
+
+## License
+
+[MIT](LICENSE)
