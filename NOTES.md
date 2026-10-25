@@ -109,7 +109,18 @@ All of these are fixed. The evaluation results below are the evidence.
 
 The one missed expected step ("read the population 168,412") is Lite-model variation: the value still appears in the mismatch flag. On the first run, before the visible-values change, the email typo was missed: the model never wrote a "read John's email" step, so nothing recorded the correct address. Then the check over-flagged the corrected `python app.py` against the earlier typo still visible in the terminal. Both were fixed and are covered by tests.
 
-**Local model: smoke-tested, scorecard not measured.** Target for the same scorecard: ≥ 80% expected steps, ≥ 2/3 mistakes caught, ≤ 1 false alarm. On the development laptop (7.6 GB RAM, Intel Core Ultra 5 135U, no GPU, `LOW_POWER=true` → `qwen3-vl:2b`, 4 threads, Ollama 0.40.11) the model first failed to load with ~0.1 GB RAM free; after closing an editor, OneNote and Teams it loaded and passed the setup check (it read a synthetic "Submit order" button correctly in 116 s, model load included). The full evaluation did not finish: the first scenario's prompt needed more than the 4096-token default context (raised to 8192 for the tiny tier), and on the rerun the model timed out and then returned empty replies for ~25 minutes until the run was stopped for low system memory. A network watcher logging every connection by Python and Ollama during that run recorded none leaving the machine. Conclusion: an 8 GB laptop with a browser open is below what the local path needs for full analysis; accuracy and speed still need measuring on a machine with ≥ 16 GB RAM (or a GPU). The local path is covered by unit tests (request format, schema output, crops, OCR, UI elements, fallbacks, out-of-memory).
+**Local model: runs end to end on an 8 GB laptop (one scenario measured).** Development laptop: 7.6 GB RAM, Intel Core Ultra 5 135U, no GPU, `LOW_POWER=true` → `qwen3-vl:2b-instruct`, 4 threads, Ollama 0.40.11, with a browser open.
+
+| scenario | steps | expected found | mistake | false flags | calls | time |
+|---|---|---|---|---|---|---|
+| email | 9 | 5/5 | missed | 1 | 6 | 38 min |
+
+What it took to get there:
+- The plain `qwen3-vl:2b` tag is the *thinking* variant: it wrote ~2,000 hidden reasoning tokens for a two-line answer (and ~3,500 with thinking "disabled"), so real requests timed out or came back empty. All tiers now use the `-instruct` tags, replies are capped (`LOCAL_MAX_TOKENS`, 3000), and two empty replies in a row stop with a clear message instead of ~25 minutes of retries.
+- Ollama spends ~1,040 tokens on every image regardless of its size, and this CPU reads ~15 prompt tokens/s at 4 threads — about 70 s per image. Low-power mode therefore skips the zoomed click crops (the local OCR still reports the text near each click), which brought a segment from ~6,800 prompt tokens / 9.5 min to ~4,800 / 5.5 min. The local timeout is 30 min, since a timeout restarts a request from zero.
+- The context window for the smallest tier is 8192 tokens (one segment's prompt is larger than the 4096 default).
+
+The scenario's planted mistake was not caught and one step was flagged unnecessarily — the 2B model is good at listing steps but weak at judging them. A network watcher logging every connection by Python and Ollama during a local run recorded none leaving the machine. The other three scenarios, and the larger tiers on a bigger machine, are still to be measured.
 
 **Caveats:**
 - The scenarios are synthetic: clean screens, readable fonts, one mistake each.

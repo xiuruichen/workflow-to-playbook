@@ -39,8 +39,9 @@ class Settings(BaseSettings):
     # --- Local vision model (Ollama, OpenAI-compatible endpoint) ---
     local_base_url: str = "http://127.0.0.1:11434/v1"
     local_model: str = "auto"  # "auto" picks by RAM/VRAM (see hardware.py), or an Ollama tag
-    local_fallback_models: str = "playbook-vl,qwen3-vl:4b,qwen3-vl:8b,qwen3-vl:2b,gemma3:4b"
-    local_timeout_s: float = 900.0  # CPU inference on a laptop can take minutes per request
+    local_fallback_models: str = "playbook-vl,qwen3-vl:4b-instruct,qwen3-vl:8b-instruct,qwen3-vl:2b-instruct,gemma3:4b"
+    local_max_tokens: int = 3000  # cap per reply, so a rambling model can't hold a request for many minutes
+    local_timeout_s: float = 1800.0  # CPU inference on a laptop can take many minutes; a timeout restarts from zero
 
     # --- Cloud vision model (Gemini via its OpenAI-compatible endpoint; opt-in) ---
     gemini_api_key: str = Field(

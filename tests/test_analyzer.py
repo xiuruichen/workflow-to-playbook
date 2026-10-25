@@ -136,6 +136,14 @@ def test_images_and_events_are_sent(settings, make_session):
     assert "click at (100,100)" in text and "typed" in text and "hello" in text
 
 
+
+def test_low_power_skips_zoom_crops(settings, make_session):
+    settings.low_power = True  # every image costs ~1 min of CPU there; OCR covers the clicked label
+    _, client = run(settings, make_session())
+    parts = client.requests[0]["messages"][1]["content"]
+    assert sum(p["type"] == "image_url" for p in parts) == 4
+    assert not any(p["type"] == "text" and p["text"].startswith("Zoom on") for p in parts)
+
 def test_review_note_flags_a_confident_step(settings, make_session):
     noted = dict(PASS2, steps=[{"title": "Click Search", "source_ids": ["c1"], "confidence": 0.95,
                                 "review_note": "Searched for 315,613 but the page shows 315,663"}])

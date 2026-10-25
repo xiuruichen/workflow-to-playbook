@@ -54,20 +54,20 @@ def test_recordings_are_not_written_to_synced_folders(settings, tmp_path):
 
 
 @pytest.mark.parametrize("hw,model", [
-    (Hardware(7.6, 2.5, 0, False, 14), "qwen3-vl:2b"),
-    (Hardware(7.6, 4.0, 0, False, 14), "qwen3-vl:4b"),
-    (Hardware(16, 9, 0, False, 16), "qwen3-vl:8b"),
-    (Hardware(16, 9, 8, False, 16), "qwen3-vl:8b"),
-    (Hardware(64, 40, 24, False, 32), "qwen3-vl:32b"),
-    (Hardware(36, 20, 0, True, 12), "qwen3-vl:32b"),  # Apple silicon: unified memory
-    (Hardware(16, 8, 0, True, 8), "qwen3-vl:8b"),
+    (Hardware(7.6, 2.5, 0, False, 14), "qwen3-vl:2b-instruct"),
+    (Hardware(7.6, 4.0, 0, False, 14), "qwen3-vl:4b-instruct"),
+    (Hardware(16, 9, 0, False, 16), "qwen3-vl:8b-instruct"),
+    (Hardware(16, 9, 8, False, 16), "qwen3-vl:8b-instruct"),
+    (Hardware(64, 40, 24, False, 32), "qwen3-vl:32b-instruct"),
+    (Hardware(36, 20, 0, True, 12), "qwen3-vl:32b-instruct"),  # Apple silicon: unified memory
+    (Hardware(16, 8, 0, True, 8), "qwen3-vl:8b-instruct"),
 ])
 def test_model_tier_fits_the_machine(hw, model):
     assert choose_tier(hw).model == model
 
 
 def test_smaller_models_get_smaller_inputs():
-    tiny, small, large = tier_for_model("qwen3-vl:2b"), tier_for_model("qwen3-vl:4b"), tier_for_model("qwen3-vl:32b")
+    tiny, small, large = tier_for_model("qwen3-vl:2b-instruct"), tier_for_model("qwen3-vl:4b-instruct"), tier_for_model("qwen3-vl:32b-instruct")
     assert tiny.window_size < small.window_size < large.window_size
     assert tiny.image_width < small.image_width <= large.image_width
 
@@ -93,7 +93,7 @@ def test_remote_local_server_is_refused(settings):
 
 def test_setup_local_alias_is_used(settings, tmp_path):
     settings.data_dir = tmp_path
-    (tmp_path / "local_model.json").write_text('{"base": "qwen3-vl:8b", "tier": "medium"}', encoding="utf-8")
+    (tmp_path / "local_model.json").write_text('{"base": "qwen3-vl:8b-instruct", "tier": "medium"}', encoding="utf-8")
     b = resolve_backend(settings)
     assert b.model == LOCAL_ALIAS and b.tier.name == "medium"
 
@@ -192,7 +192,7 @@ def test_low_power_mode_uses_smallest_model_and_caps_threads(settings):
     assert cpu_threads(settings) is None
     settings.low_power = True
     b = resolve_backend(settings)
-    assert b.model == "qwen3-vl:2b" and b.tier.window_size == 3
+    assert b.model == "qwen3-vl:2b-instruct" and b.tier.window_size == 3
     assert cpu_threads(settings) == 4
     settings.max_threads = 2
     assert cpu_threads(settings) == 2
@@ -233,3 +233,23 @@ def test_local_out_of_memory_is_a_clear_error_without_retries(settings, monkeypa
     with pytest.raises(AnalysisError, match="out of memory"):
         vc.chat([{"role": "user", "content": "hi"}])
     assert len(calls) == 1
+
+
+def test_local_empty_replies_stop_early_with_a_hint(settings):
+    from types import SimpleNamespace
+
+    from playbook import analyzer
+
+    requests = []
+
+    def create(**kw):
+        requests.append(kw)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=""))])
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)), models=SimpleNamespace(list=lambda: []))
+    vc = analyzer.VisionClient(settings, client=client)
+    vc._sleep = lambda seconds, msg: None
+    with pytest.raises(AnalysisError, match="instruct"):
+        vc.chat([{"role": "user", "content": "hi"}])
+    assert len(requests) == 2
+    assert requests[0]["max_tokens"] == settings.local_max_tokens  # a rambling model can't hold a request forever

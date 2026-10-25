@@ -48,12 +48,12 @@ This checks your RAM and GPU, picks the largest model that runs comfortably, che
 
 | Your computer | Model | Download | Screenshots per request |
 |---|---|---|---|
-| < 3.5 GB RAM free | `qwen3-vl:2b` | ~1.9 GB | 3, at 896 px |
-| 8–15 GB RAM, no big GPU (most laptops) | `qwen3-vl:4b` | ~3.3 GB | 4, at 1024 px |
-| ≥ 16 GB RAM, or a GPU with ≥ 8 GB | `qwen3-vl:8b` | ~6.1 GB | 6, at 1280 px |
-| GPU with ≥ 24 GB, or Apple silicon with ≥ 36 GB | `qwen3-vl:32b` | ~21 GB | 8, at 1280 px |
+| < 3.5 GB RAM free | `qwen3-vl:2b-instruct` | ~1.9 GB | 3, at 896 px |
+| 8–15 GB RAM, no big GPU (most laptops) | `qwen3-vl:4b-instruct` | ~3.3 GB | 4, at 1024 px |
+| ≥ 16 GB RAM, or a GPU with ≥ 8 GB | `qwen3-vl:8b-instruct` | ~6.1 GB | 6, at 1280 px |
+| GPU with ≥ 24 GB, or Apple silicon with ≥ 36 GB | `qwen3-vl:32b-instruct` | ~21 GB | 8, at 1280 px |
 
-**Slow or easily overloaded computer?** Put `LOW_POWER=true` in `.env` before running `setup-local`. It uses the smallest model, limits it, OCR and video encoding to 4 CPU threads (`MAX_THREADS` changes that), runs at below-normal priority so the desktop stays responsive, and archives video only with a hardware encoder (otherwise it keeps the original rather than running a CPU-heavy encode). Analysis takes longer, but the machine stays usable.
+**Slow or easily overloaded computer?** Put `LOW_POWER=true` in `.env` before running `setup-local`. It uses the smallest model, limits it, OCR and video encoding to 4 CPU threads (`MAX_THREADS` changes that), runs at below-normal priority so the desktop stays responsive, skips the zoomed click crops (the local OCR still reads the text near each click), and archives video only with a hardware encoder (otherwise it keeps the original rather than running a CPU-heavy encode). Analysis takes longer, but the machine stays usable.
 
 On a laptop CPU, expect minutes per request rather than seconds. Responses are cached, so you only pay that once per recording. No GPU, Tesseract or separate ffmpeg install is needed: OCR runs on ONNX Runtime and `imageio-ffmpeg` bundles the video encoders.
 
@@ -178,9 +178,11 @@ Measured on a real 3-minute session (70 keyframes):
 |---|---|---|
 | `PROVIDER` | `local` | `local` (Ollama on this machine) or `gemini` |
 | `ALLOW_CLOUD` | `false` | must be `true` for `PROVIDER=gemini`; without it, requests to anything but this machine or the private network are refused |
-| `LOCAL_MODEL` | `auto` | `auto` uses what `setup-local` configured (or picks by RAM/VRAM), or set an Ollama tag such as `qwen3-vl:2b` |
+| `LOCAL_MODEL` | `auto` | `auto` uses what `setup-local` configured (or picks by RAM/VRAM), or set an Ollama tag such as `qwen3-vl:2b-instruct` |
+| `LOCAL_MAX_TOKENS` | `3000` | cap on each local reply, so a rambling model can't hold a request for many minutes |
+| `LOCAL_TIMEOUT_S` | `1800` | seconds to wait for one local request (CPU inference can take several minutes) |
 | `LOCAL_BASE_URL` | `http://127.0.0.1:11434/v1` | must be on this machine or the private network |
-| `LOW_POWER` | `false` | lighter load for slow machines: smallest model, capped threads, low priority, hardware-only video encoding |
+| `LOW_POWER` | `false` | lighter load for slow machines: smallest model, capped threads, low priority, no zoom crops, hardware-only video encoding |
 | `MAX_THREADS` | `0` | CPU threads for the model, OCR and encoders (0 = all; 4 in low-power mode) |
 | `USE_OCR` / `SEND_CROPS` | `true` | local OCR and zoomed click crops (accuracy aids for small models) |
 | `CAPTURE_UI_ELEMENTS` | `true` | record the clicked / typed-into UI element (Windows UI Automation) |

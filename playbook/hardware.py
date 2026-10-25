@@ -78,7 +78,7 @@ def be_gentle(settings) -> None:
 
 
 def low_power_tier(hw: Hardware) -> Tier:
-    return Tier("tiny", "qwen3-vl:2b", 3, 896, 8192, "low-power mode")
+    return Tier("tiny", "qwen3-vl:2b-instruct", 3, 896, 8192, "low-power mode")
 
 
 def choose_tier(hw: Hardware) -> Tier:
@@ -86,13 +86,13 @@ def choose_tier(hw: Hardware) -> Tier:
     # Apple silicon shares RAM with a capable GPU, so treat ~70% of RAM as usable "VRAM".
     gpu = max(hw.vram_gb, hw.ram_gb * 0.7 if hw.apple_silicon else 0.0)
     if gpu >= 24:
-        return Tier("large", "qwen3-vl:32b", 8, 1280, 32768, f"{gpu:.0f} GB of GPU memory")
+        return Tier("large", "qwen3-vl:32b-instruct", 8, 1280, 32768, f"{gpu:.0f} GB of GPU memory")
     if gpu >= 8 or hw.ram_gb >= 16:
         why = f"{gpu:.0f} GB of GPU memory" if gpu >= 8 else f"{hw.ram_gb:.0f} GB RAM"
-        return Tier("medium", "qwen3-vl:8b", 6, 1280, 16384, why)
+        return Tier("medium", "qwen3-vl:8b-instruct", 6, 1280, 16384, why)
     if hw.ram_gb >= 7 and hw.available_gb >= 3.5:
-        return Tier("small", "qwen3-vl:4b", 4, 1024, 8192, f"{hw.ram_gb:.0f} GB RAM, no large GPU")
-    return Tier("tiny", "qwen3-vl:2b", 3, 896, 8192, f"only {hw.available_gb:.1f} GB RAM free")
+        return Tier("small", "qwen3-vl:4b-instruct", 4, 1024, 8192, f"{hw.ram_gb:.0f} GB RAM, no large GPU")
+    return Tier("tiny", "qwen3-vl:2b-instruct", 3, 896, 8192, f"only {hw.available_gb:.1f} GB RAM free")
 
 
 def tier_for_model(model: str) -> Tier:

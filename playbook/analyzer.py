@@ -24,7 +24,7 @@ from typing import Any, Callable, TypeVar
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from . import prompts
-from .backend import OUT_OF_MEMORY_HINT, Backend, is_out_of_memory, resolve_backend
+from .backend import EMPTY_REPLY_HINT, OUT_OF_MEMORY_HINT, Backend, is_out_of_memory, resolve_backend
 from .config import Settings, get_settings
 from .hardware import be_gentle, cpu_threads
 from .ocr import SessionOCR
@@ -342,11 +342,13 @@ class VisionClient:
             if self.backend.local:
                 self.status(f"Waiting for the local model ({self.model}); this can take a few minutes on a CPU...")
             try:
+                extra = {"max_tokens": self.s.local_max_tokens} if self.backend.local else {}
                 resp = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
                     temperature=0.2,
                     response_format=response_format or {"type": "json_object"},
+                    **extra,
                 )
                 content = resp.choices[0].message.content
                 if not content:
@@ -390,6 +392,8 @@ class VisionClient:
             except (openai.InternalServerError, _EmptyResponse) as exc:
                 if self.backend.local and is_out_of_memory(exc):  # retrying won't free memory
                     raise AnalysisError(OUT_OF_MEMORY_HINT) from exc
+                if self.backend.local and isinstance(exc, _EmptyResponse) and attempt >= 1:
+                    raise AnalysisError(EMPTY_REPLY_HINT) from exc
                 if attempt >= MAX_RETRIES:
                     self._switch_model(f"kept failing ({type(exc).__name__})", block_s=None)
                     attempt = 0
@@ -558,7 +562,9 @@ class Analyzer:
         )
         parts: list[dict] = [{"type": "text", "text": header}]
         backend = self.vc.backend
-        crops_left = MAX_CROPS_PER_REQUEST if (backend.local and self.s.send_crops) else 0
+        # Ollama spends ~1000 tokens on every image whatever its size; on a low-power CPU each crop costs
+        # about a minute, and the OCR text near each click already says what was clicked.
+        crops_left = MAX_CROPS_PER_REQUEST if (backend.local and self.s.send_crops and not self.s.low_power) else 0
         by_id = {k.id: k for k in manifest.keyframes}
         prev_path = by_id[kfs[0].id - 1].path if kfs[0].id - 1 in by_id else None
         counter = 0

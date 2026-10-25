@@ -21,7 +21,7 @@ from .hardware import Tier, choose_tier, cpu_threads, detect, low_power_tier
 from .security import check_endpoint
 
 # Approximate download sizes (GB), to check disk space before pulling.
-MODEL_SIZES_GB = {"qwen3-vl:2b": 1.9, "qwen3-vl:4b": 3.3, "qwen3-vl:8b": 6.1, "qwen3-vl:30b": 19.0, "qwen3-vl:32b": 21.0}
+MODEL_SIZES_GB = {"qwen3-vl:2b-instruct": 1.9, "qwen3-vl:4b-instruct": 3.3, "qwen3-vl:8b-instruct": 6.1, "qwen3-vl:30b-instruct": 19.0, "qwen3-vl:32b-instruct": 21.0}
 INSTALL_HINT = (
     "Install Ollama from https://ollama.com/download (Windows: `winget install Ollama.Ollama`; "
     "macOS: the app or `brew install ollama`; Linux: the install script on that page), start it, then run this again."
@@ -124,7 +124,7 @@ def smoke_test(s: Settings, model: str) -> tuple[float, str]:
     resp = client.chat.completions.create(model=model, temperature=0, messages=[{"role": "user", "content": [
         {"type": "text", "text": 'What does the button say? Reply as JSON: {"label": "..."}'},
         {"type": "image_url", "image_url": {"url": url}},
-    ]}], response_format={"type": "json_object"})
+    ]}], response_format={"type": "json_object"}, max_tokens=200)
     return time.time() - t, (resp.choices[0].message.content or "").strip()
 
 
@@ -153,7 +153,7 @@ def setup(s: Settings, model: str | None = None, assume_yes: bool = False, out: 
         if free < need + 1:
             out(f"Not enough disk space to download {tier.model}: it needs about {need:.1f} GB and {free:.1f} GB is free "
                 f"in {models_dir()}. Free up space (or set OLLAMA_MODELS to another drive), or pick a smaller model "
-                "with --model qwen3-vl:2b.")
+                "with --model qwen3-vl:2b-instruct.")
             return 1
         if not assume_yes and ask(f"Download {tier.model} (~{need:.1f} GB) with Ollama now? [y/N] ").strip().lower() not in ("y", "yes"):
             out("Cancelled.")

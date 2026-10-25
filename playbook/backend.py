@@ -35,6 +35,13 @@ OUT_OF_MEMORY_HINT = (
 )
 
 
+EMPTY_REPLY_HINT = (
+    "The local model keeps returning empty replies. Usually this means it is a \"thinking\" model that spends its "
+    "whole budget reasoning (use an -instruct tag, e.g. qwen3-vl:2b-instruct, and re-run `python -m playbook "
+    "setup-local`), or the computer is short on memory (close apps and try again)."
+)
+
+
 def is_out_of_memory(exc: Exception) -> bool:
     text = str(exc).lower()
     return "failed to allocate" in text or "out of memory" in text or "out-of-memory" in text

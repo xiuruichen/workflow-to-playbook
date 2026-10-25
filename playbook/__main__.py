@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python -m playbook", description="Turn screen recordings into Markdown playbooks.")
     sub = p.add_subparsers(dest="cmd", required=True)
     sl = sub.add_parser("setup-local", help="pick and download a local vision model that fits this computer")
-    sl.add_argument("--model", help="Ollama tag to use instead of the automatic choice, e.g. qwen3-vl:2b")
+    sl.add_argument("--model", help="Ollama tag to use instead of the automatic choice, e.g. qwen3-vl:2b-instruct")
     sl.add_argument("--yes", action="store_true", help="don't ask before downloading")
     sub.add_parser("run", help="record, then analyze and write the playbook")
     sub.add_parser("record", help="record a session only")
