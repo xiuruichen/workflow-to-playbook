@@ -1,9 +1,9 @@
 """`python -m playbook setup-local` / `check`: get a local vision model running with Ollama
-(or with llama.cpp's llama-server, the faster option on low-power computers; see llama_runtime.py).
+or with llama.cpp's llama-server (the faster option on low-power computers; see llama_runtime.py).
 
 Talks only to the Ollama server configured in LOCAL_BASE_URL (refused unless it is on this
-machine or the private network). The one network download is `ollama pull`, which Ollama
-itself performs, after the user confirms.
+machine or the private network). The network downloads are `ollama pull`, which Ollama itself
+performs, or llama_runtime's pinned, checksummed files; both only after the user confirms.
 """
 
 from __future__ import annotations
@@ -150,7 +150,7 @@ def setup_llama(s: Settings, model: str | None = None, assume_yes: bool = False,
     out("Installed. Testing it with one screenshot...")
     try:
         with lr.serving(s, info):
-            secs, reply = smoke_test(s, name, base_url=info["base_url"])
+            secs, reply = smoke_test(s, name, base_url=info["base_url"], api_key=lr.api_key(s))
     except Exception as exc:
         out(OUT_OF_MEMORY_HINT if is_out_of_memory(exc) else f"The test request failed: {str(exc)[:300]}")
         return 1
@@ -159,7 +159,7 @@ def setup_llama(s: Settings, model: str | None = None, assume_yes: bool = False,
     return 0
 
 
-def smoke_test(s: Settings, model: str, base_url: str | None = None) -> tuple[float, str]:
+def smoke_test(s: Settings, model: str, base_url: str | None = None, api_key: str = "ollama") -> tuple[float, str]:
     """One screenshot-like request; returns (seconds, reply)."""
     import base64
 
@@ -172,7 +172,7 @@ def smoke_test(s: Settings, model: str, base_url: str | None = None) -> tuple[fl
     cv2.putText(img, "Submit order", (262, 210), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
     ok, buf = cv2.imencode(".jpg", img)
     url = "data:image/jpeg;base64," + base64.b64encode(buf.tobytes()).decode()
-    client = OpenAI(api_key="ollama", base_url=base_url or s.local_base_url, timeout=s.local_timeout_s, max_retries=0)
+    client = OpenAI(api_key=api_key, base_url=base_url or s.local_base_url, timeout=s.local_timeout_s, max_retries=0)
     t = time.time()
     resp = client.chat.completions.create(model=model, temperature=0, messages=[{"role": "user", "content": [
         {"type": "text", "text": 'What does the button say? Reply as JSON: {"label": "..."}'},
@@ -227,14 +227,26 @@ def setup(s: Settings, model: str | None = None, assume_yes: bool = False, out: 
     return 0
 
 
+def preflight(s: Settings) -> str | None:
+    """Why local analysis can't run right now (None if it can). Cheap, so it can run before recording."""
+    info = local_setup_info(s)
+    if s.local_model == "auto" and info.get("runtime") == "llama":
+        from . import llama_runtime as lr
+
+        return lr.missing(s, info)
+    if not server_version(s):
+        return f"Ollama is not reachable at {_api_root(s)}. {INSTALL_HINT}"
+    return None
+
+
 def status(s: Settings) -> list[str]:
     """Lines for `python -m playbook check` with the local provider."""
     lines = []
     info = local_setup_info(s)
-    if info.get("runtime") == "llama":
+    if s.local_model == "auto" and info.get("runtime") == "llama":
         from . import llama_runtime as lr
 
-        ok = lr.server_exe(s).exists() and Path(info.get("model", "")).exists()
+        ok = lr.missing(s, info) is None
         lines.append(f"{'OK  ' if ok else 'FAIL'} llama-server runtime with {info.get('base')} ({info.get('tier')} tier)"
                      + ("" if ok else "; run `python -m playbook setup-local --runtime llama`"))
         lines.append("     the server starts automatically for each analysis and stops afterwards"
@@ -250,7 +262,7 @@ def status(s: Settings) -> list[str]:
         mark = "OK  " if _has(models, LOCAL_ALIAS) else "FAIL"
         lines.append(f"{mark} {LOCAL_ALIAS} -> {info.get('base')} ({info.get('tier')} tier, context {info.get('num_ctx')})")
     else:
-        tier = choose_tier(detect())
+        tier = low_power_tier(detect()) if s.low_power else choose_tier(detect())
         mark = "OK  " if _has(models, tier.model) else "FAIL"
         lines.append(f"{mark} {tier.model} (auto-picked: {tier.reason}); run `python -m playbook setup-local` to finish setup")
     vision = [m for m in models if any(k in m for k in ("vl", "llava", "gemma3", "minicpm-v", "moondream"))]

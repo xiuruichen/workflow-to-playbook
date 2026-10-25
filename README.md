@@ -38,7 +38,9 @@ pip install -r requirements.txt
 copy .env.example .env      # macOS/Linux: cp .env.example .env   (optional: every setting has a default)
 ```
 
-Then install **[Ollama](https://ollama.com/download)** (Windows: `winget install Ollama.Ollama`; macOS: the app or `brew install ollama`; Linux: the script on that page), start it, and run:
+**Slow laptop on Windows?** Put `LOW_POWER=true` in `.env`, skip Ollama and just run `python -m playbook setup-local`: it downloads everything it needs (see [below](#low-power-mode)).
+
+Otherwise install **[Ollama](https://ollama.com/download)** (Windows: `winget install Ollama.Ollama`; macOS: the app or `brew install ollama`; Linux: the script on that page), start it, and run:
 
 ```bash
 python -m playbook setup-local
@@ -53,13 +55,13 @@ This checks your RAM and GPU, picks the largest model that runs comfortably, che
 | ≥ 16 GB RAM, or a GPU with ≥ 8 GB | `qwen3-vl:8b-instruct` | ~6.1 GB | 6, at 1280 px |
 | GPU with ≥ 24 GB, or Apple silicon with ≥ 36 GB | `qwen3-vl:32b-instruct` | ~21 GB | 8, at 1280 px |
 
-**Slow or easily overloaded computer?** Put `LOW_POWER=true` in `.env` before running `setup-local`. It uses the smallest model, limits it, OCR and video encoding to 4 CPU threads (`MAX_THREADS` changes that), runs at below-normal priority so the desktop stays responsive, skips the zoomed click crops (the local OCR still reads the text near each click), and archives video only with a hardware encoder (otherwise it keeps the original rather than running a CPU-heavy encode).
+<a id="low-power-mode"></a>**Slow or easily overloaded computer?** Put `LOW_POWER=true` in `.env` before running `setup-local`. It uses the smallest model, limits it, OCR and video encoding to half the CPU threads, at most 6 (`MAX_THREADS` changes that), runs at below-normal priority so the desktop stays responsive, skips the zoomed click crops (the local OCR still reads the text near each click), and archives video only with a hardware encoder (otherwise it keeps the original rather than running a CPU-heavy encode).
 
-On Windows, low-power mode also uses llama.cpp's `llama-server` instead of Ollama (`LOCAL_RUNTIME=llama`): `setup-local` downloads a pinned build and Qwen3-VL 2B Instruct (~1.5 GB, SHA-256 checked), and the server starts only for the length of an analysis, so it holds no memory in between. It is about twice as fast as Ollama on a CPU, because screenshots stay at their native size (~450 tokens instead of ~1,040) and the system prompt is reused between requests, and it consolidates without merging steps (small models merge badly). On an 8 GB laptop with 4 threads, a 30-second recording takes about 14 minutes and at most ~2 GB of RAM. Elsewhere, set `LLAMA_SERVER` to your own llama-server build, or keep Ollama.
+On Windows, low-power mode also uses llama.cpp's `llama-server` instead of Ollama (`LOCAL_RUNTIME=llama`): `setup-local` downloads a pinned build and Qwen3-VL 2B Instruct (~1.5 GB, SHA-256 checked), and the server starts only for the length of an analysis, so it holds no memory in between. It is about twice as fast as Ollama on a CPU, because screenshots stay at their native size (~450 tokens instead of ~1,040) and the system prompt is reused between requests, and it consolidates without merging steps (small models merge badly). On an 8 GB laptop with 4 threads, a 30-second recording took about 14 minutes and at most ~2 GB of RAM; low-power mode now uses 6 threads there, which encodes each screenshot ~40% faster. While it runs, the server only accepts requests carrying a per-install key, so web pages open in your browser can't use it. Elsewhere, set `LLAMA_SERVER` to your own llama-server build, or keep Ollama.
 
 On a laptop CPU, expect minutes per request rather than seconds. Responses are cached, so you only pay that once per recording. No GPU, Tesseract or separate ffmpeg install is needed: OCR runs on ONNX Runtime and `imageio-ffmpeg` bundles the video encoders.
 
-**Air-gapped machines:** the only network access is the one-time model download. Copy the Ollama models folder (`~/.ollama/models`, or `OLLAMA_MODELS`) from a connected machine instead, and keep Ollama bound to `127.0.0.1` (its default; don't set `OLLAMA_HOST=0.0.0.0`).
+**Air-gapped machines:** the only network access is the one-time model download. For the llama runtime, copy the `llama` folder from `%LOCALAPPDATA%\WorkflowPlaybook\` on a connected machine to the same place, then run `python -m playbook setup-local --yes`: files that are already present and pass their SHA-256 check aren't downloaded again. For Ollama, copy its models folder (`~/.ollama/models`, or `OLLAMA_MODELS`) and keep Ollama bound to `127.0.0.1` (its default; don't set `OLLAMA_HOST=0.0.0.0`).
 
 > **macOS:** grant your terminal *Screen Recording* and *Accessibility* permissions (System Settings → Privacy & Security), otherwise capture is black and input events are missing.
 
@@ -92,7 +94,7 @@ python -m playbook compact --bench latest   # measure compression on a copy (the
 python -m playbook restore <session>        # decrypt + restore (analyze/render do this automatically)
 python -m playbook migrate                  # move sessions from the old ./sessions folder (e.g. in OneDrive)
 python -m playbook key --export             # back up the archive encryption key
-python -m playbook check                    # is the model reachable? (local: Ollama status)
+python -m playbook check                    # is the model installed and reachable?
 python -m playbook labels                   # export your Correct/Wrong reviews to labels.csv
 python -m playbook.evaluate                 # score the pipeline on 4 scripted scenarios (see Evaluation)
 ```
@@ -125,7 +127,7 @@ This reproduces the [example](examples/city-population-lookup/playbook.md) (mode
 
 1. **Capture** (`playbook/recorder.py`): `mss` grabs the screen at 5 fps into an H.264 video. `pynput` logs input. Raw keystrokes are grouped into *typed bursts* ("typed 'quarterly revenue'"), repeated keys collapse ("pressed down ×6"), clicks become single, double, right-click or drag, and scrolls merge into one event. On Windows every event also records the **app and window title** it happened in (e.g. `"Budget.xlsx - Excel" (EXCEL.EXE)`), and switching windows (Alt+Tab, taskbar, dialogs) becomes its own event. For each event the recorder saves a keyframe **just before** it and another **~0.8 s after** (once the UI has reacted). It also saves keyframes when the screen changes without input and has settled (page loads, command output), plus a slow heartbeat. Video time = wall-clock time, so event timestamps double as seek positions.
 2. **Keyframes** (`playbook/keyframes.py`): change detection at two scales. A 160-px thumbnail catches big changes (page loads, app switches); a 640-px image catches small but meaningful ones (a typed value, a new line of terminal output) while ignoring blinking cursors and spinners. For imported videos it saves before/after frames around each scene change.
-3. **Analysis** (`playbook/analyzer.py`, prompts in `playbook/prompts.py`): uses the `openai` client pointed at Ollama's OpenAI-compatible endpoint on `127.0.0.1` (or, if you opt in, Gemini's). Small local models read small text poorly, so more of the facts come from deterministic sources and the model mostly writes them up:
+3. **Analysis** (`playbook/analyzer.py`, prompts in `playbook/prompts.py`): uses the `openai` client pointed at the local server's OpenAI-compatible endpoint on `127.0.0.1` (llama-server or Ollama) (or, if you opt in, Gemini's). Small local models read small text poorly, so more of the facts come from deterministic sources and the model mostly writes them up:
    - **UI Automation** (Windows, `playbook/uia.py`): the recorder asks the accessibility API what is under the pointer at the moment of each click, and which field was typed into and its final value (`typed "jon.doe@…" into Edit "To"`). Values of password-like fields are never recorded.
    - **Local OCR** (`playbook/ocr.py`, RapidOCR on ONNX Runtime): text near each click and text that newly appeared is added to the prompt, and fed to the consistency check.
    - **Zoomed crops**: a full-resolution 448 px crop around each click goes along with the downscaled screenshot.
@@ -178,18 +180,18 @@ Measured on a real 3-minute session (70 keyframes):
 
 | Variable | Default | Notes |
 |---|---|---|
-| `PROVIDER` | `local` | `local` (Ollama on this machine) or `gemini` |
+| `PROVIDER` | `local` | `local` (a model on this machine) or `gemini` |
 | `ALLOW_CLOUD` | `false` | must be `true` for `PROVIDER=gemini`; without it, requests to anything but this machine or the private network are refused |
 | `LOCAL_MODEL` | `auto` | `auto` uses what `setup-local` configured (or picks by RAM/VRAM), or set an Ollama tag such as `qwen3-vl:2b-instruct` |
 | `LOCAL_MAX_TOKENS` | `3000` | cap on each local reply, so a rambling model can't hold a request for many minutes |
 | `LOCAL_TIMEOUT_S` | `1800` | seconds to wait for one local request (CPU inference can take several minutes) |
 | `LOCAL_RUNTIME` | `auto` | local server `setup-local` installs: `llama` (llama-server, faster on a CPU, started only while analyzing), `ollama`, or `auto` (llama in low-power mode on Windows) |
 | `LLAMA_SERVER` | | path to your own `llama-server` binary (default: the build `setup-local` downloads) |
-| `LLAMA_PORT` | `8080` | port llama-server listens on (always 127.0.0.1) |
+| `LLAMA_PORT` | `18080` | port llama-server listens on (always 127.0.0.1); change it if another program uses it |
 | `IMAGE_MAX_TOKENS` | `448` | llama runtime: tokens per screenshot; 448 is the native size of an 896 px image |
 | `LOCAL_BASE_URL` | `http://127.0.0.1:11434/v1` | must be on this machine or the private network |
 | `LOW_POWER` | `false` | lighter load for slow machines: smallest model, capped threads, low priority, no zoom crops, hardware-only video encoding |
-| `MAX_THREADS` | `0` | CPU threads for the model, OCR and encoders (0 = all; 4 in low-power mode) |
+| `MAX_THREADS` | `0` | CPU threads for the model, OCR and encoders (0 = all; half, at most 6, in low-power mode) |
 | `USE_OCR` / `SEND_CROPS` | `true` | local OCR and zoomed click crops (accuracy aids for small models) |
 | `CAPTURE_UI_ELEMENTS` | `true` | record the clicked / typed-into UI element (Windows UI Automation) |
 | `AUTO_COMPACT` | `idle:2` | `idle:<days>`, `after_analysis`, or `off` |

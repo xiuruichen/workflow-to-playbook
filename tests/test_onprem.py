@@ -187,14 +187,18 @@ def test_settings_default_to_local_data_dir():
     assert synced_folder(s.sessions_dir) is None or s.allow_synced_dir is False
 
 
-def test_low_power_mode_uses_smallest_model_and_caps_threads(settings):
+def test_low_power_mode_uses_smallest_model_and_caps_threads(settings, monkeypatch):
+    import psutil
+
     from playbook.hardware import cpu_threads
 
     assert cpu_threads(settings) is None
     settings.low_power = True
     b = resolve_backend(settings)
     assert b.model == "qwen3-vl:2b-instruct" and b.tier.window_size == 3
-    assert cpu_threads(settings) == 4
+    for logical, cap in ((14, 6), (8, 4), (4, 2), (2, 2)):  # half the CPU, at most 6
+        monkeypatch.setattr(psutil, "cpu_count", lambda logical_=logical, **kw: logical_)
+        assert cpu_threads(settings) == cap
     settings.max_threads = 2
     assert cpu_threads(settings) == 2
 
@@ -268,6 +272,7 @@ def _llama_info(tmp_path, settings):
 def test_llama_runtime_backend_and_server_args(settings, tmp_path):
     from playbook import llama_runtime
     from playbook.backend import resolve_backend
+    from playbook.hardware import cpu_threads
 
     settings.low_power, settings.window_size = True, 0  # 0 = automatic
     info = _llama_info(tmp_path, settings)
@@ -277,7 +282,7 @@ def test_llama_runtime_backend_and_server_args(settings, tmp_path):
     assert b.base_url == info["base_url"] and b.model == "qwen3-vl-2b" and b.server == info
     assert b.fallbacks == [] and b.window_size <= 3 and b.image_width <= 896
     args = llama_runtime.server_args(settings, info)
-    for flag, value in (("--image-max-tokens", "448"), ("--reasoning", "off"), ("--host", "127.0.0.1"), ("-t", "4")):
+    for flag, value in (("--image-max-tokens", "448"), ("--reasoning", "off"), ("--host", "127.0.0.1"), ("-t", str(cpu_threads(settings)))):
         assert args[args.index(flag) + 1] == value
 
 
@@ -299,7 +304,7 @@ def test_setup_llama_records_the_server_and_tests_it(settings, tmp_path, monkeyp
     monkeypatch.setattr(llama_runtime, "install", lambda s, name, out: info)
     monkeypatch.setattr(llama_runtime, "serving", lambda s, i: nullcontext())
     seen = {}
-    monkeypatch.setattr(local_setup, "smoke_test", lambda s, model, base_url=None: seen.update(url=base_url) or (1.0, '{"label": "Submit order"}'))
+    monkeypatch.setattr(local_setup, "smoke_test", lambda s, model, base_url=None, api_key="": seen.update(url=base_url) or (1.0, '{"label": "Submit order"}'))
     lines = []
     assert local_setup.setup(settings, assume_yes=True, out=lines.append, runtime="llama") == 0
     assert json.loads((settings.data_dir / "local_model.json").read_text(encoding="utf-8")) == info
@@ -318,3 +323,75 @@ def test_download_rejects_a_bad_checksum(tmp_path, monkeypatch):
     with pytest.raises(llama_runtime.LlamaError, match="integrity"):
         llama_runtime._download("https://example.invalid/x", tmp_path / "x.gguf", "0" * 64, lambda m: None)
     assert not (tmp_path / "x.gguf").exists() and not (tmp_path / "x.gguf.part").exists()
+
+
+def test_llama_backend_follows_llama_port(settings, tmp_path):
+    from playbook.backend import resolve_backend
+
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    (settings.data_dir / "local_model.json").write_text(json.dumps(_llama_info(tmp_path, settings)), encoding="utf-8")
+    settings.llama_port = 18555  # changed after setup: the server and the client must agree
+    assert resolve_backend(settings).base_url == "http://127.0.0.1:18555/v1"
+
+
+def test_preflight_reports_a_missing_llama_install(settings, tmp_path):
+    from playbook.local_setup import preflight
+
+    info = _llama_info(tmp_path, settings)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    (settings.data_dir / "local_model.json").write_text(json.dumps(info), encoding="utf-8")
+    settings.llama_server = str(tmp_path / "missing-llama-server.exe")
+    assert "setup-local" in preflight(settings)
+    settings.llama_server = info["model"]  # any existing file
+    assert preflight(settings) is None
+
+
+def test_llama_server_that_exits_early_is_reported(settings, tmp_path):
+    import socket
+    import sys
+
+    from playbook import llama_runtime
+
+    with socket.socket() as sock:  # a port nothing listens on
+        sock.bind(("127.0.0.1", 0))
+        settings.llama_port = sock.getsockname()[1]
+    settings.llama_server = sys.executable  # rejects llama-server's flags and exits at once
+    with pytest.raises(llama_runtime.LlamaError, match="stopped while loading"):
+        with llama_runtime.serving(settings, _llama_info(tmp_path, settings)):
+            pass
+    assert (llama_runtime.home(settings) / "server.log").read_bytes()  # the server's output is kept for diagnosis
+
+
+def test_llama_server_requires_a_per_install_key(settings, tmp_path):
+    from playbook import llama_runtime
+    from playbook.backend import resolve_backend
+
+    info = _llama_info(tmp_path, settings)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    (settings.data_dir / "local_model.json").write_text(json.dumps(info), encoding="utf-8")
+    args = llama_runtime.server_args(settings, info)
+    key_file = Path(args[args.index("--api-key-file") + 1])
+    key = key_file.read_text(encoding="utf-8")
+    assert len(key) >= 32 and key not in " ".join(args)  # off the command line
+    assert resolve_backend(settings).api_key == key == llama_runtime.api_key(settings)
+
+
+def test_server_hook_runs_only_on_a_cache_miss(settings):
+    from types import SimpleNamespace
+
+    from playbook import analyzer
+
+    reply = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='{"ok": 1}'))])
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **kw: reply)),
+                             models=SimpleNamespace(list=lambda: []))
+    started = []
+    msgs = [{"role": "user", "content": "hi"}]
+    vc = analyzer.VisionClient(settings, client=client)
+    vc.before_call = lambda: started.append(1)
+    vc.chat(msgs)
+    vc.chat(msgs)
+    assert started == [1]
+    vc2 = analyzer.VisionClient(settings, client=client)  # e.g. re-analyzing a finished session
+    vc2.before_call = lambda: started.append(2)
+    vc2.chat(msgs)
+    assert started == [1]  # everything was cached: the model is never loaded

@@ -43,12 +43,21 @@ def auto_archive() -> str:
     return f"Archived {len(done)} idle session(s)." if done else ""
 
 
+@st.cache_data(ttl=30, show_spinner=False)
+def local_problem() -> str | None:
+    """Why the local model can't run (None if it can); rechecked at most every 30 s."""
+    from playbook.local_setup import preflight
+
+    return preflight(settings)
+
+
 try:
     backend = resolve_backend(settings)
     backend_error = None
 except SecurityError as exc:
     backend, backend_error = None, str(exc)
 archive_note = auto_archive()
+not_ready = local_problem() if backend and backend.local else None
 
 
 # ---------------------------------------------------------------- sidebar
@@ -60,6 +69,8 @@ with st.sidebar:
     elif backend.local:
         st.success(f"🔒 Local analysis · `{backend.model}`" + (f" ({backend.tier.name} tier)" if backend.tier else ""))
         st.caption("Screenshots never leave this computer.")
+        if not_ready:
+            st.error(not_ready)
     elif settings.gemini_api_key:
         st.warning(f"☁️ Cloud analysis (ALLOW_CLOUD) · `{settings.gemini_model}`. Screenshots are sent to Google.")
     else:
@@ -195,12 +206,16 @@ with tab_analyze:
         window = backend.window_size if backend else 10
         n_calls = max(1, -(-(len(m.keyframes) - 1) // max(window - 1, 1))) + 1
         if backend and backend.local:
-            st.caption(f"Analysis will make about {n_calls} request(s) to the local model `{backend.model}`. On a laptop "
-                       "CPU each can take a few minutes. Responses are cached, so re-runs are instant.")
+            # Measured on a low-power laptop with 4 threads: ~3 min per request (6 threads, the default now, is faster).
+            eta = f" (up to about {n_calls * 3} min in low-power mode)" if settings.low_power else ""
+            st.caption(f"Analysis will make about {n_calls} request(s) to the local model `{backend.model}`{eta}. "
+                       "On a laptop CPU each can take a few minutes; you can keep working meanwhile. Finished requests "
+                       "are cached, so an interrupted analysis resumes where it stopped and re-runs are instant.")
         elif backend:
             st.caption(f"Analysis will make about {n_calls} vision API call(s); at {backend.rpm}/min that takes ≈{n_calls / max(backend.rpm, 1):.1f} min. Responses are cached, so re-runs are free.")
         label = "🔍 Analyze locally" if backend and backend.local else "🔍 Analyze with Gemini"
-        if st.button(label, type="primary", disabled=backend is None or (not backend.local and not settings.gemini_api_key)):
+        if st.button(label, type="primary",
+                     disabled=backend is None or bool(not_ready) or (not backend.local and not settings.gemini_api_key)):
             bar = st.progress(0.0, "Starting…")
             log = st.empty()
             switches: list[str] = []
@@ -217,6 +232,7 @@ with tab_analyze:
                 st.success(f"Playbook ready: {len(pb.steps)} steps, {len(pb.review_steps)} flagged. Open **3 · Review playbook**.")
             except AnalysisError as exc:
                 st.error(str(exc))
+            local_problem.clear()
         with st.expander(f"Keyframes ({len(m.keyframes)})"):
             cols = st.columns(4)
             for i, kf in enumerate(m.keyframes):

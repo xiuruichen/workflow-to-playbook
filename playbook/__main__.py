@@ -1,6 +1,6 @@
 """Command-line interface.
 
-    python -m playbook setup-local         # one-time: pick + download a local vision model (Ollama)
+    python -m playbook setup-local         # one-time: pick + download a local vision model
     python -m playbook run                 # record -> analyze -> playbook.md
     python -m playbook record              # record only
     python -m playbook import video.mp4    # build a playbook from an existing recording
@@ -11,7 +11,7 @@
     python -m playbook restore <session>   # decrypt + restore an archived session
     python -m playbook migrate             # move old sessions out of the project (OneDrive) folder
     python -m playbook key --export        # back up the archive key
-    python -m playbook check               # is the model reachable? (local: Ollama status)
+    python -m playbook check               # is the model installed / reachable?
     python -m playbook labels              # export your step reviews (correct/wrong) to labels.csv
 """
 
@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python -m playbook", description="Turn screen recordings into Markdown playbooks.")
     sub = p.add_subparsers(dest="cmd", required=True)
     sl = sub.add_parser("setup-local", help="pick and download a local vision model that fits this computer")
-    sl.add_argument("--model", help="Ollama tag to use instead of the automatic choice, e.g. qwen3-vl:2b-instruct")
+    sl.add_argument("--model", help="model instead of the automatic choice: an Ollama tag (e.g. qwen3-vl:2b-instruct) or, with --runtime llama, qwen3-vl-2b")
     sl.add_argument("--yes", action="store_true", help="don't ask before downloading")
     sl.add_argument("--runtime", choices=["auto", "ollama", "llama"],
                     help="local server: llama (llama.cpp, faster on a CPU), ollama, or auto (default: LOCAL_RUNTIME)")
@@ -146,10 +146,16 @@ def main(argv: list[str] | None = None) -> int:
             from .security import SecurityError
 
             try:
-                resolve_backend(settings)
+                backend = resolve_backend(settings)
             except SecurityError as exc:
                 print(exc, file=sys.stderr)
                 return 1
+            if backend.local:  # find out before recording, not after
+                from .local_setup import preflight
+
+                if why := preflight(settings):
+                    print(why, file=sys.stderr)
+                    return 1
         session = record_session(settings)
         print(f"Session saved: {session}")
         return _analyze_and_render(session) if args.cmd == "run" else 0

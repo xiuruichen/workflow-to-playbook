@@ -320,6 +320,7 @@ class VisionClient:
         self.notes: list[str] = []
         self.status = status or (lambda msg: None)
         self.dead_models: dict[str, str] = {}  # model -> why it can't be used
+        self.before_call: Callable[[], None] | None = None  # runs once before the first uncached request
         if client is None:
             if not self.backend.local and not self.backend.api_key:
                 raise AnalysisError(
@@ -358,6 +359,9 @@ class VisionClient:
         if path.exists():
             self.cache_hits += 1
             return json.loads(path.read_text(encoding="utf-8"))["content"]
+        if self.before_call:
+            hook, self.before_call = self.before_call, None
+            hook()
         content = self._call_with_retry(messages, response_format)
         path = self._cache_path(messages, response_format)  # the model may have changed during the call
         path.write_text(json.dumps({"model": self.model, "content": content}), encoding="utf-8")
@@ -562,18 +566,25 @@ class Analyzer:
 
     @contextmanager
     def _serving(self):
-        """llama runtime: run the local server only while analyzing, so it holds no memory otherwise."""
+        """llama runtime: run the local server only while analyzing, so it holds no memory otherwise, and
+        only once a request misses the cache (re-analyzing a finished session never loads the model)."""
         if self.vc.backend.server is None or self.vc.client_injected:
             yield
             return
         from .llama_runtime import LlamaError, serving
 
         with ExitStack() as stack:
+            def start() -> None:
+                try:
+                    stack.enter_context(serving(self.s, self.vc.backend.server, status=lambda m: self.progress(self._frac, m)))
+                except LlamaError as exc:
+                    raise AnalysisError(str(exc)) from exc
+
+            self.vc.before_call = start
             try:
-                stack.enter_context(serving(self.s, self.vc.backend.server, status=lambda m: self.progress(self._frac, m)))
-            except LlamaError as exc:
-                raise AnalysisError(str(exc)) from exc
-            yield
+                yield
+            finally:
+                self.vc.before_call = None
 
     # -- public ---------------------------------------------------------------------------
     def analyze(self, session_dir: Path) -> Playbook:
@@ -792,11 +803,14 @@ class Analyzer:
                 for w in window_log
             )
             first, last = manifest.keyframes[0], manifest.keyframes[-1]
-            steps_json = json.dumps(payload, separators=(",", ":")) if self.s.low_power else json.dumps(payload, indent=1)
+            # Low-power local model: text only, compact JSON and the lean (no-merge) reply; prompt reading
+            # and long replies are what take minutes on a laptop CPU.
+            lean = self.s.low_power and self.vc.backend.local
+            steps_json = json.dumps(payload, separators=(",", ":")) if lean else json.dumps(payload, indent=1)
             user = [
                 {"type": "text", "text": f"Recording length {fmt_ts(manifest.duration)}. Segment summaries:\n{contexts}\n\nCandidate steps:\n{steps_json}"},
             ]
-            if not self.s.low_power:  # two more images cost a low-power CPU minutes; the steps already carry the content
+            if not lean:  # two more images cost a low-power CPU minutes; the steps already carry the content
                 user += [
                     {"type": "text", "text": "First screenshot of the recording:"},
                     _image_part(encode_jpeg(resize_max_width(load_image(session_dir / first.path), self.vc.backend.image_width), 70)),
@@ -804,7 +818,6 @@ class Analyzer:
                     _image_part(encode_jpeg(resize_max_width(load_image(session_dir / last.path), self.vc.backend.image_width), 70)),
                 ]
             try:
-                lean = self.s.low_power
                 resp, repaired = self.vc.complete_json(
                     [{"role": "system", "content": prompts.pass2_system(self._compact_prompts, lean)}, {"role": "user", "content": user}],
                     _Pass2RespLean if lean else _Pass2Resp,

@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     # CPU, started only during analysis), "ollama", or "auto" (llama in low-power mode where a prebuilt exists).
     local_runtime: Literal["auto", "ollama", "llama"] = "auto"
     llama_server: str = ""  # path to your own llama-server binary (default: the one setup-local downloads)
-    llama_port: int = 8080
+    llama_port: int = 18080  # (not 8080, which other dev servers often use)
     image_max_tokens: int = 448  # llama runtime: tokens per screenshot (448 = native size of an 896 px image)
 
     # --- Cloud vision model (Gemini via its OpenAI-compatible endpoint; opt-in) ---
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     # Low-power mode for slow machines: smallest local model, capped CPU threads, below-normal
     # priority, and hardware-only video encoding when archiving.
     low_power: bool = False
-    max_threads: int = 0  # CPU threads for the model / OCR / encoders; 0 = all (4 in low-power mode)
+    max_threads: int = 0  # CPU threads for the model / OCR / encoders; 0 = all (half, at most 6, in low-power mode)
     use_ocr: bool = True  # local OCR of keyframes: exact on-screen text for the model and the consistency check
     send_crops: bool = True  # also send a zoomed crop around each click
 

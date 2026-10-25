@@ -76,10 +76,11 @@ def resolve_backend(s: Settings) -> Backend:
 
     info = local_setup_info(s) if s.local_model == "auto" else {}
     if info.get("runtime") == "llama":
-        check_endpoint(info["base_url"], s.allow_cloud)
+        from .llama_runtime import api_key
+
         tier = tier_for_model(info["base"])
         return Backend(
-            provider="local", base_url=info["base_url"], api_key="llama", model=info["base"], fallbacks=[], rpm=0,
+            provider="local", base_url=f"http://127.0.0.1:{s.llama_port}/v1", api_key=api_key(s), model=info["base"], fallbacks=[], rpm=0,
             timeout_s=s.local_timeout_s, window_size=s.window_size or min(tier.window_size, 3 if s.low_power else 99),
             image_width=s.analysis_image_width or min(tier.image_width, 896 if s.low_power else 9999),
             local=True, tier=tier, server=info,

@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 import platform
+import secrets
 import subprocess
 import sys
 import time
@@ -23,7 +24,7 @@ import urllib.error
 import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Iterator
+from typing import Any, Callable, Iterator
 
 from .config import Settings
 from .hardware import cpu_threads
@@ -50,7 +51,6 @@ MODELS = {
     },
 }
 DEFAULT_MODEL = "qwen3-vl-2b"
-DEFAULT_PORT = 8080
 CONTEXT = 8192
 
 
@@ -132,10 +132,26 @@ def install(s: Settings, name: str, out: Callable[[str], None] = print) -> dict:
             "num_thread": cpu_threads(s), "base_url": f"http://127.0.0.1:{s.llama_port}/v1", **files}
 
 
+def api_key(s: Settings) -> str:
+    """Per-install key for the server. It listens on 127.0.0.1 only, but web pages open in a browser can
+    still send requests there (and read the replies: llama-server allows any CORS origin); they can't read this file."""
+    path = home(s) / "api-key"
+    try:
+        if key := path.read_text(encoding="utf-8").strip():
+            return key
+    except OSError:
+        pass
+    key = secrets.token_urlsafe(32)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(key, encoding="utf-8")
+    return key
+
+
 def server_args(s: Settings, info: dict) -> list[str]:
+    api_key(s)  # make sure the key file exists
     args = [str(server_exe(s)), "-m", info["model"], "--mmproj", info["mmproj"], "-c", str(info.get("num_ctx") or CONTEXT),
             "-np", "1", "--image-max-tokens", str(s.image_max_tokens), "--reasoning", "off",
-            "--host", "127.0.0.1", "--port", str(s.llama_port), "--no-webui"]
+            "--host", "127.0.0.1", "--port", str(s.llama_port), "--no-webui", "--api-key-file", str(home(s) / "api-key")]
     if threads := cpu_threads(s):
         args += ["-t", str(threads)]
     return args
@@ -149,27 +165,96 @@ def healthy(s: Settings, timeout: float = 2.0) -> bool:
         return False
 
 
-def start(s: Settings, info: dict, wait_s: float = 180.0) -> subprocess.Popen:
+def missing(s: Settings, info: dict) -> str | None:
+    """Why the server can't start (None if it can)."""
+    if not server_exe(s).exists() or not all(Path(info.get(k) or "").is_file() for k in ("model", "mmproj")):
+        return "The local model isn't installed. Run `python -m playbook setup-local --runtime llama`."
+    return None
+
+
+def _tie_to_this_process(proc: subprocess.Popen) -> Any:
+    """Windows: put the server in a job object that closes with this process, so a crash or a killed
+    terminal never leaves ~2 GB of model behind. Returns the job handle (keep it until the server stops)."""
+    if sys.platform != "win32":
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    class Basic(ctypes.Structure):
+        _fields_ = [("user_time", ctypes.c_int64), ("job_time", ctypes.c_int64), ("flags", wintypes.DWORD),
+                    ("min_ws", ctypes.c_size_t), ("max_ws", ctypes.c_size_t), ("procs", wintypes.DWORD),
+                    ("affinity", ctypes.c_size_t), ("priority", wintypes.DWORD), ("sched", wintypes.DWORD)]
+
+    class Extended(ctypes.Structure):
+        _fields_ = [("basic", Basic), ("io", ctypes.c_uint64 * 6), ("proc_mem", ctypes.c_size_t),
+                    ("job_mem", ctypes.c_size_t), ("peak_proc_mem", ctypes.c_size_t), ("peak_job_mem", ctypes.c_size_t)]
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateJobObjectW.restype = wintypes.HANDLE
+    k32.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+    k32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+    job = k32.CreateJobObjectW(None, None)
+    info = Extended()
+    info.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    if not job or not k32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)) \
+            or not k32.AssignProcessToJobObject(job, int(proc._handle)):  # type: ignore[attr-defined]
+        return None  # best effort: the finally-block below still stops the server normally
+    return job
+
+
+def _close_job(job: Any) -> None:
+    if job:
+        import ctypes
+
+        ctypes.windll.kernel32.CloseHandle(job)
+
+
+def _log_tail(s: Settings, chars: int = 400) -> str:
+    try:
+        return (home(s) / "server.log").read_text(encoding="utf-8", errors="replace")[-chars:].strip()
+    except OSError:
+        return ""
+
+
+def start(s: Settings, info: dict, wait_s: float = 180.0) -> tuple[subprocess.Popen, Any]:
     """Start llama-server in the background (below-normal priority, no window) and wait until it is ready."""
-    exe = server_exe(s)
-    if not exe.exists() or not Path(info.get("model", "")).exists():
-        raise LlamaError("The local model isn't installed. Run `python -m playbook setup-local --runtime llama`.")
-    log = open(home(s) / "server.log", "ab")
-    kw: dict = {"stdout": log, "stderr": subprocess.STDOUT, "stdin": subprocess.DEVNULL}
+    if why := missing(s, info):
+        raise LlamaError(why)
+    home(s).mkdir(parents=True, exist_ok=True)
+    kw: dict = {"stderr": subprocess.STDOUT, "stdin": subprocess.DEVNULL}
     if sys.platform == "win32":
         kw["creationflags"] = subprocess.BELOW_NORMAL_PRIORITY_CLASS | subprocess.CREATE_NO_WINDOW
     else:
         kw["preexec_fn"] = lambda: os.nice(10)
-    proc = subprocess.Popen(server_args(s, info), **kw)
-    end = time.monotonic() + wait_s
-    while time.monotonic() < end:
-        if proc.poll() is not None:
-            raise LlamaError(f"llama-server stopped while loading (exit {proc.returncode}); see {home(s) / 'server.log'}.")
-        if healthy(s):
-            return proc
-        time.sleep(0.5)
-    proc.kill()
-    raise LlamaError(f"llama-server didn't become ready within {wait_s:.0f}s; see {home(s) / 'server.log'}.")
+    with open(home(s) / "server.log", "wb") as log:  # this run only; the server keeps its own handle
+        proc = subprocess.Popen(server_args(s, info), stdout=log, **kw)
+    job = _tie_to_this_process(proc)
+    try:
+        end = time.monotonic() + wait_s
+        while time.monotonic() < end:
+            if proc.poll() is not None:
+                tail = _log_tail(s)
+                hint = (f" Another program may be using port {s.llama_port}: set LLAMA_PORT to a free port in .env."
+                        if "bind" in tail.lower() or "address" in tail.lower() else "")
+                raise LlamaError(f"llama-server stopped while loading (exit {proc.returncode}).{hint} "
+                                 f"See {home(s) / 'server.log'}.")
+            if healthy(s):
+                return proc, job
+            time.sleep(0.5)
+        raise LlamaError(f"llama-server didn't become ready within {wait_s:.0f}s; see {home(s) / 'server.log'}.")
+    except BaseException:  # includes Ctrl+C while the model loads
+        stop(proc, job)
+        raise
+
+
+def stop(proc: subprocess.Popen, job: Any = None) -> None:
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    _close_job(job)
 
 
 @contextmanager
@@ -179,12 +264,8 @@ def serving(s: Settings, info: dict, status: Callable[[str], None] = lambda m: N
         yield
         return
     status("Starting the local model...")
-    proc = start(s, info)
+    proc, job = start(s, info)
     try:
         yield
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        stop(proc, job)

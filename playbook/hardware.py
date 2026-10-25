@@ -57,11 +57,22 @@ def _is_arm_mac() -> bool:
     return platform.machine() == "arm64"
 
 
+LOW_POWER_MAX_THREADS = 6  # vision encoding: 4 -> 6 threads cut ~40% per screenshot on a 14-thread laptop; 8 adds little
+
+
 def cpu_threads(settings) -> int | None:
-    """Thread cap for heavy work (None = no cap)."""
+    """Thread cap for heavy work (None = no cap). Low-power mode: half the CPU threads, at most 6."""
     if settings.max_threads > 0:
         return settings.max_threads
-    return 4 if settings.low_power else None
+    if not settings.low_power:
+        return None
+    try:
+        import psutil
+
+        n = psutil.cpu_count() or 4
+    except Exception:
+        n = 4
+    return max(2, min(LOW_POWER_MAX_THREADS, n // 2))
 
 
 def be_gentle(settings) -> None:

@@ -186,3 +186,11 @@ def test_low_power_consolidation_is_lean_and_text_only(settings, make_session):
     by_title = {s.title: s for s in pb.steps}
     assert by_title["Click Search"].action == "click"  # filled from the source candidate
     assert by_title["Click Search"].confidence <= 0.95  # pass-1 confidence; the model can't raise it
+
+
+def test_low_power_keeps_full_consolidation_for_cloud_models(settings, make_session):
+    settings.low_power, settings.provider, settings.allow_cloud = True, "gemini", True  # the lean reply is a CPU shortcut
+    pb, client = run(settings, make_session())
+    req = client.requests[-1]
+    assert sum(p["type"] == "image_url" for p in req["messages"][1]["content"]) == 2
+    assert pb.title == PASS2["title"] and [s.source_ids for s in pb.steps] == [["c2"], ["c1"], ["c3"]]
