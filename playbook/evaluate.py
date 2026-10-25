@@ -15,7 +15,8 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import asdict, dataclass
+import time
+from dataclasses import asdict, dataclass, replace
 
 from .config import get_settings
 from .models import Playbook, Step
@@ -34,6 +35,8 @@ class Score:
     false_flags: int
     api_calls: int
     model: str
+    provider: str = ""
+    seconds: float = 0.0
 
     @property
     def recall(self) -> float:
@@ -89,6 +92,7 @@ def main(argv: list[str] | None = None) -> int:
         from .analyzer import AnalysisError, Analyzer
         from .generator import write_playbook
 
+        t0 = time.time()
         analyzer = Analyzer(settings, progress=lambda f, m, n=name: print(f"\r[{n}] {m[:90]:<90}", end="", flush=True))
         try:
             pb = analyzer.analyze(session)
@@ -97,14 +101,15 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         write_playbook(pb, session)
         print()
-        scores.append(score(sc, pb, analyzer.vc.calls))
+        scores.append(replace(score(sc, pb, analyzer.vc.calls), provider=analyzer.vc.backend.provider,
+                              seconds=round(time.time() - t0, 1)))
 
     if not scores:
         return 0
-    print(f"\n{'scenario':<10} {'steps':>5} {'expected found':>15} {'mistake':>9} {'false flags':>12} {'calls':>6}  model")
+    print(f"\n{'scenario':<10} {'steps':>5} {'expected found':>15} {'mistake':>9} {'false flags':>12} {'calls':>6} {'time':>7}  model")
     for s in scores:
         mistake = ("caught" if s.mistake_flagged else "MISSED") if s.mistake_planted else "n/a"
-        print(f"{s.scenario:<10} {s.steps:>5} {s.expected_found:>9}/{s.expected_total:<5} {mistake:>9} {s.false_flags:>12} {s.api_calls:>6}  {s.model}")
+        print(f"{s.scenario:<10} {s.steps:>5} {s.expected_found:>9}/{s.expected_total:<5} {mistake:>9} {s.false_flags:>12} {s.api_calls:>6} {s.seconds:>6.0f}s  {s.provider}/{s.model}")
         for m in s.missing:
             print(f"{'':<10} missing: {m}")
     out = eval_dir / "eval_results.json"

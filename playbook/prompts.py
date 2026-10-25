@@ -114,3 +114,33 @@ Reply with ONLY a JSON object, with no markdown fences:
 
 REPAIR_PROMPT = """Your previous reply could not be used: {error}
 Return ONLY the corrected JSON object that follows the required schema. No prose, no markdown fences."""
+
+
+# --- Local models -------------------------------------------------------------------
+# Local runs add exact facts to the event log: the UI element under each click (from the
+# accessibility API), OCR text near each click and newly appeared text, plus a zoomed crop
+# of each click. Small models get a shorter rubric (prompt processing is slow on a CPU).
+LOCAL_FACTS = """Extra facts in the log are exact; prefer them over reading small text in the images:
+- "on Button \"New Email\"" / "into Edit \"To\"": the UI element the user clicked or typed into, read from the accessibility API.
+- "(field now ...)": the field's full value after typing.
+- "text near #n (OCR)" and "New text on screen (OCR)": text read from the screenshot by OCR (spacing may be missing).
+- "Zoom on event #n": a full-resolution crop around that click."""
+
+DOMAIN_DETAILS_SHORT = """Capture what makes a step repeatable: exact UI labels, values typed, files, commands, URLs, recipients, settings changed, and information read."""
+
+CONFIDENCE_RUBRIC_SHORT = """Confidence: 0.9+ action and target clearly visible and confirmed; 0.7-0.89 action clear, target or value partly inferred; 0.4-0.69 inferred from indirect evidence or unreadable text; below 0.4 a guess."""
+
+
+def pass1_system(local: bool, compact: bool) -> str:
+    if not local:
+        return PASS1_SYSTEM
+    text = PASS1_SYSTEM
+    if compact:
+        text = text.replace(DOMAIN_DETAILS, DOMAIN_DETAILS_SHORT).replace(CONFIDENCE_RUBRIC, CONFIDENCE_RUBRIC_SHORT)
+    return text.replace("\nTask:", f"\n{LOCAL_FACTS}\n\nTask:", 1)
+
+
+def pass2_system(compact: bool) -> str:
+    if not compact:
+        return PASS2_SYSTEM
+    return PASS2_SYSTEM.replace(DOMAIN_DETAILS, DOMAIN_DETAILS_SHORT).replace(CONFIDENCE_RUBRIC, CONFIDENCE_RUBRIC_SHORT)

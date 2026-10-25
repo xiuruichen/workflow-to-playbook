@@ -22,7 +22,9 @@ def settings(tmp_path: Path) -> Settings:
         rpm_limit=100000,
         sessions_dir=tmp_path / "sessions",
         cache_dir=tmp_path / "cache",
+        data_dir=tmp_path / "data",  # never read this machine's real setup-local choice
         window_size=6,
+        use_ocr=False,  # OCR has its own tests; keep the rest fast
     )
 
 
@@ -38,7 +40,9 @@ class FakeClient:
 
     def _create(self, **kw):
         self.requests.append(kw)
-        queue = self.pass1 if kw["messages"][0]["content"] == prompts.PASS1_SYSTEM else self.pass2
+        # Pass 1 uses PASS1_SYSTEM or its local-model variant, which share the opening line.
+        is_pass1 = kw["messages"][0]["content"].startswith(prompts.PASS1_SYSTEM.split("\n")[0])
+        queue = self.pass1 if is_pass1 else self.pass2
         content = queue.pop(0) if len(queue) > 1 else queue[0]
         if not isinstance(content, str):
             content = json.dumps(content)

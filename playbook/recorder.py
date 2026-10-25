@@ -25,7 +25,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import cv2
 import numpy as np
@@ -33,6 +33,9 @@ import numpy as np
 from .config import Settings, get_settings
 from .keyframes import notable_change, resize_max_width, same_screen, save_jpeg, signature
 from .models import Event, Keyframe, Manifest
+from .security import check_storage
+from .uia import Element, Inspector
+from .uia import result as uia_result
 
 
 def _enable_dpi_awareness() -> None:
@@ -87,6 +90,7 @@ def foreground_window() -> WindowInfo | None:
 
 
 def new_session_dir(settings: Settings, suffix: str = "") -> Path:
+    check_storage(settings.sessions_dir, settings.allow_synced_dir)
     sid = datetime.now().strftime("%Y%m%d-%H%M%S") + (f"-{suffix}" if suffix else "")
     path = settings.sessions_dir / sid
     path.mkdir(parents=True, exist_ok=False)
@@ -107,6 +111,7 @@ class _Raw:
     dy: int = 0
     key: str = ""  # printable char or special key name
     mods: frozenset = field(default_factory=frozenset)
+    element: Any = None  # uia.Element, or a Future resolving to one (requested at press time)
 
 
 SPECIAL_ENDS_BURST = {"enter", "tab", "esc"}
@@ -116,6 +121,18 @@ REPEAT_WINDOW_S = 1.0
 FOCUS_SETTLE_S = 0.5  # a newly focused window must stay focused this long (skips Alt+Tab cycling)
 IGNORED_KEYS = {"caps_lock", "num_lock", "scroll_lock"}  # state toggles, not actions
 MODIFIERS = {"ctrl", "ctrl_l", "ctrl_r", "alt", "alt_l", "alt_r", "alt_gr", "cmd", "cmd_l", "cmd_r", "shift", "shift_l", "shift_r"}
+
+
+def _resolve(element: Any) -> Element | None:
+    """An Element, or the result of a pending UI Automation lookup (None if slow / failed)."""
+    if element is None or isinstance(element, Element):
+        return element
+    return uia_result(element)
+
+
+def _label(element: Any) -> str | None:
+    el = _resolve(element)
+    return el.label() if el else None
 
 
 def _norm_mod(name: str) -> str:
@@ -148,12 +165,16 @@ class Recorder:
         self.keyframes: list[Keyframe] = []
         self._events_log = None
         self._window_fn = foreground_window  # replaceable in tests / simulations
+        self._inspector: Inspector | None = None  # UI Automation lookups (Windows)
 
     # ------------------------------------------------------------------ public API
     def start(self) -> Path:
         self.session_dir = new_session_dir(self.s)
         self._events_log = open(self.session_dir / "events.jsonl", "a", encoding="utf-8")
         self._t0 = time.perf_counter()
+        if self.s.capture_ui_elements:
+            self._inspector = Inspector()
+            self._inspector.warm_up()
         self._start_listeners()
         self.running = True
         self._thread = threading.Thread(target=self._capture_loop, name="capture", daemon=True)
@@ -165,6 +186,8 @@ class Recorder:
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=30)
+        if self._inspector:
+            self._inspector.shutdown()
         for lst in self._listeners:
             try:
                 lst.stop()
@@ -210,7 +233,9 @@ class Recorder:
         from pynput import keyboard, mouse
 
         def on_click(x, y, button, pressed):
-            self._raw.put(_Raw(self._now(), "press" if pressed else "release", int(x), int(y), button=button.name))
+            # Ask UI Automation what is under the pointer now, before the click changes the UI.
+            element = self._inspector.at(x, y) if (pressed and self._inspector) else None
+            self._raw.put(_Raw(self._now(), "press" if pressed else "release", int(x), int(y), button=button.name, element=element))
 
         def on_scroll(x, y, dx, dy):
             self._raw.put(_Raw(self._now(), "scroll", int(x), int(y), dx=int(dx), dy=int(dy)))
@@ -273,6 +298,7 @@ class Recorder:
         self._scroll: Event | None = None
         self._last_click = None
         self._last_key: tuple[int, float] | None = None  # (event index, time) of the last repeatable key
+        self._burst_element = None
         self._window: WindowInfo | None = None  # focused window as of the last poll
         self._window_candidate: tuple[WindowInfo, float] | None = None
 
@@ -480,7 +506,8 @@ class Recorder:
                 x, y = self._to_local(p.x, p.y)
                 if math.hypot(r.x - p.x, r.y - p.y) > 20:
                     x2, y2 = self._to_local(r.x, r.y)
-                    self._add_event(Event(t=round(p.t, 2), kind="drag", x=x, y=y, x2=x2, y2=y2, button=p.button))
+                    self._add_event(Event(t=round(p.t, 2), kind="drag", x=x, y=y, x2=x2, y2=y2, button=p.button,
+                                          element=_label(p.element)))
                     continue
                 kind = "right_click" if p.button == "right" else "click"
                 last = self._last_click
@@ -488,7 +515,7 @@ class Recorder:
                     last.kind = "double_click"  # upgrade the previous click in place
                     self._last_click = None
                     continue
-                ev = Event(t=round(p.t, 2), kind=kind, x=x, y=y, button=p.button)
+                ev = Event(t=round(p.t, 2), kind=kind, x=x, y=y, button=p.button, element=_label(p.element))
                 self._add_event(ev)
                 self._last_click = ev
             elif r.kind == "scroll":
@@ -542,6 +569,8 @@ class Recorder:
         if not self._burst:
             self._burst_t = r.t
             self._burst_before = self._frame_before(r.t)
+            # The field being typed into (simulations pass it on the first key).
+            self._burst_element = r.element if r.element is not None else (self._inspector.focused() if self._inspector else None)
         self._burst.append(char)
         self._burst_last = r.t
 
@@ -566,7 +595,17 @@ class Recorder:
         if self.s.mask_typed_text:
             text = "•" * len(text)
         self._burst = []
-        self._add_event(Event(t=round(self._burst_t, 2), kind="type", text=text), before_frame=self._burst_before)
+        start = _resolve(self._burst_element)
+        end = _resolve(self._inspector.focused()) if self._inspector else None
+        field_el = end or start
+        value = (end or start).value if (end or start) else None
+        if self.s.mask_typed_text or (field_el and "password" in field_el.name.lower()):
+            value = None  # never record field contents when typing is masked or looks like a password
+        self._add_event(
+            Event(t=round(self._burst_t, 2), kind="type", text=text, element=field_el.label() if field_el else None,
+                  element_value=value),
+            before_frame=self._burst_before,
+        )
 
     def _flush_scroll(self) -> None:
         if self._scroll is None:
@@ -613,27 +652,53 @@ def import_video(video: Path, settings: Settings | None = None, progress: Callab
     return session_dir
 
 
-def resolve_session(arg: str | None, settings: Settings | None = None) -> Path:
-    """Accept a session path, a session id, or 'latest'."""
+def is_archived(session: Path) -> bool:
+    return Path(session).suffix == ".pbx"
+
+
+def ensure_hot(session: Path, settings: Settings | None = None) -> Path:
+    """A session folder ready to use: archived sessions (`<id>.pbx`) are decrypted and restored."""
+    session = Path(session)
+    if not is_archived(session):
+        return session
+    from .archive import restore
+
+    folder = session.with_suffix("")
+    if (folder / "manifest.json").exists():
+        return folder  # already restored
+    return restore(session, folder, settings)
+
+
+def resolve_session(arg: str | None, settings: Settings | None = None, restore: bool = True) -> Path:
+    """Accept a session path, a session id, or 'latest'. Archived sessions are restored unless restore=False."""
     s = settings or get_settings()
-    if arg and Path(arg).is_dir():
-        return Path(arg)
-    if arg and arg != "latest":
-        p = s.sessions_dir / arg
-        if p.is_dir():
-            return p
-        raise FileNotFoundError(f"No session '{arg}' in {s.sessions_dir}")
-    sessions = list_sessions(s)
-    if not sessions:
-        raise FileNotFoundError(f"No sessions in {s.sessions_dir}")
-    return sessions[0]
+    found: Path | None = None
+    if arg and (Path(arg).is_dir() or (Path(arg).suffix == ".pbx" and Path(arg).is_file())):
+        found = Path(arg)
+    elif arg and arg != "latest":
+        for p in (s.sessions_dir / arg, s.sessions_dir / f"{arg}.pbx"):
+            if p.is_dir() or p.is_file():
+                found = p
+                break
+        else:
+            raise FileNotFoundError(f"No session '{arg}' in {s.sessions_dir}")
+    else:
+        sessions = list_sessions(s)
+        if not sessions:
+            raise FileNotFoundError(f"No sessions in {s.sessions_dir}")
+        found = sessions[0]
+    return ensure_hot(found, s) if restore else found
 
 
 def list_sessions(settings: Settings | None = None) -> list[Path]:
+    """Newest first: session folders, plus `<id>.pbx` archives of sessions that aren't restored."""
     s = settings or get_settings()
     if not s.sessions_dir.exists():
         return []
-    return sorted((p for p in s.sessions_dir.iterdir() if (p / "manifest.json").exists()), reverse=True)
+    hot = {p.name: p for p in s.sessions_dir.iterdir() if (p / "manifest.json").exists()}
+    cold = {p.stem: p for p in s.sessions_dir.glob("*.pbx") if p.stem not in hot}
+    return [v for _, v in sorted({**hot, **cold}.items(), reverse=True)]
 
 
-__all__ = ["Recorder", "record_session", "import_video", "resolve_session", "list_sessions", "new_session_dir"]
+__all__ = ["Recorder", "record_session", "import_video", "resolve_session", "list_sessions", "new_session_dir",
+           "is_archived", "ensure_hot"]

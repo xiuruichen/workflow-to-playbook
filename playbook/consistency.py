@@ -57,7 +57,8 @@ def _edit_distance(a: str, b: str) -> int:
 
 
 def _norm(s: str) -> str:
-    return re.sub(r"\s+", " ", s.strip().lower())
+    # Spacing is ignored: OCR often drops spaces ("New Email" -> "NewEmail").
+    return re.sub(r"\s+", "", s.strip().lower())
 
 
 def is_near_miss(typed: str, seen: str) -> bool:

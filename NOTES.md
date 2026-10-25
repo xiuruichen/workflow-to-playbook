@@ -13,16 +13,18 @@ The confidence flags are the key research hook. They mark where an observer can'
 ## Architecture
 
 ```
-recorder.py ──► sessions/<id>/{recording.mp4, events.jsonl, keyframes/, manifest.json}
-     │                 (events carry app + window title; window switches are events)
-keyframes.py (two-scale change detection, video import, click annotation)
+recorder.py ──► <local app data>/sessions/<id>/{recording.mp4, events.jsonl, keyframes/, manifest.json}
+     │            (events carry app + window title and, via uia.py, the UI element clicked / typed into)
+keyframes.py (two-scale change detection, video import, click annotation, crops)
      │
-analyzer.py  pass 1: windows of keyframes + events ──► Gemini ──► StepCandidates (calibrated) + visible values
-             pass 2: all candidates + first/last frame ──► Gemini ──► Playbook (merged steps)
-consistency.py: typed values (keyboard log) vs values seen on screen ──► review notes (no API)
+backend.py + hardware.py + security.py: which model (local Ollama by default, sized to RAM/VRAM), egress guard
+analyzer.py  pass 1: windows of keyframes + events + OCR text (ocr.py) + click crops ──► vision model ──► StepCandidates
+             pass 2: all candidates + first/last frame ──► vision model ──► Playbook (merged steps)
+consistency.py: typed values (keyboard log) vs values seen on screen (model + OCR) ──► review notes
      │
 generator.py ──► playbook.md / playbook.html / playbook.json
-app.py (Streamlit) and playbook/__main__.py (CLI) orchestrate the above.
+archive.py + tilecodec.py: idle session folder ◄──► encrypted <id>.pbx (lossless keyframes, AV1 video, zstd JSON)
+app.py (Streamlit) and playbook/__main__.py (CLI) orchestrate the above; local_setup.py installs the model.
 scenarios.py + evaluate.py: scripted multi-domain recordings with ground truth ──► scorecard
 labels.py: reviewer Correct/Wrong labels ──► labels.csv (future calibration data)
 ```
@@ -37,7 +39,13 @@ labels.py: reviewer Correct/Wrong labels ──► labels.csv (future calibratio
 - **Two kinds of review flag.** Low confidence (⚠️) means *the system doesn't know what happened*. A review note (🔎) means *it knows what happened, but something looks wrong*: a typed value that differs from its source, a likely typo, an undone action. The second kind came out of the first real test (see below) and is arguably the more valuable one: it surfaces the human's mistakes and unexplained decisions, which is exactly where tacit knowledge (or its absence) shows.
 - **Never silently lose information.** A segment that fails to analyze becomes a confidence-0 step ("review the recording manually"). Candidates that pass 2 forgets are kept as raw steps. Dropped candidates are logged in `analysis.json`.
 - **Free-tier friendly.** Throttling, retries that respect Google's suggested wait, response caching (re-runs and resumes cost nothing), downscaled JPEGs, an ordered fallback chain of models (each has its own daily quota), and remembering exhausted models until their quota resets.
-- **OpenAI-compatible client.** Switching to another vision provider (OpenRouter, a local vLLM/Ollama server, OpenAI) only needs `GEMINI_BASE_URL`, `GEMINI_MODEL` and the key.
+- **On-prem by default; the cloud is an explicit opt-in.** The same OpenAI-compatible client talks to Ollama on `127.0.0.1`. An egress guard refuses any endpoint that isn't loopback or private-network unless `ALLOW_CLOUD=true`, and `PROVIDER=gemini` needs that flag as well, so a stray setting can't upload screenshots.
+- **Hardware-aware, not one-size-fits-all.** "Suitable for most systems" means the smallest machines must work, so the model tier (Qwen3-VL 2B/4B/8B/32B), screenshots per request, image size and context window are chosen from RAM/VRAM (unified memory on Apple silicon). Pacing and quota logic is skipped for local models; timeouts are long because CPU inference takes minutes.
+- **Small models need facts, not pixels.** Rather than hoping a 4B model reads 9-pt text, the recorder takes the clicked element's name from the accessibility API (UI Automation, requested at press time so it sees the UI *before* the click changes it), local OCR adds exact text near each click and in changed regions, a full-resolution crop accompanies each click, and the JSON schema is enforced as a grammar. The consistency check also takes OCR text, so catching a mistyped value no longer depends on the model reading it.
+- **OCR only where it matters.** Full-frame OCR cost ~4.5 s per frame on this laptop. Turning off RapidOCR's upscaling to 736 px and its rotation classifier brought it to ~1.8 s; reading only crops around clicks and changed regions (cached in `ocr.json`) cuts it further.
+- **Compression that knows what a screen recording is.** Keyframes are analysis inputs, so they must restore bit-exact: a 16×16 tile-delta codec (aligned with JPEG's MCUs, so unchanged regions decode identically) stores only new tiles, as lossless WebP, with references for tiles seen before. It never stores a frame larger than its JPEG and verifies a SHA-256 of the pixels on restore. The video is only for people, so it gets AV1 with every frame kept: frame dropping (`mpdecimate`) was tried and shifted what appeared at a given timestamp, which would break `#t=` links.
+- **Encryption that fails loudly.** AES-256-GCM per 4 MB chunk, with associated data binding each chunk to the file's salt, its record and its position, so tampering, reordering and truncation are all detected. The key lives in the OS keyring, not next to the data.
+- **Archive when idle, not right after analysis.** Packing immediately after `run` would encrypt the playbook the user is about to open. Sessions are archived after 2 untouched days instead (`AUTO_COMPACT`), and restored transparently by `analyze`/`render`/the UI. Re-packing copies the unchanged video and keyframe records from the old archive.
 - **Video time = wall time.** The recorder duplicates frames when capture lags, so `#t=<event time>` always lands on the right moment.
 - **Domain-neutral by construction.** Nothing in capture or analysis assumes an app. Context comes from the OS (app and window title per event, window-switch events), and the prompts list what makes a step repeatable in each kind of work (paths and commands for coding, recipients and field values for email/forms, before/after values for settings). This is verified with scripted scenarios rather than assumed.
 - **Deterministic checks where possible.** The keyboard log is ground truth for what was typed, so comparing it against values seen on screen is pure string matching with no model needed. Only a value recorded *before* the typing proves a correct copy, and the user's own earlier input (e.g. a mistyped command still visible in the terminal) is never treated as a source.
@@ -63,6 +71,12 @@ All of these are fixed. The evaluation results below are the evidence.
 **Synthetic example** (`examples/city-population-lookup/`): a fictional search → spreadsheet workflow with a deliberate digit swap (168,412 → 186,412). It is imported as video, so there are no input events. All 4 steps were reconstructed, and the typo was flagged with both values quoted.
 
 ## Known limitations
+
+- **CPU inference is slow.** Qwen3-VL 4B on a laptop CPU takes minutes per request, so a 3-minute recording can take tens of minutes to analyze the first time (cached afterwards). A GPU or Apple silicon is much faster.
+- **UI Automation is Windows-only**; OCR, the archive and local analysis work on all three OSes.
+- **Restored keyframes are PNG** (exact pixels, but larger than the original JPEGs) while a session is in use.
+- **Losing the archive key loses the archives.** Back it up with `key --export`.
+- **AV1 playback:** archived videos are AV1, which current browsers play; a few older players don't. `ARCHIVE_VIDEO=original` avoids re-encoding.
 
 - **Single monitor** (choose with `MONITOR`). Multi-monitor workflows lose actions on other screens.
 - **App/window metadata is Windows-only** for now (Win32 calls via ctypes). On macOS/Linux events have no window context; the model falls back to reading the screen.
@@ -95,6 +109,8 @@ All of these are fixed. The evaluation results below are the evidence.
 
 The one missed expected step ("read the population 168,412") is Lite-model variation: the value still appears in the mismatch flag. On the first run, before the visible-values change, the email typo was missed: the model never wrote a "read John's email" step, so nothing recorded the correct address. Then the check over-flagged the corrected `python app.py` against the earlier typo still visible in the terminal. Both were fixed and are covered by tests.
 
+**Local model: not measured yet.** The plan is to run the same scorecard with the local model and compare: target ≥ 80% expected steps, ≥ 2/3 mistakes caught, ≤ 1 false alarm. On the development laptop (7.6 GB RAM, Intel Core Ultra 5 135U, no GPU, runs `LOW_POWER=true`), Ollama 0.40.11 and `qwen3-vl:2b` are installed, but the model couldn't load: with a browser, two editor windows, OneDrive and OneNote open, about 28 GB of the 30.6 GB commit limit was in use and only ~0.1 GB of RAM was free, so Ollama failed to allocate a 1 GB buffer. That now produces a clear "out of memory: close apps" error instead of retries. The local path is covered by unit tests (request format, schema output, crops, OCR, UI elements, fallbacks, out-of-memory), but its accuracy and speed are unmeasured until it runs with a few GB of RAM free.
+
 **Caveats:**
 - The scenarios are synthetic: clean screens, readable fonts, one mistake each.
 - They test generality of the pipeline, not real-world accuracy.
@@ -107,9 +123,10 @@ The one missed expected step ("read the population 168,412") is Lite-model varia
 ## AI/ML: what's in, what's next, and why
 
 **In use:**
-- **Vision-language models** for the core understanding, which is the right tool for reading arbitrary UIs.
+- **Vision-language models** for the core understanding, which is the right tool for reading arbitrary UIs. Local Qwen3-VL by default; Gemini on opt-in.
+- **Local OCR** (RapidOCR / ONNX Runtime, small CPU models) for exact on-screen text.
 - **Cheap, non-learned components** that make the model's job easier and catch its blind spots:
-  - OS window metadata
+  - OS window metadata and UI Automation element names
   - two-scale change detection
   - rule-based confidence calibration
   - the deterministic consistency check
@@ -117,16 +134,18 @@ The one missed expected step ("read the population 168,412") is Lite-model varia
 **Collecting now, learn later: confidence calibration.** The rule-based penalties are guesses. Reviewers now mark steps Correct/Wrong, and `python -m playbook labels` exports them with the features the rules use (model confidence, event support, gaps, merges, action type). With roughly 100–200 labelled steps, a logistic or isotonic regression from those features to P(correct) can replace the hand-set penalties. That's a few lines of scikit-learn, and it's the most valuable ML addition. Fitting it now, with no data, would be fake rigour.
 
 **Considered and deferred:**
-- **Local OCR (Tesseract/PaddleOCR).** Gemini reads on-screen text well. The "visible values" list gives the consistency check what OCR would, at no extra install or API cost.
 - **Self-consistency (analyze each segment twice and compare).** A good uncertainty signal, but it doubles API use, and that's the binding constraint on the free tier.
 - **Fine-tuning or training a vision model.** No labelled data, and general models already handle arbitrary apps. Not worth it at prototype stage.
-- **Accessibility-tree capture (Windows UI Automation).** It would give exact element names and values without vision. It's the most promising *non-ML* accuracy upgrade, but it's a large, OS-specific dependency (roadmap).
 - **Embeddings to compare recordings.** Useful later for clustering many recordings of the same task (expert vs novice, essential vs habitual steps). That's the digital-twin direction, and it needs many recordings first.
 
 ## Roadmap
 
 - [ ] Optional think-aloud audio track, transcribed and aligned to steps (captures the *why*).
-- [ ] Accessibility-tree / UI Automation capture (exact element names, no OCR guessing).
+- [x] Accessibility-tree / UI Automation capture of clicked and typed-into elements (Windows).
+- [ ] The same via AX (macOS) / AT-SPI (Linux).
+- [x] Fully local analysis (Ollama + Qwen3-VL), hardware-aware model choice, egress guard.
+- [x] Encrypted, compacted archives of idle sessions.
+- [ ] Measure the local model on the evaluation scenarios and real recordings (blocked on disk space on the dev laptop).
 - [x] Active-window metadata (app, window title) per event, and window-switch events (Windows).
 - [ ] The same on macOS/Linux; browser URL capture; multi-monitor.
 - [ ] Learned confidence calibration from reviewer labels (`labels.csv`) once ~100–200 steps are labelled.
@@ -134,4 +153,4 @@ The one missed expected step ("read the population 168,412") is Lite-model varia
 - [ ] Automatic redaction of sensitive regions before upload.
 - [ ] Export to agent-executable formats (e.g. browser-automation scripts or tool-call plans), so a playbook can be replayed by an AI agent: the "digital twin" step.
 - [ ] Compare multiple recordings of the same task to separate the essential steps from personal habits, and to surface expert-vs-novice differences.
-- [ ] Optional local OCR, only if the model's visible-values list proves unreliable on real recordings.
+- [x] Local OCR of the regions around clicks and changes.

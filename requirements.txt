@@ -9,4 +9,11 @@ pydantic>=2.6
 pydantic-settings>=2.2
 python-dotenv>=1.0
 streamlit>=1.37
+# On-prem: local OCR, hardware detection, archive compression + encryption, key storage
+rapidocr-onnxruntime>=1.3
+psutil>=5.9
+zstandard>=0.22
+cryptography>=42
+keyring>=24
+comtypes>=1.4; sys_platform == "win32"
 pytest>=8.0

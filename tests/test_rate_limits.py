@@ -55,6 +55,8 @@ def no_sleep(monkeypatch):
 
 @pytest.fixture
 def cfg(settings):
+    # Quota handling is a cloud concern: these tests opt in to the Gemini provider explicitly.
+    settings.provider, settings.allow_cloud = "gemini", True
     settings.gemini_model = "model-a"
     settings.gemini_fallback_models = "model-a,model-b,model-c"
     return settings

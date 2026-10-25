@@ -22,6 +22,8 @@ class Event(BaseModel):
     app: str | None = None  # foreground process, e.g. "EXCEL.EXE" (Windows only)
     window: str | None = None  # foreground window title
     count: int = 1  # repeated identical key presses collapsed into one event
+    element: str | None = None  # UI element clicked / typed into, e.g. 'Button "New Email"' (Windows)
+    element_value: str | None = None  # the field's full value after typing, when available
     x: int | None = None
     y: int | None = None
     x2: int | None = None  # drag end
@@ -42,10 +44,11 @@ class Event(BaseModel):
     def describe(self) -> str:
         if self.kind == "focus":
             return f"switched to window \"{self.window or '?'}\"" + (f" ({self.app})" if self.app else "")
+        on = f" on {self.element}" if self.element else ""
         if self.kind in ("click", "double_click", "right_click"):
-            what = f"{self.kind.replace('_', ' ')} at ({self.x},{self.y})"
+            what = f"{self.kind.replace('_', ' ')} at ({self.x},{self.y}){on}"
         elif self.kind == "drag":
-            what = f"drag from ({self.x},{self.y}) to ({self.x2},{self.y2})"
+            what = f"drag from ({self.x},{self.y}) to ({self.x2},{self.y2}){on}"
         elif self.kind == "scroll":
             direction = "down" if (self.dy or 0) < 0 else "up"
             what = f"scroll {direction} x{abs(self.dy or 0)} at ({self.x},{self.y})"
@@ -53,7 +56,9 @@ class Event(BaseModel):
             text = self.text or ""
             if len(text) > MAX_TEXT_IN_PROMPT:  # long prose/code: the gist is enough for the model
                 text = f"{text[:200]}… (+{len(text) - 200} chars)"
-            what = f"typed {json.dumps(text, ensure_ascii=False)}"
+            what = f"typed {json.dumps(text, ensure_ascii=False)}" + (f" into {self.element}" if self.element else "")
+            if self.element_value and self.element_value != self.text:
+                what += f" (field now {json.dumps(self.element_value[:MAX_TEXT_IN_PROMPT], ensure_ascii=False)})"
         elif self.kind == "key":
             what = f"pressed {self.text}" + (f" ×{self.count}" if self.count > 1 else "")
         else:

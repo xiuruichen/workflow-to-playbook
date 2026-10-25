@@ -215,3 +215,30 @@ def extract_from_video(
     if prev is not None and (ref is None or not same_screen(ref, prev[2])):
         save(prev[1], prev[0], "end")
     return keyframes, duration, width, height, fps
+
+
+def changed_rect(a: np.ndarray, b: np.ndarray, pad: int = 24, max_fraction: float = 0.7) -> tuple[int, int, int, int] | None:
+    """Bounding box (in b's pixels) of what changed from frame a to frame b, padded.
+
+    None if nothing changed. The whole frame if most of it changed (e.g. an app switch)."""
+    sa, sb = signature(a), signature(b)
+    diff = cv2.absdiff(sa.fine, sb.fine if sb.fine.shape == sa.fine.shape else cv2.resize(sb.fine, sa.fine.shape[::-1]))
+    ys, xs = np.nonzero(diff > FINE_DELTA)
+    if len(xs) <= SAME_MAX_PX:
+        return None
+    h, w = b.shape[:2]
+    sx, sy = w / sa.fine.shape[1], h / sa.fine.shape[0]
+    x1, y1 = max(0, int(xs.min() * sx) - pad), max(0, int(ys.min() * sy) - pad)
+    x2, y2 = min(w, int((xs.max() + 1) * sx) + pad), min(h, int((ys.max() + 1) * sy) + pad)
+    if (x2 - x1) * (y2 - y1) > max_fraction * w * h:
+        return (0, 0, w, h)
+    return (x1, y1, x2, y2)
+
+
+def crop_around(img: np.ndarray, x: float, y: float, size: int = 448) -> np.ndarray:
+    """A size x size crop centred on (x, y), shifted to stay inside the image."""
+    h, w = img.shape[:2]
+    size = min(size, w, h)
+    x1 = int(min(max(0, x - size / 2), w - size))
+    y1 = int(min(max(0, y - size / 2), h - size))
+    return img[y1:y1 + size, x1:x1 + size]

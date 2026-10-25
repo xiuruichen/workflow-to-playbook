@@ -50,7 +50,13 @@ def step_rows(pb: Playbook) -> list[dict]:
 def export_labels(session_dirs: list[Path], out: Path) -> int:
     rows = []
     for d in session_dirs:
-        if (d / "playbook.json").exists():
+        if d.suffix == ".pbx":  # archived: read playbook.json straight from the archive
+            from .archive import read_member
+
+            data = read_member(d, "playbook.json")
+            if data:
+                rows += step_rows(Playbook.model_validate_json(data))
+        elif (d / "playbook.json").exists():
             rows += step_rows(Playbook.load(d))
     with open(out, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=COLUMNS)

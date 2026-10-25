@@ -24,9 +24,14 @@ from typing import Any, Callable, TypeVar
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from . import prompts
+from .backend import OUT_OF_MEMORY_HINT, Backend, is_out_of_memory, resolve_backend
 from .config import Settings, get_settings
+from .hardware import be_gentle, cpu_threads
+from .ocr import SessionOCR
+from .ocr import set_threads as ocr_set_threads
+from .security import SecurityError
 from .consistency import annotate_steps, find_near_misses
-from .keyframes import annotate, encode_jpeg, load_image
+from .keyframes import annotate, crop_around, encode_jpeg, load_image, resize_max_width
 from .models import Event, InputVariable, Keyframe, Manifest, Playbook, Step, StepCandidate
 
 T = TypeVar("T", bound=BaseModel)
@@ -38,6 +43,8 @@ PENALTY_NO_EVENT = 0.15
 PENALTY_REPAIRED = 0.10
 PENALTY_LONG_GAP = 0.10
 LONG_GAP_S = 20.0
+CROP_SIZE = 448  # zoomed crop around each click, for local models
+MAX_CROPS_PER_REQUEST = 4
 MERGE_LEEWAY = 0.10  # pass 2 may raise a step merged from several candidates this much above the weakest
 
 
@@ -240,20 +247,41 @@ def classify_rate_limit(exc: Exception) -> tuple[bool, float | None]:
     return exhausted, retry_after
 
 
+def json_schema_format(model: type[BaseModel]) -> dict:
+    """OpenAI-style `response_format` with the model's JSON schema, $refs inlined (Ollama grammars)."""
+    schema = model.model_json_schema()
+    defs = schema.pop("$defs", {})
+
+    def inline(node: Any) -> Any:
+        if isinstance(node, dict):
+            if "$ref" in node:
+                return inline(defs[node["$ref"].split("/")[-1]])
+            return {k: inline(v) for k, v in node.items() if k not in ("title", "default")}
+        if isinstance(node, list):
+            return [inline(v) for v in node]
+        return node
+
+    return {"type": "json_schema", "json_schema": {"name": model.__name__.strip("_").lower(), "schema": inline(schema)}}
+
+
 # ---------------------------------------------------------------------- model client
 class VisionClient:
     """OpenAI-compatible chat client with throttling, retries, model fallback, disk cache
     and JSON repair. `status` receives human-readable updates (waits, retries, switches)."""
 
     def __init__(self, settings: Settings, client: Any = None, status: Callable[[str], None] | None = None,
-                 remember: bool = True):
+                 remember: bool = True, backend: Backend | None = None):
         self.s = settings
-        self.model = settings.gemini_model
+        try:
+            self.backend = backend or resolve_backend(settings)
+        except SecurityError as exc:
+            raise AnalysisError(str(exc)) from exc
+        self.model = self.backend.model
         self.notes: list[str] = []
         self.status = status or (lambda msg: None)
         self.dead_models: dict[str, str] = {}  # model -> why it can't be used
         if client is None:
-            if not settings.gemini_api_key:
+            if not self.backend.local and not self.backend.api_key:
                 raise AnalysisError(
                     "GEMINI_API_KEY is not set. Create a free key at https://aistudio.google.com/apikey "
                     "and put it in .env (see .env.example)."
@@ -261,13 +289,13 @@ class VisionClient:
             from openai import OpenAI
 
             client = OpenAI(
-                api_key=settings.gemini_api_key,
-                base_url=settings.gemini_base_url,
-                timeout=settings.request_timeout_s,
+                api_key=self.backend.api_key,
+                base_url=self.backend.base_url,
+                timeout=self.backend.timeout_s,
                 max_retries=0,  # retries handled below
             )
         self.client = client
-        self.limiter = _RateLimiter(settings.rpm_limit)
+        self.limiter = _RateLimiter(self.backend.rpm or 10**6)
         self.cache_dir = settings.cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.calls = 0
@@ -280,17 +308,18 @@ class VisionClient:
         if self.model in self.dead_models:
             self._switch_model(self.dead_models[self.model] + " (remembered from an earlier run)", block_s=None)
 
-    def _cache_path(self, messages: list[dict]) -> Path:
-        key = hashlib.sha256(json.dumps([self.model, messages], sort_keys=True).encode()).hexdigest()
+    def _cache_path(self, messages: list[dict], response_format: dict | None = None) -> Path:
+        parts = [self.model, messages] + ([response_format] if response_format else [])
+        key = hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()
         return self.cache_dir / f"{key}.json"
 
-    def chat(self, messages: list[dict]) -> str:
-        path = self._cache_path(messages)
+    def chat(self, messages: list[dict], response_format: dict | None = None) -> str:
+        path = self._cache_path(messages, response_format)
         if path.exists():
             self.cache_hits += 1
             return json.loads(path.read_text(encoding="utf-8"))["content"]
-        content = self._call_with_retry(messages)
-        path = self._cache_path(messages)  # the model may have changed during the call
+        content = self._call_with_retry(messages, response_format)
+        path = self._cache_path(messages, response_format)  # the model may have changed during the call
         path.write_text(json.dumps({"model": self.model, "content": content}), encoding="utf-8")
         return content
 
@@ -301,21 +330,23 @@ class VisionClient:
             self.status(msg.format(left=int(left) + 1))
             time.sleep(min(1.0, left))
 
-    def _call_with_retry(self, messages: list[dict]) -> str:
+    def _call_with_retry(self, messages: list[dict], response_format: dict | None = None) -> str:
         import openai
 
         attempt = 0
         while True:
             if (d := self.limiter.delay()) > 0:
-                self._sleep(d, f"Pacing requests ({self.s.rpm_limit}/min)... {{left}}s")
+                self._sleep(d, f"Pacing requests ({self.backend.rpm}/min)... {{left}}s")
             self.limiter.mark()
             self.calls += 1
+            if self.backend.local:
+                self.status(f"Waiting for the local model ({self.model}); this can take a few minutes on a CPU...")
             try:
                 resp = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
                     temperature=0.2,
-                    response_format={"type": "json_object"},
+                    response_format=response_format or {"type": "json_object"},
                 )
                 content = resp.choices[0].message.content
                 if not content:
@@ -338,9 +369,27 @@ class VisionClient:
             except (openai.NotFoundError, openai.BadRequestError) as exc:
                 if isinstance(exc, openai.BadRequestError) and "model" not in str(exc).lower():
                     raise AnalysisError(f"Request failed: {str(exc)[:500]}") from exc
-                self._switch_model("is not available to this API key", block_s=7 * 86400)
+                if self.backend.local:  # not pulled yet; never remember (the user may pull it any time)
+                    self._switch_model(f"is not installed (run: ollama pull {self.model})", block_s=None)
+                else:
+                    self._switch_model("is not available to this API key", block_s=7 * 86400)
                 attempt = 0
-            except (openai.APIConnectionError, openai.APITimeoutError, openai.InternalServerError, _EmptyResponse) as exc:
+            except openai.APIConnectionError as exc:
+                if self.backend.local and not isinstance(exc, openai.APITimeoutError):
+                    raise AnalysisError(
+                        f"Can't reach the local model server at {self.backend.base_url}. Start Ollama "
+                        "(open the Ollama app, or run `ollama serve`), then run `python -m playbook setup-local`."
+                    ) from exc
+                if attempt >= MAX_RETRIES:
+                    self._switch_model(f"kept failing ({type(exc).__name__})", block_s=None)
+                    attempt = 0
+                    continue
+                attempt += 1
+                wait = min(5 * 2 ** (attempt - 1), MAX_WAIT_S)
+                self._sleep(wait, f"{type(exc).__name__} from {self.model}; retrying in {{left}}s (attempt {attempt}/{MAX_RETRIES})")
+            except (openai.InternalServerError, _EmptyResponse) as exc:
+                if self.backend.local and is_out_of_memory(exc):  # retrying won't free memory
+                    raise AnalysisError(OUT_OF_MEMORY_HINT) from exc
                 if attempt >= MAX_RETRIES:
                     self._switch_model(f"kept failing ({type(exc).__name__})", block_s=None)
                     attempt = 0
@@ -361,7 +410,7 @@ class VisionClient:
         return self._available
 
     def fallback_models(self) -> list[str]:
-        prefs = [m.strip() for m in self.s.gemini_fallback_models.split(",") if m.strip()]
+        prefs = list(self.backend.fallbacks)
         if self.available_models():  # only suggest models this key can see
             prefs = [m for m in prefs if m in self._available]
         return [m for m in prefs if m != self.model and m not in self.dead_models]
@@ -394,6 +443,11 @@ class VisionClient:
         candidates = self.fallback_models()
         if not candidates:
             tried = "; ".join(f"{m} {w}" for m, w in self.dead_models.items())
+            if self.backend.local:
+                raise AnalysisError(
+                    f"No local vision model is installed. Tried: {tried}. "
+                    "Run `python -m playbook setup-local` to download one that fits this computer."
+                )
             raise AnalysisError(
                 f"No usable model left. Tried: {tried}. Free-tier quotas reset daily (midnight Pacific time). "
                 "Run `python -m playbook check` to see which models work right now, set GEMINI_MODEL in .env, "
@@ -405,8 +459,12 @@ class VisionClient:
         self.status(msg)
 
     def complete_json(self, messages: list[dict], schema: type[T]) -> tuple[T, bool]:
-        """Return (parsed response, repaired?) with one repair round-trip on invalid output."""
-        content = self.chat(messages)
+        """Return (parsed response, repaired?) with one repair round-trip on invalid output.
+
+        Local models get the JSON schema as a grammar constraint (Ollama structured output),
+        so small models can't produce malformed JSON; cloud models get plain JSON mode."""
+        fmt = json_schema_format(schema) if self.backend.local else None
+        content = self.chat(messages, fmt)
         try:
             return schema.model_validate(parse_json(content)), False
         except (json.JSONDecodeError, ValidationError) as exc:
@@ -415,7 +473,7 @@ class VisionClient:
             {"role": "assistant", "content": content},
             {"role": "user", "content": prompts.REPAIR_PROMPT.format(error=error)},
         ]
-        content = self.chat(repair)
+        content = self.chat(repair, fmt)
         try:
             return schema.model_validate(parse_json(content)), True
         except (json.JSONDecodeError, ValidationError) as exc:
@@ -442,6 +500,8 @@ class Analyzer:
         self.progress = progress or (lambda f, m: None)
         self._frac = 0.0
         self.vc = VisionClient(self.s, client, status=lambda msg: self.progress(self._frac, msg))
+        tier = self.vc.backend.tier
+        self._compact_prompts = bool(tier and tier.name in ("tiny", "small"))
 
     def _step(self, frac: float, msg: str) -> None:
         self._frac = frac
@@ -456,8 +516,15 @@ class Analyzer:
                 "Fewer than 2 keyframes were captured, so there is nothing to analyze. Record a longer workflow "
                 "or lower CHANGE_THRESHOLD."
             )
-        windows = build_windows(manifest.keyframes, self.s.window_size)
-        candidates, window_log = self._pass1(session_dir, manifest, windows)
+        windows = build_windows(manifest.keyframes, self.vc.backend.window_size)
+        be_gentle(self.s)
+        ocr_set_threads(cpu_threads(self.s))
+        self._ocr = SessionOCR(session_dir, enabled=self.s.use_ocr)
+        self._ocr_seen: list[tuple[str, float]] = []
+        try:
+            candidates, window_log = self._pass1(session_dir, manifest, windows)
+        finally:
+            self._ocr.save()
         self._step(0.9, f"Consolidating {len(candidates)} actions into a playbook with {self.vc.model}...")
         playbook, dropped = self._pass2(session_dir, manifest, candidates, window_log)
         (session_dir / "analysis.json").write_text(
@@ -490,22 +557,42 @@ class Analyzer:
             prev_context=prev_ctx or "(start of recording)",
         )
         parts: list[dict] = [{"type": "text", "text": header}]
+        backend = self.vc.backend
+        crops_left = MAX_CROPS_PER_REQUEST if (backend.local and self.s.send_crops) else 0
+        by_id = {k.id: k for k in manifest.keyframes}
+        prev_path = by_id[kfs[0].id - 1].path if kfs[0].id - 1 in by_id else None
         counter = 0
         for i, (kf, evs) in enumerate(zip(kfs, per_image), start=1):
-            numbered = []
-            lines = []
+            img = load_image(session_dir / kf.path)
+            sx, sy = img.shape[1] / max(manifest.width, 1), img.shape[0] / max(manifest.height, 1)
+            numbered, lines, crops = [], [], []
             for _, ev in evs:
                 counter += 1
                 numbered.append((counter, ev))
                 lines.append(f"  #{counter} [{fmt_ts(ev.t)}] {ev.describe()}")
-            img = load_image(session_dir / kf.path)
+                if ev.x is not None and ev.y is not None:
+                    near = self._ocr.near(kf.path, ev.x * sx, ev.y * sy)
+                    if near:
+                        lines.append(f"     text near #{counter} (OCR): " + " | ".join(near))
+                    if crops_left:
+                        crops.append((counter, ev.x * sx, ev.y * sy))
+                        crops_left -= 1
+            changed = self._ocr.changed_text(prev_path, kf.path)
+            self._ocr_seen.extend((text, kf.t) for text in changed)
+            prev_path = kf.path
             img = annotate(img, numbered, manifest.width, manifest.height)
             parts.append({"type": "text", "text": f"Image {i} — recording time {fmt_ts(kf.t)} (captured: {kf.trigger.replace('_', ' ')})"})
-            parts.append(_image_part(encode_jpeg(img, 80)))
+            parts.append(_image_part(encode_jpeg(resize_max_width(img, backend.image_width), 80)))
+            for n, x, y in crops:  # full-resolution zoom so small models can read the clicked control
+                parts.append({"type": "text", "text": f"Zoom on event #{n} (red ring = where it happened):"})
+                parts.append(_image_part(encode_jpeg(crop_around(img, x, y, CROP_SIZE), 85)))
+            if changed and backend.local:
+                parts.append({"type": "text", "text": f"New text on screen in image {i} (OCR): " + " | ".join(changed[:15])})
             if live:
                 parts.append({"type": "text", "text": f"Events after image {i}:\n" + ("\n".join(lines) if lines else "  (none)")})
         parts.append({"type": "text", "text": f"Describe the user actions between image 1 and image {len(kfs)} as JSON."})
-        return [{"role": "system", "content": prompts.PASS1_SYSTEM}, {"role": "user", "content": parts}]
+        return [{"role": "system", "content": prompts.pass1_system(backend.local, self._compact_prompts)},
+                {"role": "user", "content": parts}]
 
     def _pass1(self, session_dir: Path, manifest: Manifest, windows: list[list[Keyframe]]) -> tuple[list[StepCandidate], list[dict]]:
         candidates: list[StepCandidate] = []
@@ -637,13 +724,13 @@ class Analyzer:
             user = [
                 {"type": "text", "text": f"Recording length {fmt_ts(manifest.duration)}. Segment summaries:\n{contexts}\n\nCandidate steps:\n{json.dumps(payload, indent=1)}"},
                 {"type": "text", "text": "First screenshot of the recording:"},
-                _image_part(encode_jpeg(load_image(session_dir / first.path), 70)),
+                _image_part(encode_jpeg(resize_max_width(load_image(session_dir / first.path), self.vc.backend.image_width), 70)),
                 {"type": "text", "text": "Last screenshot of the recording:"},
-                _image_part(encode_jpeg(load_image(session_dir / last.path), 70)),
+                _image_part(encode_jpeg(resize_max_width(load_image(session_dir / last.path), self.vc.backend.image_width), 70)),
             ]
             try:
                 resp, repaired = self.vc.complete_json(
-                    [{"role": "system", "content": prompts.PASS2_SYSTEM}, {"role": "user", "content": user}], _Pass2Resp
+                    [{"role": "system", "content": prompts.pass2_system(self._compact_prompts)}, {"role": "user", "content": user}], _Pass2Resp
                 )
                 if "lite" in self.vc.model:
                     pb_notes.append(
@@ -725,6 +812,7 @@ class Analyzer:
             st.index = i
         # Deterministic cross-check of typed values against values seen on screen (no API call).
         seen_on_screen = [(v, w["t_start"]) for w in window_log for v in w.get("visible_values", [])]
+        seen_on_screen += getattr(self, "_ocr_seen", [])  # exact text from local OCR
         annotate_steps(steps, find_near_misses(manifest.events, cands, seen_on_screen), fmt_ts)
 
         pb = Playbook(
@@ -762,7 +850,7 @@ def check_models(settings: Settings | None = None, client: Any = None) -> list[t
     vc = VisionClient(s, client, remember=False)  # test every model, even ones remembered as exhausted
     available = vc.available_models()
     results = []
-    for m in _dedupe([s.gemini_model] + [x.strip() for x in s.gemini_fallback_models.split(",")]):
+    for m in _dedupe([vc.backend.model] + vc.backend.fallbacks):
         if available and m not in available:
             results.append((m, False, "not offered to this API key"))
             continue

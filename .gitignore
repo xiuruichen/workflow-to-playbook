@@ -7,3 +7,5 @@ __pycache__/
 .pytest_cache/
 sample*.mp4
 labels.csv
+*.pbx
+*.pbx.tmp

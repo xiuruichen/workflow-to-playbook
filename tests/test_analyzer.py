@@ -109,16 +109,29 @@ def test_merged_steps_may_rise_slightly_above_weakest(settings, make_session):
     assert step.t_start == 0.0 and step.keyframe_after.endswith("0002.jpg")
 
 
-def test_missing_api_key_is_a_clear_error(settings, make_session):
-    settings.gemini_api_key = ""
+def test_cloud_needs_explicit_opt_in_and_a_key(settings, make_session):
+    settings.provider = "gemini"
+    with pytest.raises(AnalysisError, match="ALLOW_CLOUD"):
+        Analyzer(settings).analyze(make_session())
+    settings.allow_cloud, settings.gemini_api_key = True, ""
     with pytest.raises(AnalysisError, match="GEMINI_API_KEY"):
+        Analyzer(settings).analyze(make_session())
+
+
+def test_unreachable_local_model_server_is_a_clear_error(settings, make_session):
+    settings.local_base_url = "http://127.0.0.1:9/v1"  # nothing listens on the discard port
+    settings.local_timeout_s = 5
+    with pytest.raises(AnalysisError, match="local model server"):
         Analyzer(settings).analyze(make_session())
 
 
 def test_images_and_events_are_sent(settings, make_session):
     _, client = run(settings, make_session())
     parts = client.requests[0]["messages"][1]["content"]
-    assert sum(p["type"] == "image_url" for p in parts) == 4
+    # 4 keyframes + 1 zoomed crop around the click (local models get crops to read small labels)
+    assert sum(p["type"] == "image_url" for p in parts) == 5
+    assert any(p["type"] == "text" and p["text"].startswith("Zoom on event #1") for p in parts)
+    assert client.requests[0]["response_format"]["type"] == "json_schema"  # structured output for local models
     text = json.dumps(parts)
     assert "click at (100,100)" in text and "typed" in text and "hello" in text
 

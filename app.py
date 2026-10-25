@@ -11,10 +11,13 @@ from pathlib import Path
 import streamlit as st
 
 from playbook.analyzer import AnalysisError, analyze_session, check_models, fmt_ts
+from playbook.archive import ArchiveError, compact, compact_idle, idle_days
+from playbook.backend import resolve_backend
 from playbook.config import get_settings
 from playbook.generator import render_markdown, review_reasons, write_playbook
 from playbook.models import Manifest, Playbook
-from playbook.recorder import Recorder, import_video, list_sessions
+from playbook.recorder import Recorder, ensure_hot, import_video, is_archived, list_sessions
+from playbook.security import SecurityError
 
 st.set_page_config(page_title="Workflow → Playbook", page_icon="📘", layout="wide")
 settings = get_settings()
@@ -29,31 +32,87 @@ def select_session(path: Path) -> None:
     ss.seek = 0
 
 
+@st.cache_resource(show_spinner="Archiving sessions you haven't used for a while…")
+def auto_archive() -> str:
+    """AUTO_COMPACT=idle:<days>, once per app start."""
+    try:
+        days = idle_days(settings)
+        done = compact_idle(settings, days) if days is not None else []
+    except ArchiveError as exc:
+        return f"Automatic archiving skipped: {exc}"
+    return f"Archived {len(done)} idle session(s)." if done else ""
+
+
+try:
+    backend = resolve_backend(settings)
+    backend_error = None
+except SecurityError as exc:
+    backend, backend_error = None, str(exc)
+archive_note = auto_archive()
+
+
 # ---------------------------------------------------------------- sidebar
 with st.sidebar:
     st.title("📘 Workflow → Playbook")
     st.caption("Record how you do a task; get a step-by-step playbook with timestamps and review flags.")
-    if settings.gemini_api_key:
-        st.success(f"Gemini key loaded · `{settings.gemini_model}`")
+    if backend_error:
+        st.error(backend_error)
+    elif backend.local:
+        st.success(f"🔒 Local analysis · `{backend.model}`" + (f" ({backend.tier.name} tier)" if backend.tier else ""))
+        st.caption("Screenshots never leave this computer.")
+    elif settings.gemini_api_key:
+        st.warning(f"☁️ Cloud analysis (ALLOW_CLOUD) · `{settings.gemini_model}`. Screenshots are sent to Google.")
     else:
-        st.error("No GEMINI_API_KEY. Copy `.env.example` to `.env` and add a free key from aistudio.google.com/apikey.")
-    st.caption(f"Review threshold: confidence < {settings.confidence_threshold:.2f} · {settings.rpm_limit} req/min")
-    if settings.gemini_api_key and st.button("Test API connection", help="Sends a tiny request to each model to see which have free quota right now"):
-        with st.spinner("Checking models…"):
-            try:
-                for model, ok, detail in check_models(settings):
-                    (st.success if ok else st.caption)(f"{'✅' if ok else '❌'} `{model}`: {detail}")
-            except AnalysisError as exc:
-                st.error(str(exc))
+        st.error("PROVIDER=gemini but no GEMINI_API_KEY is set.")
+    st.caption(f"Review threshold: confidence < {settings.confidence_threshold:.2f}")
+    if archive_note:
+        st.caption(archive_note)
+    if backend and st.button("Check model", help="Local: is Ollama running with a vision model? Cloud: which models have quota"):
+        with st.spinner("Checking…"):
+            if backend.local:
+                from playbook.local_setup import status
 
-    sessions = list_sessions(settings)
+                for line in status(settings):
+                    (st.error if line.startswith("FAIL") else st.caption)(line)
+            else:
+                try:
+                    for model, ok, detail in check_models(settings):
+                        (st.success if ok else st.caption)(f"{'✅' if ok else '❌'} `{model}`: {detail}")
+                except AnalysisError as exc:
+                    st.error(str(exc))
+
+    sessions = {p.name: p for p in list_sessions(settings)}
     if sessions:
-        names = [p.name for p in sessions]
+        names = list(sessions)
         current = Path(ss.session).name if ss.session else names[0]
         idx = names.index(current) if current in names else 0
-        choice = st.selectbox("Session", names, index=idx, format_func=lambda n: n + (" ✓" if (settings.sessions_dir / n / "playbook.json").exists() else ""))
+
+        def label(n: str) -> str:
+            p = sessions[n]
+            return f"🔒 {p.stem}" if is_archived(p) else n + (" ✓" if (p / "playbook.json").exists() else "")
+
+        choice = st.selectbox("Session", names, index=idx, format_func=label)
         if choice != current or not ss.session:
-            select_session(settings.sessions_dir / choice)
+            select_session(sessions[choice])
+        chosen = sessions[choice]
+        if is_archived(chosen):
+            st.caption("Archived: compressed and encrypted on disk.")
+            if st.button("🔓 Restore session", type="primary"):
+                with st.spinner("Decrypting and restoring…"):
+                    try:
+                        select_session(ensure_hot(chosen, settings))
+                    except ArchiveError as exc:
+                        st.error(str(exc))
+                st.rerun()
+        elif ss.rec is None and st.button("🔒 Archive session", help="Compress + encrypt it now; restore any time"):
+            with st.spinner("Compressing and encrypting…"):
+                try:
+                    res = compact(chosen, settings)
+                    select_session(res.archive)
+                    st.toast(f"Archived: {res.before / 1e6:.1f} MB → {res.after / 1e6:.1f} MB")
+                except ArchiveError as exc:
+                    st.error(str(exc))
+            st.rerun()
     else:
         st.info("No sessions yet. Record or import one.")
 
@@ -117,10 +176,14 @@ with tab_capture:
             st.success(f"Imported as `{session.name}`. Go to **2 · Analyze**.")
 
 session_dir = Path(ss.session) if ss.session else None
+archived = bool(session_dir and is_archived(session_dir))
+ARCHIVED_MSG = "This session is archived (compressed + encrypted). Click **🔓 Restore session** in the sidebar to open it."
 
 # ---------------------------------------------------------------- analyze
 with tab_analyze:
-    if not session_dir or not (session_dir / "manifest.json").exists():
+    if archived:
+        st.info(ARCHIVED_MSG)
+    elif not session_dir or not (session_dir / "manifest.json").exists():
         st.info("Record or import a session first.")
     else:
         m = Manifest.load(session_dir)
@@ -129,9 +192,15 @@ with tab_analyze:
         c[1].metric("Keyframes", len(m.keyframes))
         c[2].metric("Input events", len(m.events))
         c[3].metric("Source", m.source)
-        n_calls = max(1, -(-(len(m.keyframes) - 1) // max(settings.window_size - 1, 1))) + 1
-        st.caption(f"Analysis will make about {n_calls} vision API call(s); at {settings.rpm_limit}/min that takes ≈{n_calls / settings.rpm_limit:.1f} min. Responses are cached, so re-runs are free.")
-        if st.button("🔍 Analyze with Gemini", type="primary", disabled=not settings.gemini_api_key):
+        window = backend.window_size if backend else 10
+        n_calls = max(1, -(-(len(m.keyframes) - 1) // max(window - 1, 1))) + 1
+        if backend and backend.local:
+            st.caption(f"Analysis will make about {n_calls} request(s) to the local model `{backend.model}`. On a laptop "
+                       "CPU each can take a few minutes. Responses are cached, so re-runs are instant.")
+        elif backend:
+            st.caption(f"Analysis will make about {n_calls} vision API call(s); at {backend.rpm}/min that takes ≈{n_calls / max(backend.rpm, 1):.1f} min. Responses are cached, so re-runs are free.")
+        label = "🔍 Analyze locally" if backend and backend.local else "🔍 Analyze with Gemini"
+        if st.button(label, type="primary", disabled=backend is None or (not backend.local and not settings.gemini_api_key)):
             bar = st.progress(0.0, "Starting…")
             log = st.empty()
             switches: list[str] = []
@@ -155,7 +224,9 @@ with tab_analyze:
 
 # ---------------------------------------------------------------- review
 with tab_review:
-    if not session_dir or not (session_dir / "playbook.json").exists():
+    if archived:
+        st.info(ARCHIVED_MSG)
+    elif not session_dir or not (session_dir / "playbook.json").exists():
         st.info("Analyze a session to see its playbook.")
     else:
         pb = Playbook.load(session_dir)
