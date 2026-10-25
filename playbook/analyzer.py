@@ -17,9 +17,10 @@ import hashlib
 import json
 import re
 import time
+from contextlib import ExitStack, contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, ClassVar, TypeVar
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
@@ -44,6 +45,8 @@ PENALTY_REPAIRED = 0.10
 PENALTY_LONG_GAP = 0.10
 LONG_GAP_S = 20.0
 CROP_SIZE = 448  # zoomed crop around each click, for local models
+SCHEMA_MAX_ITEMS = 12  # local grammar bounds (see json_schema_format)
+SCHEMA_MAX_CHARS = 400
 MAX_CROPS_PER_REQUEST = 4
 MERGE_LEEWAY = 0.10  # pass 2 may raise a step merged from several candidates this much above the weakest
 
@@ -133,6 +136,7 @@ class _Dropped(BaseModel):
 
 
 class _Pass2Resp(BaseModel):
+    MAX_ITEMS: ClassVar[int] = 60  # steps / dropped ids can number as many as the candidates
     title: str = "Recorded workflow"
     goal: str = ""
     summary: str = ""
@@ -147,6 +151,30 @@ class _Pass2Resp(BaseModel):
     @classmethod
     def coerce_dropped(cls, v: Any) -> Any:
         return [{"id": d} if isinstance(d, str) else d for d in (v or [])]
+
+
+class _Pass2StepLean(BaseModel):  # low-power: one entry per candidate, no merging; the rest comes from it
+    id: str
+    title: str
+    keep: bool = True  # (no review_note: 2B models fill it for every step; the consistency check still flags)
+
+
+class _Pass2RespLean(BaseModel):
+    MAX_ITEMS: ClassVar[int] = 60  # one entry per candidate
+    title: str = "Recorded workflow"
+    goal: str = ""
+    summary: str = ""
+    apps: list[str] = Field(default_factory=list)
+    prerequisites: list[str] = Field(default_factory=list)
+    steps: list[_Pass2StepLean] = Field(default_factory=list)
+    inputs: list[InputVariable] = Field(default_factory=list)
+    open_questions: list[str] = Field(default_factory=list)
+
+    def full(self) -> _Pass2Resp:
+        d = self.model_dump()
+        d["steps"] = [{"title": st.title, "source_ids": [st.id]} for st in self.steps if st.keep]
+        d["dropped_ids"] = [{"id": st.id, "reason": "marked as a duplicate or noise"} for st in self.steps if not st.keep]
+        return _Pass2Resp.model_validate(d)
 
 
 # ---------------------------------------------------------------------- helpers
@@ -252,11 +280,22 @@ def json_schema_format(model: type[BaseModel]) -> dict:
     schema = model.model_json_schema()
     defs = schema.pop("$defs", {})
 
-    def inline(node: Any) -> Any:
+    max_items = getattr(model, "MAX_ITEMS", SCHEMA_MAX_ITEMS)
+
+    def inline(node: Any, props: bool = False) -> Any:
         if isinstance(node, dict):
-            if "$ref" in node:
+            if "$ref" in node and not props:
                 return inline(defs[node["$ref"].split("/")[-1]])
-            return {k: inline(v) for k, v in node.items() if k not in ("title", "default")}
+            # Drop pydantic's "title"/"default" annotations, but not fields that happen to be called "title".
+            out = {k: inline(v, props=(k == "properties" and not props)) for k, v in node.items()
+                   if props or k not in ("title", "default")}
+            # Bound every list and string, so a small model stuck repeating itself stops within the grammar
+            # instead of running for many minutes into an invalid reply (validation itself is unchanged).
+            if not props and out.get("type") == "array":
+                out.setdefault("maxItems", max_items)
+            if not props and out.get("type") == "string" and "enum" not in out:
+                out.setdefault("maxLength", SCHEMA_MAX_CHARS)
+            return out
         if isinstance(node, list):
             return [inline(v) for v in node]
         return node
@@ -272,6 +311,7 @@ class VisionClient:
     def __init__(self, settings: Settings, client: Any = None, status: Callable[[str], None] | None = None,
                  remember: bool = True, backend: Backend | None = None):
         self.s = settings
+        self.client_injected = client is not None  # tests / callers bring their own server
         try:
             self.backend = backend or resolve_backend(settings)
         except SecurityError as exc:
@@ -342,7 +382,11 @@ class VisionClient:
             if self.backend.local:
                 self.status(f"Waiting for the local model ({self.model}); this can take a few minutes on a CPU...")
             try:
-                extra = {"max_tokens": self.s.local_max_tokens} if self.backend.local else {}
+                extra = {}
+                if self.backend.local:
+                    # Qwen3.5-based models (e.g. Bonsai 2) think by default; llama-server honours this, Ollama ignores it.
+                    extra = {"max_tokens": self.s.local_max_tokens,
+                             "extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}
                 resp = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
@@ -377,6 +421,11 @@ class VisionClient:
                     self._switch_model("is not available to this API key", block_s=7 * 86400)
                 attempt = 0
             except openai.APIConnectionError as exc:
+                if self.backend.server is not None and not isinstance(exc, openai.APITimeoutError):
+                    raise AnalysisError(
+                        f"The local model server at {self.backend.base_url} stopped responding. Run the analysis again; "
+                        "if it keeps failing, run `python -m playbook setup-local --runtime llama`."
+                    ) from exc
                 if self.backend.local and not isinstance(exc, openai.APITimeoutError):
                     raise AnalysisError(
                         f"Can't reach the local model server at {self.backend.base_url}. Start Ollama "
@@ -511,6 +560,21 @@ class Analyzer:
         self._frac = frac
         self.progress(frac, msg)
 
+    @contextmanager
+    def _serving(self):
+        """llama runtime: run the local server only while analyzing, so it holds no memory otherwise."""
+        if self.vc.backend.server is None or self.vc.client_injected:
+            yield
+            return
+        from .llama_runtime import LlamaError, serving
+
+        with ExitStack() as stack:
+            try:
+                stack.enter_context(serving(self.s, self.vc.backend.server, status=lambda m: self.progress(self._frac, m)))
+            except LlamaError as exc:
+                raise AnalysisError(str(exc)) from exc
+            yield
+
     # -- public ---------------------------------------------------------------------------
     def analyze(self, session_dir: Path) -> Playbook:
         session_dir = Path(session_dir)
@@ -525,12 +589,13 @@ class Analyzer:
         ocr_set_threads(cpu_threads(self.s))
         self._ocr = SessionOCR(session_dir, enabled=self.s.use_ocr)
         self._ocr_seen: list[tuple[str, float]] = []
-        try:
-            candidates, window_log = self._pass1(session_dir, manifest, windows)
-        finally:
-            self._ocr.save()
-        self._step(0.9, f"Consolidating {len(candidates)} actions into a playbook with {self.vc.model}...")
-        playbook, dropped = self._pass2(session_dir, manifest, candidates, window_log)
+        with self._serving():
+            try:
+                candidates, window_log = self._pass1(session_dir, manifest, windows)
+            finally:
+                self._ocr.save()
+            self._step(0.9, f"Consolidating {len(candidates)} actions into a playbook with {self.vc.model}...")
+            playbook, dropped = self._pass2(session_dir, manifest, candidates, window_log)
         (session_dir / "analysis.json").write_text(
             json.dumps(
                 {
@@ -727,17 +792,25 @@ class Analyzer:
                 for w in window_log
             )
             first, last = manifest.keyframes[0], manifest.keyframes[-1]
+            steps_json = json.dumps(payload, separators=(",", ":")) if self.s.low_power else json.dumps(payload, indent=1)
             user = [
-                {"type": "text", "text": f"Recording length {fmt_ts(manifest.duration)}. Segment summaries:\n{contexts}\n\nCandidate steps:\n{json.dumps(payload, indent=1)}"},
-                {"type": "text", "text": "First screenshot of the recording:"},
-                _image_part(encode_jpeg(resize_max_width(load_image(session_dir / first.path), self.vc.backend.image_width), 70)),
-                {"type": "text", "text": "Last screenshot of the recording:"},
-                _image_part(encode_jpeg(resize_max_width(load_image(session_dir / last.path), self.vc.backend.image_width), 70)),
+                {"type": "text", "text": f"Recording length {fmt_ts(manifest.duration)}. Segment summaries:\n{contexts}\n\nCandidate steps:\n{steps_json}"},
             ]
+            if not self.s.low_power:  # two more images cost a low-power CPU minutes; the steps already carry the content
+                user += [
+                    {"type": "text", "text": "First screenshot of the recording:"},
+                    _image_part(encode_jpeg(resize_max_width(load_image(session_dir / first.path), self.vc.backend.image_width), 70)),
+                    {"type": "text", "text": "Last screenshot of the recording:"},
+                    _image_part(encode_jpeg(resize_max_width(load_image(session_dir / last.path), self.vc.backend.image_width), 70)),
+                ]
             try:
+                lean = self.s.low_power
                 resp, repaired = self.vc.complete_json(
-                    [{"role": "system", "content": prompts.pass2_system(self._compact_prompts)}, {"role": "user", "content": user}], _Pass2Resp
+                    [{"role": "system", "content": prompts.pass2_system(self._compact_prompts, lean)}, {"role": "user", "content": user}],
+                    _Pass2RespLean if lean else _Pass2Resp,
                 )
+                if lean:
+                    resp = resp.full()
                 if "lite" in self.vc.model:
                     pb_notes.append(
                         f"Steps were consolidated by a Lite model ({self.vc.model}) because stronger models were out of "

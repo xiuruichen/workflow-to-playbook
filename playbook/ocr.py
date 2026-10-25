@@ -43,11 +43,10 @@ class TextBox:
 
 
 def available() -> bool:
-    try:
-        import rapidocr_onnxruntime  # noqa: F401
-    except Exception:
-        return False
-    return True
+    import importlib.util
+
+    # rapidocr_onnxruntime (Python <= 3.12) or its successor package rapidocr (3.x, newer Pythons)
+    return any(importlib.util.find_spec(m) is not None for m in ("rapidocr_onnxruntime", "rapidocr"))
 
 
 _threads: int | None = None  # CPU thread cap (low-power mode), set before the engine is created
@@ -64,11 +63,27 @@ def _get_engine():
     global _engine
     with _lock:
         if _engine is None:
-            from rapidocr_onnxruntime import RapidOCR
-
             # Screens: no rotated text (skip the angle classifier) and don't upscale small crops.
-            caps = {"intra_op_num_threads": _threads, "inter_op_num_threads": 1} if _threads else {}
-            _engine = RapidOCR(det_limit_type="max", det_limit_side_len=1280, use_cls=False, **caps)
+            try:
+                from rapidocr_onnxruntime import RapidOCR
+
+                caps = {"intra_op_num_threads": _threads, "inter_op_num_threads": 1} if _threads else {}
+                _engine = RapidOCR(det_limit_type="max", det_limit_side_len=1280, use_cls=False, **caps)
+            except ImportError:
+                from rapidocr import RapidOCR
+
+                params = {"Global.use_cls": False, "Global.log_level": "error",
+                          "Det.limit_type": "max", "Det.limit_side_len": 1280}
+                if _threads:
+                    params.update({"EngineConfig.onnxruntime.intra_op_num_threads": _threads,
+                                   "EngineConfig.onnxruntime.inter_op_num_threads": 1})
+                v3 = RapidOCR(params=params)
+
+                def _engine(img):  # same (result, elapse) shape as rapidocr_onnxruntime
+                    out = v3(img)
+                    if out.boxes is None or out.txts is None:
+                        return None, None
+                    return list(zip(out.boxes.tolist(), out.txts, out.scores)), out.elapse
         return _engine
 
 

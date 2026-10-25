@@ -1,5 +1,6 @@
 """On-prem guarantees: egress guard, sync-folder guard, hardware tiers, local backend, UI elements, OCR."""
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -253,3 +254,67 @@ def test_local_empty_replies_stop_early_with_a_hint(settings):
         vc.chat([{"role": "user", "content": "hi"}])
     assert len(requests) == 2
     assert requests[0]["max_tokens"] == settings.local_max_tokens  # a rambling model can't hold a request forever
+    assert requests[0]["extra_body"]["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+def _llama_info(tmp_path, settings):
+    model, mmproj = tmp_path / "m.gguf", tmp_path / "p.gguf"
+    model.write_bytes(b"x")
+    mmproj.write_bytes(b"x")
+    return {"runtime": "llama", "base": "qwen3-vl-2b", "tier": "tiny", "num_ctx": 8192, "num_thread": 4,
+            "base_url": f"http://127.0.0.1:{settings.llama_port}/v1", "model": str(model), "mmproj": str(mmproj)}
+
+
+def test_llama_runtime_backend_and_server_args(settings, tmp_path):
+    from playbook import llama_runtime
+    from playbook.backend import resolve_backend
+
+    settings.low_power, settings.window_size = True, 0  # 0 = automatic
+    info = _llama_info(tmp_path, settings)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    (settings.data_dir / "local_model.json").write_text(json.dumps(info), encoding="utf-8")
+    b = resolve_backend(settings)
+    assert b.base_url == info["base_url"] and b.model == "qwen3-vl-2b" and b.server == info
+    assert b.fallbacks == [] and b.window_size <= 3 and b.image_width <= 896
+    args = llama_runtime.server_args(settings, info)
+    for flag, value in (("--image-max-tokens", "448"), ("--reasoning", "off"), ("--host", "127.0.0.1"), ("-t", "4")):
+        assert args[args.index(flag) + 1] == value
+
+
+def test_llama_runtime_is_picked_only_in_low_power_mode(settings):
+    from playbook.local_setup import resolve_runtime
+
+    assert resolve_runtime(settings) == "ollama"
+    settings.low_power, settings.llama_server = True, "C:/tools/llama-server.exe"
+    assert resolve_runtime(settings) == "llama"
+    assert resolve_runtime(settings, "ollama") == "ollama"
+
+
+def test_setup_llama_records_the_server_and_tests_it(settings, tmp_path, monkeypatch):
+    from contextlib import nullcontext
+
+    from playbook import llama_runtime, local_setup
+
+    info = _llama_info(tmp_path, settings)
+    monkeypatch.setattr(llama_runtime, "install", lambda s, name, out: info)
+    monkeypatch.setattr(llama_runtime, "serving", lambda s, i: nullcontext())
+    seen = {}
+    monkeypatch.setattr(local_setup, "smoke_test", lambda s, model, base_url=None: seen.update(url=base_url) or (1.0, '{"label": "Submit order"}'))
+    lines = []
+    assert local_setup.setup(settings, assume_yes=True, out=lines.append, runtime="llama") == 0
+    assert json.loads((settings.data_dir / "local_model.json").read_text(encoding="utf-8")) == info
+    assert seen["url"] == info["base_url"]
+
+
+def test_download_rejects_a_bad_checksum(tmp_path, monkeypatch):
+    import io
+
+    from playbook import llama_runtime
+
+    class Resp(io.BytesIO):
+        headers = {"Content-Length": "5"}
+
+    monkeypatch.setattr(llama_runtime.urllib.request, "urlopen", lambda url, timeout: Resp(b"hello"))
+    with pytest.raises(llama_runtime.LlamaError, match="integrity"):
+        llama_runtime._download("https://example.invalid/x", tmp_path / "x.gguf", "0" * 64, lambda m: None)
+    assert not (tmp_path / "x.gguf").exists() and not (tmp_path / "x.gguf.part").exists()

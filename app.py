@@ -67,7 +67,7 @@ with st.sidebar:
     st.caption(f"Review threshold: confidence < {settings.confidence_threshold:.2f}")
     if archive_note:
         st.caption(archive_note)
-    if backend and st.button("Check model", help="Local: is Ollama running with a vision model? Cloud: which models have quota"):
+    if backend and st.button("Check model", help="Local: is the local model installed and ready? Cloud: which models have quota"):
         with st.spinner("Checking…"):
             if backend.local:
                 from playbook.local_setup import status

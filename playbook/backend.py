@@ -26,6 +26,7 @@ class Backend:
     local: bool
     tier: Tier | None = None
     notes: list[str] = field(default_factory=list)
+    server: dict | None = None  # llama runtime: what to start for the analysis (see llama_runtime.serving)
 
 
 OUT_OF_MEMORY_HINT = (
@@ -73,9 +74,18 @@ def resolve_backend(s: Settings) -> Backend:
             window_size=s.window_size or 10, image_width=s.analysis_image_width or s.max_image_width, local=False,
         )
 
+    info = local_setup_info(s) if s.local_model == "auto" else {}
+    if info.get("runtime") == "llama":
+        check_endpoint(info["base_url"], s.allow_cloud)
+        tier = tier_for_model(info["base"])
+        return Backend(
+            provider="local", base_url=info["base_url"], api_key="llama", model=info["base"], fallbacks=[], rpm=0,
+            timeout_s=s.local_timeout_s, window_size=s.window_size or min(tier.window_size, 3 if s.low_power else 99),
+            image_width=s.analysis_image_width or min(tier.image_width, 896 if s.low_power else 9999),
+            local=True, tier=tier, server=info,
+        )
     check_endpoint(s.local_base_url, s.allow_cloud)
     if s.local_model == "auto":
-        info = local_setup_info(s)
         if info.get("base"):
             tier = tier_for_model(info["base"])
             model = LOCAL_ALIAS

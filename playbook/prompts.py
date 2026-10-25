@@ -140,7 +140,25 @@ def pass1_system(local: bool, compact: bool) -> str:
     return text.replace("\nTask:", f"\n{LOCAL_FACTS}\n\nTask:", 1)
 
 
-def pass2_system(compact: bool) -> str:
-    if not compact:
-        return PASS2_SYSTEM
-    return PASS2_SYSTEM.replace(DOMAIN_DETAILS, DOMAIN_DETAILS_SHORT).replace(CONFIDENCE_RUBRIC, CONFIDENCE_RUBRIC_SHORT)
+_REVIEW_LINE = PASS2_SYSTEM.index('      "review_note"')
+PASS2_STEP_FULL = PASS2_SYSTEM[PASS2_SYSTEM.index('      "title": "short imperative title'):PASS2_SYSTEM.index("\n", _REVIEW_LINE) + 1]
+PASS2_STEP_LEAN = """      "id": "c1",
+      "title": "short imperative title (max ~8 words)",
+      "keep": true
+"""
+PASS2_DROPPED = '  "dropped_ids": [{"id": "c7", "reason": "duplicate of c6"}],\n'
+LEAN_NOTE = ("In this reply do NOT merge: give one entry per candidate, in the same order, with its id. Set \"keep\" to "
+             "false only for an exact duplicate or noise. Description, target, value, app and expected result are taken "
+             "from the candidate, so don't repeat them.\n\nReply with ONLY a JSON object")
+
+
+def pass2_system(compact: bool, lean: bool = False) -> str:
+    """`lean`: one short entry per candidate (id / title / keep) and no merging. Small models merge badly
+    and add review notes to every step, and the full reply was the slowest part of an analysis on a CPU."""
+    text = PASS2_SYSTEM
+    if compact:
+        text = text.replace(DOMAIN_DETAILS, DOMAIN_DETAILS_SHORT).replace(CONFIDENCE_RUBRIC, CONFIDENCE_RUBRIC_SHORT)
+    if lean:
+        text = (text.replace(PASS2_STEP_FULL, PASS2_STEP_LEAN).replace(PASS2_DROPPED, "")
+                .replace("Reply with ONLY a JSON object", LEAN_NOTE, 1))
+    return text

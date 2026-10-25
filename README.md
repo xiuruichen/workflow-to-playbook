@@ -53,7 +53,9 @@ This checks your RAM and GPU, picks the largest model that runs comfortably, che
 | ≥ 16 GB RAM, or a GPU with ≥ 8 GB | `qwen3-vl:8b-instruct` | ~6.1 GB | 6, at 1280 px |
 | GPU with ≥ 24 GB, or Apple silicon with ≥ 36 GB | `qwen3-vl:32b-instruct` | ~21 GB | 8, at 1280 px |
 
-**Slow or easily overloaded computer?** Put `LOW_POWER=true` in `.env` before running `setup-local`. It uses the smallest model, limits it, OCR and video encoding to 4 CPU threads (`MAX_THREADS` changes that), runs at below-normal priority so the desktop stays responsive, skips the zoomed click crops (the local OCR still reads the text near each click), and archives video only with a hardware encoder (otherwise it keeps the original rather than running a CPU-heavy encode). Analysis takes longer, but the machine stays usable.
+**Slow or easily overloaded computer?** Put `LOW_POWER=true` in `.env` before running `setup-local`. It uses the smallest model, limits it, OCR and video encoding to 4 CPU threads (`MAX_THREADS` changes that), runs at below-normal priority so the desktop stays responsive, skips the zoomed click crops (the local OCR still reads the text near each click), and archives video only with a hardware encoder (otherwise it keeps the original rather than running a CPU-heavy encode).
+
+On Windows, low-power mode also uses llama.cpp's `llama-server` instead of Ollama (`LOCAL_RUNTIME=llama`): `setup-local` downloads a pinned build and Qwen3-VL 2B Instruct (~1.5 GB, SHA-256 checked), and the server starts only for the length of an analysis, so it holds no memory in between. It is about twice as fast as Ollama on a CPU, because screenshots stay at their native size (~450 tokens instead of ~1,040) and the system prompt is reused between requests, and it consolidates without merging steps (small models merge badly). On an 8 GB laptop with 4 threads, a 30-second recording takes about 14 minutes and at most ~2 GB of RAM. Elsewhere, set `LLAMA_SERVER` to your own llama-server build, or keep Ollama.
 
 On a laptop CPU, expect minutes per request rather than seconds. Responses are cached, so you only pay that once per recording. No GPU, Tesseract or separate ffmpeg install is needed: OCR runs on ONNX Runtime and `imageio-ffmpeg` bundles the video encoders.
 
@@ -181,6 +183,10 @@ Measured on a real 3-minute session (70 keyframes):
 | `LOCAL_MODEL` | `auto` | `auto` uses what `setup-local` configured (or picks by RAM/VRAM), or set an Ollama tag such as `qwen3-vl:2b-instruct` |
 | `LOCAL_MAX_TOKENS` | `3000` | cap on each local reply, so a rambling model can't hold a request for many minutes |
 | `LOCAL_TIMEOUT_S` | `1800` | seconds to wait for one local request (CPU inference can take several minutes) |
+| `LOCAL_RUNTIME` | `auto` | local server `setup-local` installs: `llama` (llama-server, faster on a CPU, started only while analyzing), `ollama`, or `auto` (llama in low-power mode on Windows) |
+| `LLAMA_SERVER` | | path to your own `llama-server` binary (default: the build `setup-local` downloads) |
+| `LLAMA_PORT` | `8080` | port llama-server listens on (always 127.0.0.1) |
+| `IMAGE_MAX_TOKENS` | `448` | llama runtime: tokens per screenshot; 448 is the native size of an 896 px image |
 | `LOCAL_BASE_URL` | `http://127.0.0.1:11434/v1` | must be on this machine or the private network |
 | `LOW_POWER` | `false` | lighter load for slow machines: smallest model, capped threads, low priority, no zoom crops, hardware-only video encoding |
 | `MAX_THREADS` | `0` | CPU threads for the model, OCR and encoders (0 = all; 4 in low-power mode) |

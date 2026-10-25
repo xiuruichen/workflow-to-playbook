@@ -102,6 +102,8 @@ def main(argv: list[str] | None = None) -> int:
     sl = sub.add_parser("setup-local", help="pick and download a local vision model that fits this computer")
     sl.add_argument("--model", help="Ollama tag to use instead of the automatic choice, e.g. qwen3-vl:2b-instruct")
     sl.add_argument("--yes", action="store_true", help="don't ask before downloading")
+    sl.add_argument("--runtime", choices=["auto", "ollama", "llama"],
+                    help="local server: llama (llama.cpp, faster on a CPU), ollama, or auto (default: LOCAL_RUNTIME)")
     sub.add_parser("run", help="record, then analyze and write the playbook")
     sub.add_parser("record", help="record a session only")
     imp = sub.add_parser("import", help="create a playbook from an existing video file")
@@ -135,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "setup-local":
         from .local_setup import setup
 
-        return setup(settings, model=args.model, assume_yes=args.yes)
+        return setup(settings, model=args.model, assume_yes=args.yes, runtime=args.runtime)
     if args.cmd in ("run", "record", "import", "analyze", "list"):
         _auto_compact_idle()
     if args.cmd in ("run", "record"):

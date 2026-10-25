@@ -170,3 +170,19 @@ def test_consistency_check_flags_cross_segment_typo(settings, make_session):
     typed_step = next(s for s in pb.steps if s.action == "type")
     assert typed_step.needs_review and "315,663" in typed_step.review_note
     assert not next(s for s in pb.steps if s.action == "read").needs_review
+
+
+def test_low_power_consolidation_is_lean_and_text_only(settings, make_session):
+    settings.low_power = True  # the long consolidation reply was most of the wait on a laptop CPU
+    lean = {"title": "Look up a city population", "steps": [
+        {"id": "c1", "title": "Click Search"}, {"id": "c2", "title": "Focus the address bar"},
+        {"id": "c3", "title": "Read it again", "keep": False}]}
+    pb, client = run(settings, make_session(), pass2=(lean,))
+    req = client.requests[-1]
+    step_schema = req["response_format"]["json_schema"]["schema"]["properties"]["steps"]["items"]
+    assert set(step_schema["properties"]) == {"id", "title", "keep"}
+    assert not any(p["type"] == "image_url" for p in req["messages"][1]["content"])
+    assert [s.title for s in pb.steps] == ["Focus the address bar", "Click Search"]  # c3 dropped, never merged
+    by_title = {s.title: s for s in pb.steps}
+    assert by_title["Click Search"].action == "click"  # filled from the source candidate
+    assert by_title["Click Search"].confidence <= 0.95  # pass-1 confidence; the model can't raise it

@@ -1,4 +1,5 @@
-"""`python -m playbook setup-local` / `check`: get a local vision model running with Ollama.
+"""`python -m playbook setup-local` / `check`: get a local vision model running with Ollama
+(or with llama.cpp's llama-server, the faster option on low-power computers; see llama_runtime.py).
 
 Talks only to the Ollama server configured in LOCAL_BASE_URL (refused unless it is on this
 machine or the private network). The one network download is `ollama pull`, which Ollama
@@ -106,7 +107,59 @@ def create_alias(s: Settings, tier: Tier) -> None:
                    indent=2), encoding="utf-8")
 
 
-def smoke_test(s: Settings, model: str) -> tuple[float, str]:
+def resolve_runtime(s: Settings, requested: str | None = None) -> str:
+    """"llama" in low-power mode where a prebuilt llama-server exists (or LLAMA_SERVER is set), else "ollama"."""
+    from . import llama_runtime
+
+    choice = requested or s.local_runtime
+    if choice != "auto":
+        return choice
+    return "llama" if s.low_power and (s.llama_server or llama_runtime.runtime_download()) else "ollama"
+
+
+def _write_info(s: Settings, info: dict) -> None:
+    s.data_dir.mkdir(parents=True, exist_ok=True)
+    (s.data_dir / "local_model.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
+
+
+def setup_llama(s: Settings, model: str | None = None, assume_yes: bool = False, out: Callable[[str], None] = print,
+                ask: Callable[[str], str] = input) -> int:
+    from . import llama_runtime as lr
+
+    name = model or lr.DEFAULT_MODEL
+    if name not in lr.MODELS:
+        out(f"Unknown model {name!r} for the llama runtime; choose one of: {', '.join(lr.MODELS)}.")
+        return 1
+    spec, hw = lr.MODELS[name], detect()
+    out(f"This computer: {hw.ram_gb:.0f} GB RAM ({hw.available_gb:.1f} GB free), {hw.cpu_threads} CPU threads")
+    out(f"Runtime: llama-server ({lr.RELEASE}), started only while analyzing; model: {name} (~{spec['gb']:.1f} GB)"
+        + (f"; limited to {cpu_threads(s)} CPU threads" if cpu_threads(s) else ""))
+    free = free_gb(lr.home(s))
+    if free < spec["gb"] + 1:
+        out(f"Not enough disk space: {name} needs about {spec['gb']:.1f} GB and {free:.1f} GB is free in {lr.home(s)}.")
+        return 1
+    if not assume_yes and ask(f"Download llama-server and {name} (~{spec['gb']:.1f} GB) now? [y/N] ").strip().lower() not in ("y", "yes"):
+        out("Cancelled.")
+        return 1
+    try:
+        info = lr.install(s, name, out)
+    except (lr.LlamaError, OSError, urllib.error.URLError) as exc:
+        out(f"Setup failed: {exc}")
+        return 1
+    _write_info(s, info)
+    out("Installed. Testing it with one screenshot...")
+    try:
+        with lr.serving(s, info):
+            secs, reply = smoke_test(s, name, base_url=info["base_url"])
+    except Exception as exc:
+        out(OUT_OF_MEMORY_HINT if is_out_of_memory(exc) else f"The test request failed: {str(exc)[:300]}")
+        return 1
+    out(f"  reply: {reply[:80]}  ({secs:.1f}s for one image)")
+    out("Ready. Analysis now runs on this computer; screenshots never leave it.")
+    return 0
+
+
+def smoke_test(s: Settings, model: str, base_url: str | None = None) -> tuple[float, str]:
     """One screenshot-like request; returns (seconds, reply)."""
     import base64
 
@@ -119,7 +172,7 @@ def smoke_test(s: Settings, model: str) -> tuple[float, str]:
     cv2.putText(img, "Submit order", (262, 210), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
     ok, buf = cv2.imencode(".jpg", img)
     url = "data:image/jpeg;base64," + base64.b64encode(buf.tobytes()).decode()
-    client = OpenAI(api_key="ollama", base_url=s.local_base_url, timeout=s.local_timeout_s, max_retries=0)
+    client = OpenAI(api_key="ollama", base_url=base_url or s.local_base_url, timeout=s.local_timeout_s, max_retries=0)
     t = time.time()
     resp = client.chat.completions.create(model=model, temperature=0, messages=[{"role": "user", "content": [
         {"type": "text", "text": 'What does the button say? Reply as JSON: {"label": "..."}'},
@@ -129,7 +182,9 @@ def smoke_test(s: Settings, model: str) -> tuple[float, str]:
 
 
 def setup(s: Settings, model: str | None = None, assume_yes: bool = False, out: Callable[[str], None] = print,
-          ask: Callable[[str], str] = input) -> int:
+          ask: Callable[[str], str] = input, runtime: str | None = None) -> int:
+    if resolve_runtime(s, runtime) == "llama":
+        return setup_llama(s, model, assume_yes, out, ask)
     version = server_version(s)
     if not version:
         out(f"Ollama is not reachable at {_api_root(s)}.\n{INSTALL_HINT}")
@@ -175,6 +230,16 @@ def setup(s: Settings, model: str | None = None, assume_yes: bool = False, out: 
 def status(s: Settings) -> list[str]:
     """Lines for `python -m playbook check` with the local provider."""
     lines = []
+    info = local_setup_info(s)
+    if info.get("runtime") == "llama":
+        from . import llama_runtime as lr
+
+        ok = lr.server_exe(s).exists() and Path(info.get("model", "")).exists()
+        lines.append(f"{'OK  ' if ok else 'FAIL'} llama-server runtime with {info.get('base')} ({info.get('tier')} tier)"
+                     + ("" if ok else "; run `python -m playbook setup-local --runtime llama`"))
+        lines.append("     the server starts automatically for each analysis and stops afterwards"
+                     + (" (running now)" if lr.healthy(s) else ""))
+        return lines
     version = server_version(s)
     if not version:
         return [f"FAIL Ollama not reachable at {_api_root(s)}. {INSTALL_HINT}"]

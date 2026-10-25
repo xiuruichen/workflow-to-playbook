@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     local_fallback_models: str = "playbook-vl,qwen3-vl:4b-instruct,qwen3-vl:8b-instruct,qwen3-vl:2b-instruct,gemma3:4b"
     local_max_tokens: int = 3000  # cap per reply, so a rambling model can't hold a request for many minutes
     local_timeout_s: float = 1800.0  # CPU inference on a laptop can take many minutes; a timeout restarts from zero
+    # Which local server `setup-local` installs: "llama" (llama.cpp's llama-server: about twice as fast on a
+    # CPU, started only during analysis), "ollama", or "auto" (llama in low-power mode where a prebuilt exists).
+    local_runtime: Literal["auto", "ollama", "llama"] = "auto"
+    llama_server: str = ""  # path to your own llama-server binary (default: the one setup-local downloads)
+    llama_port: int = 8080
+    image_max_tokens: int = 448  # llama runtime: tokens per screenshot (448 = native size of an 896 px image)
 
     # --- Cloud vision model (Gemini via its OpenAI-compatible endpoint; opt-in) ---
     gemini_api_key: str = Field(

@@ -109,18 +109,34 @@ All of these are fixed. The evaluation results below are the evidence.
 
 The one missed expected step ("read the population 168,412") is Lite-model variation: the value still appears in the mismatch flag. On the first run, before the visible-values change, the email typo was missed: the model never wrote a "read John's email" step, so nothing recorded the correct address. Then the check over-flagged the corrected `python app.py` against the earlier typo still visible in the terminal. Both were fixed and are covered by tests.
 
-**Local model: runs end to end on an 8 GB laptop (one scenario measured).** Development laptop: 7.6 GB RAM, Intel Core Ultra 5 135U, no GPU, `LOW_POWER=true` → `qwen3-vl:2b-instruct`, 4 threads, Ollama 0.40.11, with a browser open.
+**Local model on an 8 GB laptop.** Development laptop: 7.6 GB RAM, Intel Core Ultra 5 135U, no GPU, `LOW_POWER=true` (4 threads, below-normal priority), with a browser open. Current setup: Qwen3-VL 2B Instruct (Q4_K_M) on llama.cpp's `llama-server`, started only for the analysis.
 
-| scenario | steps | expected found | mistake | false flags | calls | time |
+| scenario | steps | expected found | mistake | false flags | time | peak RAM |
 |---|---|---|---|---|---|---|
-| email | 9 | 5/5 | missed | 1 | 6 | 38 min |
+| email (28 s recording) | 10 | 5/5 | missed | 1 | 14 min | 2.0 GB |
+| files (6 segments) | 12 | 4/4 | n/a | 0 | 29 min | 2.0 GB |
 
-What it took to get there:
+How the same email scenario got from 38 to 14 minutes (one run each):
+
+| setup | expected found | false flags | time | peak RAM |
+|---|---|---|---|---|
+| Ollama, `qwen3-vl:2b-instruct` | 5/5 | 1 | 38 min | ~2.6 GB |
+| llama-server, Bonsai 2 2B (PrismML, ternary) | 4/5 | 12 (consolidation failed twice) | 24 min | 1.0 GB |
+| llama-server, Bonsai 2 4B | — (stopped) | — | ~10 min per segment | — |
+| llama-server, Qwen3-VL 2B, full consolidation | 5/5 | 1 | 33 min | 1.9 GB |
+| llama-server, Qwen3-VL 2B, lean consolidation (current) | 5/5 | 1 | 14 min | 2.0 GB |
+
+- **Runtime.** Ollama scales every screenshot to ~1,040 tokens; llama-server's `--image-max-tokens 448` keeps an 896 px screenshot at its native size and reuses the cached system prompt, so a segment went from ~4,800 to ~1,750 new prompt tokens (~3 min instead of ~5.5 at 4 threads).
+- **Consolidation was the other half of the wait.** Rewriting every step's fields took the 2B model ~3,000 tokens (8 min at ~6 tokens/s), often cut off and repaired. In low-power mode the model now returns only an id, a title and keep/drop per step, without merging (when allowed to merge from that little context it collapsed 9 actions into 2 steps) and without review notes (it wrote one for every step); descriptions, targets and values come from the per-segment results, and the deterministic consistency check still flags typed-vs-on-screen mismatches. Consolidation now takes ~1.5 min.
+- **Bounded output.** Lists and strings in the local JSON schema have maximum sizes, so a model stuck repeating itself stops inside the grammar (one runaway reply took 10 min before that).
+- **Bonsai 2.** The 2B used half the RAM but lost a step and couldn't produce a valid consolidation; the 4B read prompts at ~5.6 tokens/s against ~23 for Qwen3-VL 2B on this CPU (the ternary kernels don't offset twice the parameters here). Neither is offered.
+
+Earlier fixes on the Ollama path:
 - The plain `qwen3-vl:2b` tag is the *thinking* variant: it wrote ~2,000 hidden reasoning tokens for a two-line answer (and ~3,500 with thinking "disabled"), so real requests timed out or came back empty. All tiers now use the `-instruct` tags, replies are capped (`LOCAL_MAX_TOKENS`, 3000), and two empty replies in a row stop with a clear message instead of ~25 minutes of retries.
 - Ollama spends ~1,040 tokens on every image regardless of its size, and this CPU reads ~15 prompt tokens/s at 4 threads — about 70 s per image. Low-power mode therefore skips the zoomed click crops (the local OCR still reports the text near each click), which brought a segment from ~6,800 prompt tokens / 9.5 min to ~4,800 / 5.5 min. The local timeout is 30 min, since a timeout restarts a request from zero.
 - The context window for the smallest tier is 8192 tokens (one segment's prompt is larger than the 4096 default).
 
-The scenario's planted mistake was not caught and one step was flagged unnecessarily — the 2B model is good at listing steps but weak at judging them. A network watcher logging every connection by Python and Ollama during a local run recorded none leaving the machine. The other three scenarios, and the larger tiers on a bigger machine, are still to be measured.
+The planted mistake in the email scenario was not caught by any 2B configuration — the model is good at listing steps but weak at judging them. A network watcher logging every connection by Python and Ollama during a local run recorded none leaving the machine. The other two scenarios, and the larger tiers on a bigger machine, are still to be measured.
 
 **Caveats:**
 - The scenarios are synthetic: clean screens, readable fonts, one mistake each.
