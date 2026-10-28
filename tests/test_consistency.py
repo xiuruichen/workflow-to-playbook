@@ -76,3 +76,48 @@ def test_users_own_earlier_input_is_not_a_source():
     events = [Event(t=3, kind="type", text="pyhton app.py"), Event(t=9, kind="type", text="python app.py")]
     visible = [("pyhton app.py", 0.0), ("NameError: name 'usr' is not defined", 0.0)]
     assert find_near_misses(events, [], visible) == []
+
+
+def test_click_step_echoing_the_typed_value_is_not_a_source():
+    """Small models write the typed address as the value of the click into the To field."""
+    events = [Event(t=7.2, kind="type", text="jon.doe@example.com")]
+    cands = [cand("click", "jon.doe@example.com", 4.2), cand("type", "jon.doe@example.com", 7.2)]
+    ocr = [("John Doe <john.doe@example.com>", 0.0), ("jon.doe@example.com", 10.4)]
+    (m,) = find_near_misses(events, cands, ocr=ocr)
+    assert (m.typed, m.seen, m.seen_t) == ("jon.doe@example.com", "john.doe@example.com", 0.0)
+
+
+def test_value_read_by_ocr_before_typing_is_a_correct_copy():
+    events = [Event(t=7.2, kind="type", text="john.doe@example.com")]
+    cands = [cand("click", "john.doe@example.com", 4.2)]
+    ocr = [("John Doe <john.doe@example.com>", 0.0), ("Jon Doe <jon.doe@example.com>", 0.0)]
+    assert find_near_misses(events, cands, ocr=ocr) == []
+
+
+def test_number_misread_just_before_typing_is_flagged():
+    """3 of 7 digits changed: too many for a near-miss, but it is the number the user just read."""
+    events = [Event(t=20, kind="type", text="los angeles population"), Event(t=40, kind="type", text="3,163,843")]
+    ocr = [("Los Angeles population: 3,863,148 (2024)", 30.0)]
+    (m,) = find_near_misses(events, [], ocr=ocr)
+    assert (m.typed, m.seen) == ("3,163,843", "3,863,148")
+
+
+def test_misread_number_check_only_looks_since_the_previous_entry():
+    events = [Event(t=20, kind="type", text="315,663"), Event(t=40, kind="type", text="3,163,843")]
+    ocr = [("3,863,148", 10.0), ("Cincinnati population: 315,663", 15.0)]
+    assert find_near_misses(events, [], ocr=ocr) == []
+
+
+def test_note_goes_on_the_step_that_typed_the_value():
+    """Local-model step times lag a keyframe: the click into the field 'contains' the typing time."""
+    def step(i, title, action, t0, t1, value=None):
+        return Step(index=i, title=title, description="", action=action, value=value, t_start=t0, t_end=t1,
+                    model_confidence=0.9, confidence=0.9)
+
+    steps = [step(1, "Click the To field", "click", 5.4, 10.4),
+             step(2, "Type 'jon.doe@example.com' into To", "type", 10.4, 10.4),
+             step(3, "Click the To field", "click", 10.4, 10.4, value="jon.doe@example.com")]
+    misses = find_near_misses([Event(t=7.2, kind="type", text="jon.doe@example.com")], [],
+                              ocr=[("john.doe@example.com", 0.0)])
+    assert annotate_steps(steps, misses, fmt_ts) == 1
+    assert [s.review_note is not None for s in steps] == [False, True, False]

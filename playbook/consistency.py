@@ -8,7 +8,9 @@ so near-misses between the two are cheap to find without another API call.
 
 A near-miss is "similar but not equal": transposed digits, or 1-2 changed digits in a
 number of 5+ digits, or a >= 85% similar string (emails, names, paths, commands). Prefixes
-are ignored (autocomplete).
+are ignored (autocomplete). A number typed right after reading a similar one (same
+magnitude and leading digit, up to half its digits changed) is flagged too: that is a
+transcription error, not a different value.
 """
 
 from __future__ import annotations
@@ -20,6 +22,10 @@ from difflib import SequenceMatcher
 from .models import Event, Step, StepCandidate
 
 TYPING_ACTIONS = {"type", "key", "shortcut", "hotkey"}
+# Steps whose value the model read off the screen. Other steps often just echo what was typed
+# (small models write `click "jon.doe@..."` for clicking into the To field), so only these, and
+# local OCR, can prove that a typed value was copied correctly.
+SOURCE_ACTIONS = {"read", "select"}
 NUMBER = re.compile(r"\d[\d,.\s]*\d")
 QUOTED = re.compile(r"['\"“‘]([^'\"”’]{3,80})['\"”’]")
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
@@ -78,6 +84,15 @@ def is_near_miss(typed: str, seen: str) -> bool:
     return SequenceMatcher(None, t, s).ratio() >= TEXT_SIMILARITY
 
 
+def is_misread_number(typed: str, seen: str) -> bool:
+    """A looser test for a number typed just after reading `seen`: same magnitude and leading
+    digit, at most half the digits changed (3,163,843 typed for 3,863,148)."""
+    td, sd = _digits(typed), _digits(seen)
+    if not td or not sd or td == sd or len(td) < 5 or abs(len(td) - len(sd)) > 1 or td[0] != sd[0]:
+        return False
+    return _edit_distance(td, sd) <= len(td) // 2
+
+
 def _tokens(value: str) -> set[str]:
     """Comparable pieces of a value: the whole thing if short, plus numbers, emails, paths, quotes."""
     out = {value.strip()} if len(value.strip()) <= MAX_WHOLE_VALUE else set()
@@ -91,13 +106,18 @@ def _tokens(value: str) -> set[str]:
 
 
 def find_near_misses(
-    events: list[Event], candidates: list[StepCandidate], visible: list[tuple[str, float]] = ()
+    events: list[Event],
+    candidates: list[StepCandidate],
+    visible: list[tuple[str, float]] = (),
+    ocr: list[tuple[str, float]] = (),
 ) -> list[NearMiss]:
-    """`visible` holds (value, time) pairs the model listed as visible on screen per segment.
+    """`visible` holds (value, time) pairs the model listed as visible on screen per segment;
+    `ocr` holds text local OCR read from keyframes, timed exactly.
 
-    A typed value counts as correctly copied only if the model recorded exactly that value in
-    a step *before* it was typed. Visible-value lists can't prove it: once typed, the value is
-    on screen too (in the field it was typed into), so they are used only to find near-misses.
+    A typed value counts as correctly copied only if it was on screen *before* it was typed:
+    read by OCR, or recorded by the model in a read/select step. Visible-value lists can't
+    prove it: once typed, the value is on screen too (in the field it was typed into), so they
+    are used only to find near-misses.
     """
     from_steps = [
         (tok, c.t_start)
@@ -105,24 +125,33 @@ def find_near_misses(
         if c.value and c.action not in TYPING_ACTIONS
         for tok in _tokens(c.value)
     ]
+    from_ocr = [(tok, t) for text, t in ocr for tok in _tokens(text)]
+    sources = [
+        (tok, c.t_start) for c in candidates if c.value and c.action in SOURCE_ACTIONS for tok in _tokens(c.value)
+    ] + from_ocr
     # Text the user typed shows up on screen too (a terminal's history, a filled-in field).
     # It is their own input, not a source they copied from, so it never counts as "seen".
     typed_anywhere = {_norm(tok) for ev in events if ev.kind == "type" and ev.text for tok in _tokens(ev.text)}
-    seen = [
-        (tok, t)
-        for tok, t in from_steps + [(tok, t) for value, t in visible for tok in _tokens(value)]
-        if _norm(tok) not in typed_anywhere
-    ]
+
+    def not_typed(pairs):
+        return [(tok, t) for tok, t in pairs if _norm(tok) not in typed_anywhere]
+
+    seen = not_typed(from_steps + [(tok, t) for value, t in visible for tok in _tokens(value)] + from_ocr)
+    timed = not_typed(sources)  # sightings with exact times, for the "just read" number check
     misses: list[NearMiss] = []
+    prev_typed_t = float("-inf")
     for ev in events:
         if ev.kind != "type" or not ev.text or set(ev.text) == {"•"}:
             continue
-        exact = {_norm(tok) for tok, t in from_steps if t < ev.t}
+        exact = {_norm(tok) for tok, t in sources if t < ev.t}
+        just_read = [(tok, t) for tok, t in timed if prev_typed_t < t < ev.t]
+        prev_typed_t = ev.t
         found: list[NearMiss] = []
         for typed in _tokens(ev.text):
             if _norm(typed) in exact:
-                continue  # the typed value also appears exactly: fine
+                continue  # the typed value was on screen before: fine
             matches = [(tok, t) for tok, t in seen if is_near_miss(typed, tok)]
+            matches = matches or [(tok, t) for tok, t in just_read if is_misread_number(typed, tok)]
             if matches:
                 tok, t = min(matches, key=lambda m: abs(m[1] - ev.t))  # closest sighting in time
                 found.append(NearMiss(typed=typed, seen=tok, typed_t=ev.t, seen_t=t))
@@ -135,9 +164,19 @@ def annotate_steps(steps: list[Step], misses: list[NearMiss], fmt_ts) -> int:
     """Add a review note to the step containing each near-miss. Returns notes added."""
     added = 0
     for m in misses:
-        containing = [s for s in steps if s.t_start - 0.5 <= m.typed_t <= s.t_end + 0.5]
-        earlier = [s for s in steps if s.t_start <= m.typed_t]
-        step = (containing or earlier[-1:] or steps[:1] or [None])[0]
+        # Prefer the step that says it entered the value: model step times can be off by a
+        # keyframe, so a neighbouring "click the field" step often contains the typing time.
+        typed = _norm(m.typed)
+        entering = [s for s in steps if typed in _norm(f"{s.title} {s.description} {s.value or ''}")]
+        if entering:
+            def rank(s: Step, t: float = m.typed_t) -> tuple[bool, float]:  # typing steps first, even merged
+                return not set(s.action.split(" + ")) & TYPING_ACTIONS, abs(s.t_start - t)
+
+            step = min(entering, key=rank)
+        else:
+            containing = [s for s in steps if s.t_start - 0.5 <= m.typed_t <= s.t_end + 0.5]
+            earlier = [s for s in steps if s.t_start <= m.typed_t]
+            step = (containing or earlier[-1:] or steps[:1] or [None])[0]
         if step is None:
             continue
         note = f'Typed "{m.typed}" but "{m.seen}" was seen at {fmt_ts(m.seen_t)} (consistency check).'
@@ -146,3 +185,4 @@ def annotate_steps(steps: list[Step], misses: list[NearMiss], fmt_ts) -> int:
         step.review_note = f"{step.review_note} {note}" if step.review_note else note
         added += 1
     return added
+

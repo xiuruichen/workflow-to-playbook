@@ -81,7 +81,7 @@ All of these are fixed. The evaluation results below are the evidence.
 - **Single monitor** (choose with `MONITOR`). Multi-monitor workflows lose actions on other screens.
 - **App/window metadata is Windows-only** for now (Win32 calls via ctypes). On macOS/Linux events have no window context; the model falls back to reading the screen.
 - **Tiny changes can merge.** A change smaller than ~150 pixels at 640 px wide (e.g. a single digit in a cell) doesn't get its own keyframe, so that blinking cursors and spinners don't create keyframes. The event log still records exactly what was typed.
-- **The consistency check is conservative.** It needs 5+ digit numbers or 5+ character strings, and at most 2 changed digits. It misses bigger transcription errors (Los Angeles: 3,163,843 vs 3,863,148); the model has to catch those.
+- **The consistency check is conservative.** It needs 5+ digit numbers or 5+ character strings. Against any value seen in the recording it allows at most 2 changed digits; against a number read since the previous typed entry it allows up to half the digits (same magnitude and leading digit), which catches Los Angeles (3,163,843 vs 3,863,148). Bigger rewrites of text, and numbers copied from further back, still rely on the model.
 - **No audio / narration.** The *why* behind decisions is only inferred. Think-aloud narration would be the highest-value addition for capturing tacit knowledge.
 - **Keyboard-only actions with no visible effect** (e.g. Ctrl+C) are inferred from the event log only. They usually get flagged, which is intended.
 - **Typed text is recorded verbatim** unless `MASK_TYPED_TEXT=true`. Passwords typed during a recording end up in `events.jsonl` and prompts. Pause first.
@@ -113,7 +113,7 @@ The one missed expected step ("read the population 168,412") is Lite-model varia
 
 | scenario | steps | expected found | mistake | false flags | time | peak RAM |
 |---|---|---|---|---|---|---|
-| email (28 s recording) | 10 | 5/5 | missed | 1 | 14 min | 2.0 GB |
+| email (28 s recording) | 10 | 5/5 | caught | 0 | 14 min | 2.0 GB |
 | files (6 segments) | 12 | 4/4 | n/a | 0 | 29 min | 2.0 GB |
 
 How the same email scenario got from 38 to 14 minutes (one run each):
@@ -137,7 +137,7 @@ Earlier fixes on the Ollama path:
 - Ollama spends ~1,040 tokens on every image regardless of its size, and this CPU reads ~15 prompt tokens/s at 4 threads — about 70 s per image. Low-power mode therefore skips the zoomed click crops (the local OCR still reports the text near each click), which brought a segment from ~6,800 prompt tokens / 9.5 min to ~4,800 / 5.5 min. The local timeout is 30 min, since a timeout restarts a request from zero.
 - The context window for the smallest tier is 8192 tokens (one segment's prompt is larger than the 4096 default).
 
-The planted mistake in the email scenario was not caught by any 2B configuration — the model is good at listing steps but weak at judging them. A network watcher logging every connection by Python and Ollama during a local run recorded none leaving the machine. The other two scenarios, and the larger tiers on a bigger machine, are still to be measured.
+The 2B model is good at listing steps but weak at judging them: it never wrote a review note for the planted email typo, so on small machines the deterministic consistency check does that job. At first it looked like the check missed it too. It had flagged the typo, but on the wrong step: the 2B model times steps a keyframe late, so its "click the To field" step contained the typing time, and the scorer rightly counted a note there as a false flag. Notes now go on the step that says it entered the value, and only OCR text or read/select steps count as proof of a correct copy (small models also write the typed address as the value of the click into the field, which used to explain the typo away). Replayed from the cached answers, the email scenario now shows the mistake caught with no false flags; the table above is that replay. A network watcher logging every connection by Python and Ollama during a local run recorded none leaving the machine. The other two scenarios, and the larger tiers on a bigger machine, are still to be measured.
 
 **Caveats:**
 - The scenarios are synthetic: clean screens, readable fonts, one mistake each.
@@ -173,7 +173,7 @@ The planted mistake in the email scenario was not caught by any 2B configuration
 - [ ] The same via AX (macOS) / AT-SPI (Linux).
 - [x] Fully local analysis (Ollama + Qwen3-VL), hardware-aware model choice, egress guard.
 - [x] Encrypted, compacted archives of idle sessions.
-- [ ] Measure the local model on the evaluation scenarios and real recordings (blocked on disk space on the dev laptop).
+- [ ] Measure the local model on the remaining evaluation scenarios (coding, research) and on real recordings. Done so far: email and files on the 2B tier.
 - [x] Active-window metadata (app, window title) per event, and window-switch events (Windows).
 - [ ] The same on macOS/Linux; browser URL capture; multi-monitor.
 - [ ] Learned confidence calibration from reviewer labels (`labels.csv`) once ~100–200 steps are labelled.

@@ -904,8 +904,8 @@ class Analyzer:
             st.index = i
         # Deterministic cross-check of typed values against values seen on screen (no API call).
         seen_on_screen = [(v, w["t_start"]) for w in window_log for v in w.get("visible_values", [])]
-        seen_on_screen += getattr(self, "_ocr_seen", [])  # exact text from local OCR
-        annotate_steps(steps, find_near_misses(manifest.events, cands, seen_on_screen), fmt_ts)
+        ocr_seen = getattr(self, "_ocr_seen", [])  # exact text from local OCR
+        annotate_steps(steps, find_near_misses(manifest.events, cands, seen_on_screen, ocr_seen), fmt_ts)
 
         pb = Playbook(
             title=resp.title if resp else "Recorded workflow",
