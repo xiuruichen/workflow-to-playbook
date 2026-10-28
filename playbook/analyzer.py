@@ -31,7 +31,7 @@ from .hardware import be_gentle, cpu_threads
 from .ocr import SessionOCR
 from .ocr import set_threads as ocr_set_threads
 from .security import SecurityError
-from .consistency import annotate_steps, find_near_misses
+from .consistency import annotate_steps, find_near_misses, find_rejected_input
 from .keyframes import annotate, crop_around, encode_jpeg, load_image, resize_max_width
 from .models import Event, InputVariable, Keyframe, Manifest, Playbook, Step, StepCandidate
 
@@ -905,7 +905,8 @@ class Analyzer:
         # Deterministic cross-check of typed values against values seen on screen (no API call).
         seen_on_screen = [(v, w["t_start"]) for w in window_log for v in w.get("visible_values", [])]
         ocr_seen = getattr(self, "_ocr_seen", [])  # exact text from local OCR
-        annotate_steps(steps, find_near_misses(manifest.events, cands, seen_on_screen, ocr_seen), fmt_ts)
+        flagged = find_near_misses(manifest.events, cands, seen_on_screen, ocr_seen)
+        annotate_steps(steps, flagged + find_rejected_input(manifest.events, ocr_seen), fmt_ts)
 
         pb = Playbook(
             title=resp.title if resp else "Recorded workflow",

@@ -11,6 +11,12 @@ number of 5+ digits, or a >= 85% similar string (emails, names, paths, commands)
 are ignored (autocomplete). A number typed right after reading a similar one (same
 magnitude and leading digit, up to half its digits changed) is flagged too: that is a
 transcription error, not a different value.
+
+The same log also catches input the software rejected. Error messages quote the input they
+refuse ("The term 'pyhton' is not recognized", "bash: pyhton: command not found", "'jon.doe@'
+is not a valid email", "No results for 'springfeild'"), so new on-screen text (local OCR)
+that reads like an error and cites something just typed marks that entry for review, in any
+app.
 """
 
 from __future__ import annotations
@@ -33,14 +39,29 @@ PATHLIKE = re.compile(r"[\w.-]+[/\\][\w./\\-]+|[\w-]+\.[a-z0-9]{2,4}\b", re.I)
 MIN_DIGITS = 4
 TEXT_SIMILARITY = 0.85
 MAX_WHOLE_VALUE = 60  # longer values are searched for tokens instead of compared whole
+ERROR_TEXT = re.compile(
+    r"\b(errors?|exception|fail(?:ed|ure|s)?|invalid|unrecogni[sz]ed|unknown|unexpected|incorrect|"
+    r"undefined|denied|rejected|undeliverable|unable|cannot|can'?t|could\s?n[o']t|"
+    r"not\s+(?:an?\s+)?(?:recogni[sz]ed|found|defined|valid|allowed|supported|available|exist)|"
+    r"does\s?n[o']t\s+exist|no\s+such|no\s+(?:results|matches)|did\s+not\s+match)\b",
+    re.I,
+)
+TYPED_WORD = re.compile(r"[\w.@/\\+-]{3,}")
+ERROR_WINDOW_S = 15.0  # how long after an entry an error message is attributed to it
 
 
 @dataclass
 class NearMiss:
     typed: str
-    seen: str
+    seen: str  # the similar value seen on screen, or the error message for kind="rejected"
     typed_t: float
     seen_t: float
+    kind: str = "near_miss"  # or "rejected": the software showed an error citing the input
+
+    def note(self, fmt_ts) -> str:
+        if self.kind == "rejected":
+            return f'After typing "{self.typed}" the screen showed "{self.seen}" at {fmt_ts(self.seen_t)} (consistency check).'
+        return f'Typed "{self.typed}" but "{self.seen}" was seen at {fmt_ts(self.seen_t)} (consistency check).'
 
 
 def _digits(s: str) -> str | None:
@@ -160,8 +181,36 @@ def find_near_misses(
     return misses
 
 
+def _cites(line: str, token: str) -> bool:
+    """The line names `token` the way error messages cite input: quoted, or as "token:"."""
+    t = re.escape(token)
+    return bool(re.search(rf"['\"`‘“]{t}['\"`’”]|(?:^|[\s:]){t}\s*:", line, re.I))
+
+
+def find_rejected_input(events: list[Event], ocr: list[tuple[str, float]] = ()) -> list[NearMiss]:
+    """Typed entries followed, within seconds, by new on-screen error text that cites them."""
+    typing = [ev for ev in events if ev.kind == "type" and ev.text and set(ev.text) != {"•"}]
+    out: list[NearMiss] = []
+    for i, ev in enumerate(typing):
+        until = min(ev.t + ERROR_WINDOW_S, typing[i + 1].t + 0.5 if i + 1 < len(typing) else float("inf"))
+        before = {_norm(text) for text, t in ocr if t <= ev.t}
+        words = sorted({w.strip(".,;:") for w in TYPED_WORD.findall(ev.text)} | {ev.text.strip()}, key=len, reverse=True)
+        words = [w for w in words if len(w) >= 3]
+        for line, t in sorted(ocr, key=lambda x: x[1]):
+            if not (ev.t < t <= until) or _norm(line) in before:
+                continue  # outside the entry's window, or already on screen before it
+            # The error wording must come from the software, not from the typed text echoed back.
+            if not ERROR_TEXT.search(re.sub(re.escape(ev.text.strip()), " ", line, flags=re.I)):
+                continue
+            cited = next((w for w in words if _cites(line, w)), None)
+            if cited:
+                out.append(NearMiss(typed=cited, seen=line.strip(), typed_t=ev.t, seen_t=t, kind="rejected"))
+                break
+    return out
+
+
 def annotate_steps(steps: list[Step], misses: list[NearMiss], fmt_ts) -> int:
-    """Add a review note to the step containing each near-miss. Returns notes added."""
+    """Add a review note to the step that entered each flagged value. Returns notes added."""
     added = 0
     for m in misses:
         # Prefer the step that says it entered the value: model step times can be off by a
@@ -179,7 +228,7 @@ def annotate_steps(steps: list[Step], misses: list[NearMiss], fmt_ts) -> int:
             step = (containing or earlier[-1:] or steps[:1] or [None])[0]
         if step is None:
             continue
-        note = f'Typed "{m.typed}" but "{m.seen}" was seen at {fmt_ts(m.seen_t)} (consistency check).'
+        note = m.note(fmt_ts)
         if step.review_note and m.typed in step.review_note and m.seen in step.review_note:
             continue  # the model already said the same thing
         step.review_note = f"{step.review_note} {note}" if step.review_note else note

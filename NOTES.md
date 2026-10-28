@@ -48,7 +48,7 @@ labels.py: reviewer Correct/Wrong labels ──► labels.csv (future calibratio
 - **Archive when idle, not right after analysis.** Packing immediately after `run` would encrypt the playbook the user is about to open. Sessions are archived after 2 untouched days instead (`AUTO_COMPACT`), and restored transparently by `analyze`/`render`/the UI. Re-packing copies the unchanged video and keyframe records from the old archive.
 - **Video time = wall time.** The recorder duplicates frames when capture lags, so `#t=<event time>` always lands on the right moment.
 - **Domain-neutral by construction.** Nothing in capture or analysis assumes an app. Context comes from the OS (app and window title per event, window-switch events), and the prompts list what makes a step repeatable in each kind of work (paths and commands for coding, recipients and field values for email/forms, before/after values for settings). This is verified with scripted scenarios rather than assumed.
-- **Deterministic checks where possible.** The keyboard log is ground truth for what was typed, so comparing it against values seen on screen is pure string matching with no model needed. Only a value recorded *before* the typing proves a correct copy, and the user's own earlier input (e.g. a mistyped command still visible in the terminal) is never treated as a source.
+- **Deterministic checks where possible.** The keyboard log is ground truth for what was typed, so comparing it against values seen on screen is pure string matching with no model needed. Only a value recorded *before* the typing proves a correct copy, and the user's own earlier input (e.g. a mistyped command still visible in the terminal) is never treated as a source. The same log shows when software rejected an input: error messages in every kind of app quote the input they refuse (`'pyhton' is not recognized`, `gti: command not found`, `'jon.doe@' is not a valid email`, `No results for "springfeild"`), so new on-screen error text that cites something just typed flags that entry. It needs no knowledge of the app.
 
 ## Findings so far
 
@@ -115,6 +115,10 @@ The one missed expected step ("read the population 168,412") is Lite-model varia
 |---|---|---|---|---|---|---|
 | email (28 s recording) | 10 | 5/5 | caught | 0 | 14 min | 2.0 GB |
 | files (6 segments) | 12 | 4/4 | n/a | 0 | 29 min | 2.0 GB |
+| research | 8 | 3/4 | caught | 0 | 8 min | 3.1 GB |
+| coding | 12 | 4/5 | caught | 0 | 21 min | 3.1 GB |
+
+Email and files ran at 4 threads; research and coding at 6, with Edge and Teams closed. Peak RAM for research and coding is llama-server's working set sampled every 15 s (it reserved up to 4.5 GB); the earlier 2.0 GB figures were measured differently and are probably low, so plan on ~3 GB. Free memory fell to ~330 MB during the research run. All three planted mistakes are caught by the deterministic checks, not the model, and the "mistake" and "false flags" columns are from replaying every scenario against the cached answers after the last change to the checks. Missed steps: "read 168,412" (research, also missed by Gemini Flash-Lite) and the Ctrl+S save (coding).
 
 How the same email scenario got from 38 to 14 minutes (one run each):
 
@@ -137,7 +141,7 @@ Earlier fixes on the Ollama path:
 - Ollama spends ~1,040 tokens on every image regardless of its size, and this CPU reads ~15 prompt tokens/s at 4 threads — about 70 s per image. Low-power mode therefore skips the zoomed click crops (the local OCR still reports the text near each click), which brought a segment from ~6,800 prompt tokens / 9.5 min to ~4,800 / 5.5 min. The local timeout is 30 min, since a timeout restarts a request from zero.
 - The context window for the smallest tier is 8192 tokens (one segment's prompt is larger than the 4096 default).
 
-The 2B model is good at listing steps but weak at judging them: it never wrote a review note for the planted email typo, so on small machines the deterministic consistency check does that job. At first it looked like the check missed it too. It had flagged the typo, but on the wrong step: the 2B model times steps a keyframe late, so its "click the To field" step contained the typing time, and the scorer rightly counted a note there as a false flag. Notes now go on the step that says it entered the value, and only OCR text or read/select steps count as proof of a correct copy (small models also write the typed address as the value of the click into the field, which used to explain the typo away). Replayed from the cached answers, the email scenario now shows the mistake caught with no false flags; the table above is that replay. A network watcher logging every connection by Python and Ollama during a local run recorded none leaving the machine. The other two scenarios, and the larger tiers on a bigger machine, are still to be measured.
+The 2B model is good at listing steps but weak at judging them: it never wrote a review note for the planted email typo, so on small machines the deterministic consistency check does that job. At first it looked like the check missed it too. It had flagged the typo, but on the wrong step: the 2B model times steps a keyframe late, so its "click the To field" step contained the typing time, and the scorer rightly counted a note there as a false flag. Notes now go on the step that says it entered the value, and only OCR text or read/select steps count as proof of a correct copy (small models also write the typed address as the value of the click into the field, which used to explain the typo away). Replayed from the cached answers, the email scenario now shows the mistake caught with no false flags. In coding the model wrote "Type 'pyhton app.py'" as an ordinary step; there is no correct value on screen to compare it with, only the terminal's error, which the rejected-input check now reads. A network watcher logging every connection by Python and Ollama during a local run recorded none leaving the machine. The larger tiers on a bigger machine are still to be measured.
 
 **Caveats:**
 - The scenarios are synthetic: clean screens, readable fonts, one mistake each.
@@ -173,7 +177,7 @@ The 2B model is good at listing steps but weak at judging them: it never wrote a
 - [ ] The same via AX (macOS) / AT-SPI (Linux).
 - [x] Fully local analysis (Ollama + Qwen3-VL), hardware-aware model choice, egress guard.
 - [x] Encrypted, compacted archives of idle sessions.
-- [ ] Measure the local model on the remaining evaluation scenarios (coding, research) and on real recordings. Done so far: email and files on the 2B tier.
+- [ ] Measure the local model on real recordings and on the larger tiers. All four evaluation scenarios are measured on the 2B tier.
 - [x] Active-window metadata (app, window title) per event, and window-switch events (Windows).
 - [ ] The same on macOS/Linux; browser URL capture; multi-monitor.
 - [ ] Learned confidence calibration from reviewer labels (`labels.csv`) once ~100–200 steps are labelled.

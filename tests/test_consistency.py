@@ -1,7 +1,12 @@
 import pytest
 
 from playbook.analyzer import fmt_ts
-from playbook.consistency import annotate_steps, find_near_misses, is_near_miss
+from playbook.consistency import (
+    annotate_steps,
+    find_near_misses,
+    find_rejected_input,
+    is_near_miss,
+)
 from playbook.models import Event, Step, StepCandidate
 
 
@@ -121,3 +126,42 @@ def test_note_goes_on_the_step_that_typed_the_value():
                               ocr=[("john.doe@example.com", 0.0)])
     assert annotate_steps(steps, misses, fmt_ts) == 1
     assert [s.review_note is not None for s in steps] == [False, True, False]
+
+
+
+@pytest.mark.parametrize("typed, error, cited", [
+    ("pyhton app.py", "pyhton : The term 'pyhton' is not recognized as the name of a cmdlet", "pyhton"),
+    ("gti status", "bash: gti: command not found", "gti"),
+    ("cat repot.csv", "cat: repot.csv: No such file or directory", "repot.csv"),
+    ("jon.doe@", "'jon.doe@' is not a valid email address", "jon.doe@"),
+    ("springfeild population", 'No results found for "springfeild population"', "springfeild population"),
+    ("=SUMM(B2:B9)", "There's a problem with this formula: 'SUMM' is not recognized", "SUMM"),
+])
+def test_input_rejected_by_the_software_is_flagged(typed, error, cited):
+    events = [Event(t=5, kind="type", text=typed), Event(t=6, kind="key", text="enter")]
+    (m,) = find_rejected_input(events, ocr=[(error, 7.0)])
+    assert (m.typed.lower(), m.seen, m.kind) == (cited.lower(), error, "rejected")
+
+
+@pytest.mark.parametrize("ocr", [
+    [("NameError: name 'usr' is not defined", 7.0)],          # an error, but not about what was typed
+    [("Error: 'pyhton' is not recognized", 3.0)],             # already on screen before the typing
+    [("pyhton : The term 'pyhton' is not recognized", 30.0)],  # long after: belongs to something else
+    [("Saved 'notes.txt'", 7.0)],                              # cites the input, but isn't an error
+])
+def test_unrelated_or_stale_messages_are_not_flagged(ocr):
+    events = [Event(t=5, kind="type", text="pyhton notes.txt")]
+    assert find_rejected_input(events, ocr=ocr) == []
+
+
+def test_error_is_attributed_to_the_latest_entry_only():
+    events = [Event(t=5, kind="type", text="pyhton app.py"), Event(t=9, kind="type", text="python app.py")]
+    ocr = [("pyhton : The term 'pyhton' is not recognized", 7.0),
+           ('  File "app.py", line 5, in <module>', 11.0), ("NameError: name 'usr' is not defined", 11.0)]
+    (m,) = find_rejected_input(events, ocr=ocr)
+    assert (m.typed, m.typed_t) == ("pyhton", 5)
+
+    steps = [Step(index=1, title="Type 'pyhton app.py' in the terminal", description="", action="type",
+                  t_start=6.3, t_end=6.3, model_confidence=0.9, confidence=0.9)]
+    assert annotate_steps(steps, [m], fmt_ts) == 1
+    assert steps[0].review_note.startswith('After typing "pyhton" the screen showed')
