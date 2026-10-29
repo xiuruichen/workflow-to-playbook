@@ -1,0 +1,152 @@
+{
+  "name": "research-and-record-city-population-data",
+  "title": "Research and Record City Population Data",
+  "description": "Find the 2024 population estimate for a specific city online and record it in a research spreadsheet. Learned from a recorded demonstration (Chrome, Sheets). 1 step(s) must be confirmed by a human before running.",
+  "goal": "Find the 2024 population estimate for a specific city online and record it in a research spreadsheet.",
+  "apps": [
+    "Chrome",
+    "Sheets"
+  ],
+  "prerequisites": [
+    "Access to a web browser with internet connectivity",
+    "Access to the '{{spreadsheet_file}}' spreadsheet"
+  ],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "search_query": {
+        "type": "string",
+        "description": "The query used to find population data.",
+        "examples": [
+          "city population 2024"
+        ]
+      },
+      "city_name": {
+        "type": "string",
+        "description": "The name of the city being researched.",
+        "examples": [
+          "Springfield"
+        ]
+      },
+      "spreadsheet_file": {
+        "type": "string",
+        "description": "The name of the spreadsheet file where data is recorded.",
+        "examples": [
+          "City Research.xlsx"
+        ]
+      },
+      "target_cell": {
+        "type": "string",
+        "description": "The specific cell where the population value should be entered.",
+        "examples": [
+          "B2"
+        ]
+      }
+    },
+    "required": [
+      "search_query",
+      "city_name",
+      "spreadsheet_file",
+      "target_cell"
+    ]
+  },
+  "steps": [
+    {
+      "id": "step-1",
+      "title": "Search for city population data",
+      "instruction": "In Chrome, type '{{search_query}}' into the Searchly search bar and click the 'Search' button.",
+      "action": "type",
+      "app": "Chrome - Searchly",
+      "target": "Search",
+      "value": "{{search_query}}",
+      "value_kind": "input",
+      "value_from": null,
+      "expect": "Search results for the query are displayed.",
+      "confidence": 0.8,
+      "requires_confirmation": false,
+      "confirmation_reason": null,
+      "source": {
+        "playbook_step": 1,
+        "t_start": 0.0,
+        "t_end": 5.5
+      }
+    },
+    {
+      "id": "step-2",
+      "title": "Navigate to official city data",
+      "instruction": "Click on the first search result link titled '{{city_name}} - Official City Data'.",
+      "action": "click",
+      "app": "Chrome - Searchly",
+      "target": "{{city_name}} - Official City Data",
+      "value": null,
+      "value_kind": "literal",
+      "value_from": null,
+      "expect": "The browser navigates to the official city data page for {{city_name}}.",
+      "confidence": 0.8,
+      "requires_confirmation": false,
+      "confirmation_reason": null,
+      "source": {
+        "playbook_step": 2,
+        "t_start": 5.5,
+        "t_end": 6.5
+      }
+    },
+    {
+      "id": "step-3",
+      "title": "Identify the 2024 population estimate",
+      "instruction": "Locate and read the population estimate for 2024 on the city data page.",
+      "action": "read",
+      "app": "Chrome - https://springfield.example/data",
+      "target": "Population (2024 estimate):",
+      "value": "168,412",
+      "value_kind": "observed",
+      "value_from": null,
+      "expect": "The population value '168,412' is identified.",
+      "confidence": 0.9,
+      "requires_confirmation": false,
+      "confirmation_reason": null,
+      "source": {
+        "playbook_step": 3,
+        "t_start": 6.5,
+        "t_end": 9.5
+      }
+    },
+    {
+      "id": "step-4",
+      "title": "Record population in spreadsheet",
+      "instruction": "Switch to the '{{spreadsheet_file}}' spreadsheet and type the population value into cell {{target_cell}} for {{city_name}}, then wait for the 'All changes saved' confirmation.",
+      "action": "type",
+      "app": "Sheets - City Research.xlsx",
+      "target": "Cell {{target_cell}}",
+      "value": "{{step-3}}",
+      "value_kind": "from_step",
+      "value_from": {
+        "step": "step-3",
+        "recorded_source": "168,412",
+        "recorded_value": "186,412"
+      },
+      "expect": "The value is entered and the spreadsheet confirms the changes are saved.",
+      "confidence": 0.8,
+      "requires_confirmation": true,
+      "confirmation_reason": "Check: The value entered '186,412' differs from the value read '168,412' in the previous step, suggesting a transcription error.",
+      "source": {
+        "playbook_step": 4,
+        "t_start": 9.5,
+        "t_end": 18.0
+      }
+    }
+  ],
+  "excluded_steps": [],
+  "open_questions": [
+    "Should the population value '186,412' be corrected to '168,412' in the spreadsheet to match the source data?"
+  ],
+  "provenance": {
+    "session_id": "20261024-145602-import",
+    "source": "import",
+    "duration_s": 20.0,
+    "model": "gemini-3-flash-preview",
+    "generated_at": "2026-10-24T14:59:23",
+    "steps_reviewed": 0,
+    "steps_needing_confirmation": 1
+  }
+}

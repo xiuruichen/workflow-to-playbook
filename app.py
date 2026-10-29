@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+import io
 import tempfile
+import zipfile
 from pathlib import Path
 
 import streamlit as st
@@ -18,6 +20,7 @@ from playbook.generator import render_markdown, review_reasons, write_playbook
 from playbook.models import Manifest, Playbook
 from playbook.recorder import Recorder, ensure_hot, import_video, is_archived, list_sessions
 from playbook.security import SecurityError
+from playbook.skill import skill_files
 
 st.set_page_config(page_title="Workflow → Playbook", page_icon="📘", layout="wide")
 settings = get_settings()
@@ -25,6 +28,14 @@ ss = st.session_state
 ss.setdefault("rec", None)
 ss.setdefault("session", None)
 ss.setdefault("seek", 0)
+
+
+def _skill_zip(pb: Playbook) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for name, text in skill_files(pb).items():
+            z.writestr(f"{pb.session_id}-skill/{name}", text)
+    return buf.getvalue()
 
 
 def select_session(path: Path) -> None:
@@ -298,11 +309,14 @@ with tab_review:
                                              format_func=labels.get, horizontal=True, key=f"{sid}-v-{s.index}")
 
         md = render_markdown(pb)
-        a, b = st.columns(2)
+        a, b, c = st.columns(3)
         if a.button("💾 Save edits", type="primary"):
             write_playbook(pb, session_dir)
             st.success(f"Saved {session_dir / 'playbook.md'}")
         b.download_button("⬇ Download playbook.md", md, file_name=f"{pb.session_id}-playbook.md", mime="text/markdown")
+        c.download_button("⬇ Download agent skill (.zip)", _skill_zip(pb), file_name=f"{pb.session_id}-skill.zip",
+                          mime="application/zip", help="SKILL.md + skill.json: the procedure for an AI agent, with "
+                          "inputs as placeholders and unconfirmed steps marked 'ask a human first'.")
         st.caption(f"Interactive viewer (video + clickable steps): `{session_dir / 'playbook.html'}`. Open it in a browser.")
         with st.expander("Markdown preview (source)"):
             st.code(md, language="markdown")

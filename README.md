@@ -8,6 +8,7 @@ Record someone doing a task on their computer, then automatically turn the recor
 - before/after **screenshots** for each step,
 - a **confidence score (0–1)** per step. Steps are **flagged for human review** when confidence is below **0.70** *or* when the action is clear but something looks off (e.g. a value typed that differs from its source, caught by the model or by a deterministic consistency check), always with the reason and the evidence,
 - the **inputs** that would change next time (search terms, file names, values), and **open questions** the system couldn't answer.
+- an optional **agent-ready skill** (`SKILL.md` + `skill.json`): the same procedure for an AI agent, with inputs as placeholders and every unconfirmed step marked *ask a human first* (see [Export for AI agents](#export-for-ai-agents)).
 
 **Fully on-prem by default.** Analysis runs on a local vision model ([Qwen3-VL](https://ollama.com/library/qwen3-vl) through [Ollama](https://ollama.com)), sized automatically to the computer, so recordings never leave the machine. Sessions you aren't using are kept as **compressed, encrypted archives** (`.pbx`, about 4× smaller) and are decrypted only when you open, re-analyze or extract a playbook from them. A cloud model (Gemini) is still available as an explicit opt-in.
 
@@ -88,6 +89,7 @@ python -m playbook record                   # just record
 python -m playbook import my_recording.mp4  # use an existing video (mp4/mov/mkv/webm)
 python -m playbook analyze [session|latest] # (re)run the vision analysis
 python -m playbook render  [session|latest] # rebuild playbook.md/.html from playbook.json (no API calls)
+python -m playbook export  [session|latest] # agent-ready skill: SKILL.md + skill.json (see below)
 python -m playbook list                     # 🔒 = archived
 python -m playbook compact [session|--all|--idle-days N]  # compress + encrypt into .pbx archives
 python -m playbook compact --bench latest   # measure compression on a copy (the session is untouched)
@@ -111,8 +113,20 @@ Sessions live in a per-user local folder, **not** the project folder (which may 
 | `analysis.json` | raw step candidates from the model, per-segment context, dropped steps |
 | `playbook.json` / `playbook.md` | the final playbook (JSON for tools, Markdown for people) |
 | `playbook.html` | self-contained viewer: the recording beside the steps; click any step to play from there |
+| `skill/` | `SKILL.md` + `skill.json` for AI agents, written by `export` |
 
 Open `playbook.html` in a browser for the best experience, or `playbook.md` in VS Code (Ctrl+Shift+V) or any Markdown viewer. Markdown timestamp links like `[00:02:13](recording.mp4#t=133)` seek only when the video is opened in a browser.
+
+### Export for AI agents
+
+A playbook is written for people. `python -m playbook export` (or **⬇ Download agent skill** in the Review tab) turns it into a skill an AI agent can follow: `SKILL.md` in the [Agent Skills](https://agentskills.io) format that Claude and other agent tools load directly, plus a tool-neutral `skill.json` for automation frameworks. It is written to `<session>/skill/`, and needs no model call.
+
+- **Inputs become placeholders.** The values that change between runs (search terms, recipients, file names) appear as `{{city_name}}` in every step. When the model listed no inputs (common with small local models), what the user typed is used instead.
+- **Data flows between steps.** A value typed after being read on screen (copied from a web page into a sheet, say) is exported as "the value read in step 3", not as a constant, because next time the page will show something else. This also stops a recorded typo being replayed: in the [example](examples/city-population-lookup/skill/SKILL.md) the agent is told to type the value it reads, with the recorded `186,412` kept only as evidence.
+- **Uncertainty becomes a gate.** Every step that was flagged and not confirmed in review says **Ask a human first**, with the same reasons the viewer shows. Steps a reviewer marked wrong are left out.
+- **Nothing private beyond the playbook text.** No screenshots, video or event log are included.
+
+Review the playbook first: the skill can only be as good as the steps it is built from.
 
 ### Try it without recording
 

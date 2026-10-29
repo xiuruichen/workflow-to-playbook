@@ -23,6 +23,7 @@ analyzer.py  pass 1: windows of keyframes + events + OCR text (ocr.py) + click c
 consistency.py: typed values (keyboard log) vs values seen on screen (model + OCR) ──► review notes
      │
 generator.py ──► playbook.md / playbook.html / playbook.json
+skill.py ──► skill/SKILL.md + skill.json (agent-ready: placeholders, step-to-step data, human gates)
 archive.py + tilecodec.py: idle session folder ◄──► encrypted <id>.pbx (lossless keyframes, AV1 video, zstd JSON)
 app.py (Streamlit) and playbook/__main__.py (CLI) orchestrate the above; local_setup.py installs the model.
 scenarios.py + evaluate.py: scripted multi-domain recordings with ground truth ──► scorecard
@@ -48,6 +49,7 @@ labels.py: reviewer Correct/Wrong labels ──► labels.csv (future calibratio
 - **Archive when idle, not right after analysis.** Packing immediately after `run` would encrypt the playbook the user is about to open. Sessions are archived after 2 untouched days instead (`AUTO_COMPACT`), and restored transparently by `analyze`/`render`/the UI. Re-packing copies the unchanged video and keyframe records from the old archive.
 - **Video time = wall time.** The recorder duplicates frames when capture lags, so `#t=<event time>` always lands on the right moment.
 - **Domain-neutral by construction.** Nothing in capture or analysis assumes an app. Context comes from the OS (app and window title per event, window-switch events), and the prompts list what makes a step repeatable in each kind of work (paths and commands for coding, recipients and field values for email/forms, before/after values for settings). This is verified with scripted scenarios rather than assumed.
+- **An agent-ready export that carries the uncertainty with it.** The point of a digital twin is that someone (or something) else can do the task. `skill.py` turns a playbook into a skill an agent can follow: input examples become placeholders, a value typed after being read on screen becomes a reference to that earlier step (the next run will read a different value, and a recorded typo must not be replayed), and every step that was flagged and not confirmed by a reviewer becomes an explicit "ask a human first" gate. The flags that mark where tacit knowledge hides in the playbook become the places where an agent has to defer to the expert.
 - **Deterministic checks where possible.** The keyboard log is ground truth for what was typed, so comparing it against values seen on screen is pure string matching with no model needed. Only a value recorded *before* the typing proves a correct copy, and the user's own earlier input (e.g. a mistyped command still visible in the terminal) is never treated as a source. The same log shows when software rejected an input: error messages in every kind of app quote the input they refuse (`'pyhton' is not recognized`, `gti: command not found`, `'jon.doe@' is not a valid email`, `No results for "springfeild"`), so new on-screen error text that cites something just typed flags that entry. It needs no knowledge of the app.
 
 ## Findings so far
@@ -183,6 +185,7 @@ The 2B model is good at listing steps but weak at judging them: it never wrote a
 - [ ] Learned confidence calibration from reviewer labels (`labels.csv`) once ~100–200 steps are labelled.
 - [ ] Real-world evaluation set: several real recordings per activity type, scored with reviewer labels.
 - [ ] Automatic redaction of sensitive regions before upload.
-- [ ] Export to agent-executable formats (e.g. browser-automation scripts or tool-call plans), so a playbook can be replayed by an AI agent: the "digital twin" step.
+- [x] Export to an agent-ready skill (`SKILL.md` + `skill.json`): placeholders for inputs, data flow between steps, human gates for unconfirmed steps.
+- [ ] Replay a skill with a computer-use agent and score it against the recording (does it reach the same end state?).
 - [ ] Compare multiple recordings of the same task to separate the essential steps from personal habits, and to surface expert-vs-novice differences.
 - [x] Local OCR of the regions around clicks and changes.
