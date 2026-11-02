@@ -38,6 +38,7 @@ import secrets
 import shutil
 import struct
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -589,8 +590,9 @@ def restore(archive: Path, dest: Path | None = None, settings: Settings | None =
     dest = Path(dest) if dest else archive.with_suffix("")
     if dest.exists() and any(dest.iterdir()):
         raise ArchiveError(f"{dest} already exists; it is already restored.")
-    tmp = dest.with_name(dest.name + ".restoring")
-    shutil.rmtree(tmp, ignore_errors=True)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    # A private temp folder: two restores at once (e.g. two app windows) must not delete each other's files.
+    tmp = Path(tempfile.mkdtemp(prefix=f"{dest.name}.", suffix=".restoring", dir=dest.parent))
     state: dict[str, str] = {}
     try:
         with Reader(archive, key) as r:
@@ -605,9 +607,18 @@ def restore(archive: Path, dest: Path | None = None, settings: Settings | None =
                 state[name] = h.hexdigest()
         (tmp / "keyframes").mkdir(exist_ok=True)
         (tmp / STATE_FILE).write_text(json.dumps(state), encoding="utf-8")
-        if dest.exists():
-            dest.rmdir()
-        os.replace(tmp, dest)
+        if dest.exists() and any(dest.iterdir()):
+            if (dest / STATE_FILE).exists():
+                return dest  # a concurrent restore finished first; keep its folder
+            raise ArchiveError(f"{dest} already exists; it is already restored.")
+        try:
+            if dest.exists():
+                dest.rmdir()
+            os.replace(tmp, dest)
+        except OSError:
+            if (dest / STATE_FILE).exists():
+                return dest  # lost the race to a concurrent restore of the same archive
+            raise
     except ValueError as exc:
         raise ArchiveError(str(exc)) from exc
     finally:
@@ -615,6 +626,28 @@ def restore(archive: Path, dest: Path | None = None, settings: Settings | None =
     if not keep_archive:
         archive.unlink()
     return dest
+
+
+def repair(session_dir: Path, settings: Settings | None = None, key: Key | None = None) -> list[str]:
+    """Put back files missing from a restored folder (e.g. lost to an interrupted restore) from
+    its `.pbx`. Returns the paths repaired; does nothing for folders that weren't restored."""
+    session_dir = Path(session_dir)
+    arc, state_path = archive_path(session_dir), session_dir / STATE_FILE
+    if not (arc.exists() and state_path.exists()):
+        return []
+    wanted = set(json.loads(state_path.read_text(encoding="utf-8")))
+    if (session_dir / "manifest.json").exists():
+        wanted |= {k.path for k in Manifest.load(session_dir).keyframes}
+    missing = sorted(n for n in wanted if not (session_dir / n).exists())
+    if not missing:
+        return []
+    with tempfile.TemporaryDirectory(dir=session_dir.parent) as t:
+        full = restore(arc, Path(t) / "full", settings, key)
+        missing = [n for n in missing if (full / n).exists()]
+        for n in missing:
+            (session_dir / n).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(full / n, session_dir / n)
+    return missing
 
 
 def summary(archive: Path, key: Key | None = None, settings: Settings | None = None) -> dict:
@@ -717,5 +750,5 @@ def bench(session_dir: Path, settings: Settings | None = None, key: Key | None =
     return res.report() + f"\nrestore {t_restore:.1f}s · keyframes pixel-identical after restore: {'yes' if same else 'NO'}"
 
 
-__all__ = ["ArchiveError", "Key", "default_key", "import_key", "compact", "restore", "verify", "summary", "bench",
+__all__ = ["ArchiveError", "Key", "default_key", "import_key", "compact", "restore", "repair", "verify", "summary", "bench",
            "read_member", "compact_idle", "idle_days", "migrate", "archive_path", "SUFFIX", "STATE_FILE"]

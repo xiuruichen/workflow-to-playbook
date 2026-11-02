@@ -13,7 +13,7 @@ from pathlib import Path
 import streamlit as st
 
 from playbook.analyzer import AnalysisError, analyze_session, check_models, fmt_ts
-from playbook.archive import ArchiveError, compact, compact_idle, idle_days
+from playbook.archive import ArchiveError, compact, compact_idle, idle_days, repair
 from playbook.backend import resolve_backend
 from playbook.config import get_settings
 from playbook.generator import render_markdown, review_reasons, write_playbook
@@ -117,14 +117,17 @@ with st.sidebar:
         if choice != current or not ss.session:
             select_session(sessions[choice])
         chosen = sessions[choice]
+        # Shown on the run after the button's st.rerun(), which would otherwise wipe it.
+        if ss.get("archive_error"):
+            st.error(ss.pop("archive_error"))
         if is_archived(chosen):
             st.caption("Archived: compressed and encrypted on disk.")
             if st.button("🔓 Restore session", type="primary"):
                 with st.spinner("Decrypting and restoring…"):
                     try:
                         select_session(ensure_hot(chosen, settings))
-                    except ArchiveError as exc:
-                        st.error(str(exc))
+                    except (ArchiveError, OSError) as exc:
+                        ss.archive_error = f"Couldn't restore {chosen.stem}: {exc}"
                 st.rerun()
         elif ss.rec is None and st.button("🔒 Archive session", help="Compress + encrypt it now; restore any time"):
             with st.spinner("Compressing and encrypting…"):
@@ -132,8 +135,8 @@ with st.sidebar:
                     res = compact(chosen, settings)
                     select_session(res.archive)
                     st.toast(f"Archived: {res.before / 1e6:.1f} MB → {res.after / 1e6:.1f} MB")
-                except ArchiveError as exc:
-                    st.error(str(exc))
+                except (ArchiveError, OSError) as exc:
+                    ss.archive_error = f"Couldn't archive {chosen.name}: {exc}"
             st.rerun()
     else:
         st.info("No sessions yet. Record or import one.")
@@ -199,6 +202,15 @@ with tab_capture:
 
 session_dir = Path(ss.session) if ss.session else None
 archived = bool(session_dir and is_archived(session_dir))
+if session_dir and not archived and session_dir.is_dir() and not ss.get(f"checked-{session_dir}"):
+    try:
+        with st.spinner("Checking restored files…"):
+            fixed = repair(session_dir, settings)
+        if fixed:
+            st.toast(f"Recovered {len(fixed)} missing file(s) from the archive.")
+        ss[f"checked-{session_dir}"] = True
+    except (ArchiveError, OSError) as exc:
+        st.error(f"Some files of this session are missing and couldn't be recovered: {exc}")
 ARCHIVED_MSG = "This session is archived (compressed + encrypted). Click **🔓 Restore session** in the sidebar to open it."
 
 # ---------------------------------------------------------------- analyze
@@ -247,7 +259,11 @@ with tab_analyze:
         with st.expander(f"Keyframes ({len(m.keyframes)})"):
             cols = st.columns(4)
             for i, kf in enumerate(m.keyframes):
-                cols[i % 4].image(str(session_dir / kf.path), caption=f"#{kf.id} · {fmt_ts(kf.t)} · {kf.trigger}")
+                caption = f"#{kf.id} · {fmt_ts(kf.t)} · {kf.trigger}"
+                if (session_dir / kf.path).exists():
+                    cols[i % 4].image(str(session_dir / kf.path), caption=caption)
+                else:
+                    cols[i % 4].caption(f"{caption} (image missing)")
 
 # ---------------------------------------------------------------- review
 with tab_review:

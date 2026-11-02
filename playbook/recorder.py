@@ -658,13 +658,15 @@ def is_archived(session: Path) -> bool:
 
 def ensure_hot(session: Path, settings: Settings | None = None) -> Path:
     """A session folder ready to use: archived sessions (`<id>.pbx`) are decrypted and restored."""
+    from .archive import repair, restore
+
     session = Path(session)
     if not is_archived(session):
+        repair(session, settings)  # files lost to an interrupted restore come back from the .pbx
         return session
-    from .archive import restore
-
     folder = session.with_suffix("")
     if (folder / "manifest.json").exists():
+        repair(folder, settings)
         return folder  # already restored
     return restore(session, folder, settings)
 
