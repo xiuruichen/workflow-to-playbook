@@ -1,62 +1,254 @@
 {
-  "session_id": "20261024-145602-import",
-  "source": "import",
+  "session_id": "research",
+  "source": "live",
   "video": "recording.mp4",
-  "duration": 20.0,
+  "duration": 23.0,
   "width": 1280,
   "height": 720,
-  "fps": 10.0,
-  "created": "2026-10-24T14:56:02",
+  "fps": 5.0,
+  "created": "2026-10-28T19:38:13",
   "keyframes": [
     {
       "id": 0,
       "t": 0.0,
       "path": "keyframes/0000_start_0000.00.jpg",
       "trigger": "start",
-      "event_indices": []
+      "event_indices": [
+        0,
+        1
+      ]
     },
     {
       "id": 1,
-      "t": 5.5,
-      "path": "keyframes/0001_scene_0005.50.jpg",
-      "trigger": "scene",
-      "event_indices": []
+      "t": 7.4,
+      "path": "keyframes/0001_event_after_0007.40.jpg",
+      "trigger": "event_after",
+      "event_indices": [
+        1,
+        2
+      ]
     },
     {
       "id": 2,
-      "t": 6.5,
-      "path": "keyframes/0002_scene_0006.50.jpg",
-      "trigger": "scene",
-      "event_indices": []
+      "t": 8.4,
+      "path": "keyframes/0002_event_after_0008.40.jpg",
+      "trigger": "event_after",
+      "event_indices": [
+        2,
+        3
+      ]
     },
     {
       "id": 3,
-      "t": 9.5,
-      "path": "keyframes/0003_scene_0009.50.jpg",
-      "trigger": "scene",
-      "event_indices": []
+      "t": 10.2,
+      "path": "keyframes/0003_event_after_0010.20.jpg",
+      "trigger": "event_after",
+      "event_indices": [
+        3,
+        4
+      ]
     },
     {
       "id": 4,
-      "t": 13.0,
-      "path": "keyframes/0004_scene_0013.00.jpg",
-      "trigger": "scene",
-      "event_indices": []
+      "t": 14.6,
+      "path": "keyframes/0004_event_after_0014.60.jpg",
+      "trigger": "event_after",
+      "event_indices": [
+        4,
+        5,
+        6
+      ]
     },
     {
       "id": 5,
-      "t": 17.0,
-      "path": "keyframes/0005_scene_0017.00.jpg",
-      "trigger": "scene",
-      "event_indices": []
+      "t": 16.4,
+      "path": "keyframes/0005_event_after_0016.40.jpg",
+      "trigger": "event_after",
+      "event_indices": [
+        6,
+        7
+      ]
     },
     {
       "id": 6,
-      "t": 18.0,
-      "path": "keyframes/0006_scene_0018.00.jpg",
-      "trigger": "scene",
+      "t": 19.4,
+      "path": "keyframes/0006_event_after_0019.40.jpg",
+      "trigger": "event_after",
+      "event_indices": [
+        7,
+        8
+      ]
+    },
+    {
+      "id": 7,
+      "t": 20.4,
+      "path": "keyframes/0007_event_after_0020.40.jpg",
+      "trigger": "event_after",
+      "event_indices": [
+        8
+      ]
+    },
+    {
+      "id": 8,
+      "t": 23.0,
+      "path": "keyframes/0008_end_0023.00.jpg",
+      "trigger": "end",
       "event_indices": []
     }
   ],
-  "events": []
+  "events": [
+    {
+      "t": 1.8,
+      "kind": "click",
+      "app": "chrome.exe",
+      "window": "Searchly - Google Chrome",
+      "count": 1,
+      "element": null,
+      "element_value": null,
+      "x": 640,
+      "y": 330,
+      "x2": null,
+      "y2": null,
+      "button": "left",
+      "text": null,
+      "dx": null,
+      "dy": null
+    },
+    {
+      "t": 3.6,
+      "kind": "type",
+      "app": "chrome.exe",
+      "window": "Searchly - Google Chrome",
+      "count": 1,
+      "element": null,
+      "element_value": null,
+      "x": null,
+      "y": null,
+      "x2": null,
+      "y2": null,
+      "button": null,
+      "text": "springfield population 2024",
+      "dx": null,
+      "dy": null
+    },
+    {
+      "t": 7.45,
+      "kind": "key",
+      "app": "chrome.exe",
+      "window": "Searchly - Google Chrome",
+      "count": 1,
+      "element": null,
+      "element_value": null,
+      "x": null,
+      "y": null,
+      "x2": null,
+      "y2": null,
+      "button": null,
+      "text": "enter",
+      "dx": null,
+      "dy": null
+    },
+    {
+      "t": 9.35,
+      "kind": "click",
+      "app": "chrome.exe",
+      "window": "springfield population 2024 - Searchly - Google Chrome",
+      "count": 1,
+      "element": null,
+      "element_value": null,
+      "x": 250,
+      "y": 200,
+      "x2": null,
+      "y2": null,
+      "button": "left",
+      "text": null,
+      "dx": null,
+      "dy": null
+    },
+    {
+      "t": 13.65,
+      "kind": "hotkey",
+      "app": "chrome.exe",
+      "window": "Springfield - Official City Data - Google Chrome",
+      "count": 1,
+      "element": null,
+      "element_value": null,
+      "x": null,
+      "y": null,
+      "x2": null,
+      "y2": null,
+      "button": null,
+      "text": "alt+tab",
+      "dx": null,
+      "dy": null
+    },
+    {
+      "t": 14.2,
+      "kind": "focus",
+      "app": "EXCEL.EXE",
+      "window": "City Research.xlsx - Excel",
+      "count": 1,
+      "element": null,
+      "element_value": null,
+      "x": null,
+      "y": null,
+      "x2": null,
+      "y2": null,
+      "button": null,
+      "text": null,
+      "dx": null,
+      "dy": null
+    },
+    {
+      "t": 15.55,
+      "kind": "click",
+      "app": "EXCEL.EXE",
+      "window": "City Research.xlsx - Excel",
+      "count": 1,
+      "element": null,
+      "element_value": null,
+      "x": 530,
+      "y": 195,
+      "x2": null,
+      "y2": null,
+      "button": "left",
+      "text": null,
+      "dx": null,
+      "dy": null
+    },
+    {
+      "t": 17.35,
+      "kind": "type",
+      "app": "EXCEL.EXE",
+      "window": "City Research.xlsx - Excel",
+      "count": 1,
+      "element": null,
+      "element_value": null,
+      "x": null,
+      "y": null,
+      "x2": null,
+      "y2": null,
+      "button": null,
+      "text": "186,412",
+      "dx": null,
+      "dy": null
+    },
+    {
+      "t": 19.53,
+      "kind": "key",
+      "app": "EXCEL.EXE",
+      "window": "City Research.xlsx - Excel",
+      "count": 1,
+      "element": null,
+      "element_value": null,
+      "x": null,
+      "y": null,
+      "x2": null,
+      "y2": null,
+      "button": null,
+      "text": "enter",
+      "dx": null,
+      "dy": null
+    }
+  ]
 }

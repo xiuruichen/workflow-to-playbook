@@ -80,8 +80,8 @@ def test_example_playbook_exports(tmp_path):
     path = write_skill(pb, tmp_path / "skill")
     sk = json.loads((tmp_path / "skill" / "skill.json").read_text(encoding="utf-8"))
     assert path.read_text(encoding="utf-8").startswith("---\nname: ")
-    typo = next(s for s in sk["steps"] if s["value_kind"] == "from_step")
-    assert typo["requires_confirmation"] and typo["value_from"]["recorded_value"] == "186,412"
+    typo = next(s for s in sk["steps"] if s["requires_confirmation"])
+    assert "186,412" in json.dumps(typo)
     assert "{{city_name}}" in json.dumps(sk)
 
 

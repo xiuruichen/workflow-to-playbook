@@ -1,46 +1,58 @@
 ---
-name: research-and-record-city-population-data
-description: "Find the 2024 population estimate for a specific city online and record it in a research spreadsheet. Learned from a recorded demonstration (Chrome, Sheets). 1 step(s) must be confirmed by a human before running."
+name: search-for-springfield-population-and-enter-into-excel
+description: "Search for Springfield's population in 2024 on the Searchly website, retrieve the data, and enter it into an Excel spreadsheet. Learned from a recorded demonstration (Searchly - Google Chrome, Excel). 1 step(s) must be confirmed by a human before running."
 ---
 
-# Research and Record City Population Data
+# Search for Springfield Population and Enter into Excel
 
-**Goal:** Find the 2024 population estimate for a specific city online and record it in a research spreadsheet.
+**Goal:** Search for Springfield's population in 2024 on the Searchly website, retrieve the data, and enter it into an Excel spreadsheet.
 
-Learned from a 20-second screen recording. Follow the steps in order; after each one, check the expected result before moving on. Where a step says **Ask a human first**, stop and get confirmation: the recording alone was not enough to be sure.
+Learned from a 23-second screen recording. Follow the steps in order; after each one, check the expected result before moving on. Where a step says **Ask a human first**, stop and get confirmation: the recording alone was not enough to be sure.
 
 ## Inputs
 
 Ask for these if they were not given, and use them wherever `{{name}}` appears.
 
-- `{{search_query}}`: The query used to find population data. (example: city population 2024)
-- `{{city_name}}`: The name of the city being researched. (example: Springfield)
-- `{{spreadsheet_file}}`: The name of the spreadsheet file where data is recorded. (example: City Research.xlsx)
-- `{{target_cell}}`: The specific cell where the population value should be entered. (example: B2)
+- `{{population_value}}`: The population value for Springfield in 2024 that is to be entered into the Excel cell. (example: 186,412)
+- `{{file_name}}`: The Excel file containing the data about Springfield. (example: City Research.xlsx)
+- `{{city_name}}`: The city name used in the data entry process. (example: Springfield)
+- `{{source_url}}`: The URL of the search results page from Searchly. (example: https://searchly.example/?q=springfield+population+2024)
 
 ## Before you start
 
-- Access to a web browser with internet connectivity
-- Access to the '{{spreadsheet_file}}' spreadsheet
+- The user has access to the Searchly website and the Excel application.
+- The file '{{file_name}}' is available and loaded in Excel.
 
 ## Steps
 
-1. **Search for city population data**: In Chrome, type '{{search_query}}' into the Searchly search bar and click the 'Search' button.
-   - Do: `type` `{{search_query}}` into `Search` (Chrome - Searchly)
-   - Check: Search results for the query are displayed.
-2. **Navigate to official city data**: Click on the first search result link titled '{{city_name}} - Official City Data'.
-   - Do: `click` on `{{city_name}} - Official City Data` (Chrome - Searchly)
-   - Check: The browser navigates to the official city data page for {{city_name}}.
-3. **Identify the 2024 population estimate**: Locate and read the population estimate for 2024 on the city data page.
-   - Do: `read` and note the value (it was `168,412` in the recording) from `Population (2024 estimate):` (Chrome - https://springfield.example/data)
-   - Check: The population value '168,412' is identified.
-4. **Record population in spreadsheet**: Switch to the '{{spreadsheet_file}}' spreadsheet and type the population value into cell {{target_cell}} for {{city_name}}, then wait for the 'All changes saved' confirmation.
-   - Do: `type` the value read in step 3 (recorded: `186,412`) on `Cell {{target_cell}}` (Sheets - City Research.xlsx)
-   - Check: The value is entered and the spreadsheet confirms the changes are saved.
-   - **Ask a human first.** Check: The value entered '186,412' differs from the value read '168,412' in the previous step, suggesting a transcription error.
+1. **Click on the search bar in Searchly**: Click on the search bar in the Searchly website to focus on it.
+   - Do: `click` on `Searchly - Google Chrome` (value `Searchly`) (Searchly - Google Chrome)
+   - Check: The search bar is focused and ready for input.
+2. Type 'springfield population 2024' into the search bar.
+   - Do: `type` `springfield population 2024` into `Searchly - Google Chrome` (Searchly - Google Chrome)
+   - Check: The search bar contains the text 'springfield population 2024'.
+3. Press Enter to execute the search query for 'springfield population 2024'.
+   - Do: `press enter` on `Searchly - Google Chrome` (value `springfield population 2024`) (Searchly - Google Chrome)
+   - Check: The search results for 'springfield population 2024' are displayed on the page.
+4. Click on the '{{city_name}} - Official City Data' link in the Searchly search results to open the page.
+   - Do: `click` on `{{city_name}} - Official City Data` (Searchly)
+   - Check: The page displays the city's data, including population, area, and founding year.
+5. **Switch to Excel application**: Switch to the Excel application from the current window.
+   - Do: `switch_app` on `{{file_name}} - Excel` (Excel)
+   - Check: The Excel window opens with the '{{file_name}}' file loaded, and the data from the Searchly page is ready to be entered.
+6. **Click on the 'Population 2024' cell for {{city_name}} in Excel**: Click on the cell in the 'Population 2024' column for {{city_name}} in the Excel table.
+   - Do: `click` on `Cell in the 'Population 2024' column for {{city_name}}` (value `{{population_value}}`) (Excel - City Research.xlsx)
+   - Check: The cell is selected and ready for input.
+7. **Type '{{population_value}}' into the selected cell**: Type the value '{{population_value}}' into the selected cell in the 'Population 2024' column for {{city_name}}.
+   - Do: `type` `{{population_value}}` into `Cell in the 'Population 2024' column for {{city_name}}` (Excel - City Research.xlsx)
+   - Check: The cell contains the value '{{population_value}}' and is ready for further actions.
+   - **Ask a human first.** Check: Typed "186,412" but "168,412" was seen at 00:00:10 (consistency check).
+8. **Confirm the value '{{population_value}}' is entered in the cell**: The user has entered the value {{population_value}} into the 'Population 2024' cell for {{city_name}} in the Excel table.
+   - Do: `type` `{{population_value}}` into `Population 2024` (Excel - City Research.xlsx)
+   - Check: The value {{population_value}} is now displayed in the 'Population 2024' cell for {{city_name}}.
 
 ## Open questions
 
 Unresolved when the recording was analyzed; ask before relying on the answer.
 
-- Should the population value '186,412' be corrected to '168,412' in the spreadsheet to match the source data?
+- The user's action of switching to Excel is confirmed, but is there any indication of a potential error in the switch? The user may have intended to switch to a different application or file.

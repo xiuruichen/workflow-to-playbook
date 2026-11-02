@@ -1,151 +1,227 @@
 {
-  "name": "research-and-record-city-population-data",
-  "title": "Research and Record City Population Data",
-  "description": "Find the 2024 population estimate for a specific city online and record it in a research spreadsheet. Learned from a recorded demonstration (Chrome, Sheets). 1 step(s) must be confirmed by a human before running.",
-  "goal": "Find the 2024 population estimate for a specific city online and record it in a research spreadsheet.",
+  "name": "search-for-springfield-population-and-enter-into-excel",
+  "title": "Search for Springfield Population and Enter into Excel",
+  "description": "Search for Springfield's population in 2024 on the Searchly website, retrieve the data, and enter it into an Excel spreadsheet. Learned from a recorded demonstration (Searchly - Google Chrome, Excel). 1 step(s) must be confirmed by a human before running.",
+  "goal": "Search for Springfield's population in 2024 on the Searchly website, retrieve the data, and enter it into an Excel spreadsheet.",
   "apps": [
-    "Chrome",
-    "Sheets"
+    "Searchly - Google Chrome",
+    "Excel"
   ],
   "prerequisites": [
-    "Access to a web browser with internet connectivity",
-    "Access to the '{{spreadsheet_file}}' spreadsheet"
+    "The user has access to the Searchly website and the Excel application.",
+    "The file '{{file_name}}' is available and loaded in Excel."
   ],
   "parameters": {
     "type": "object",
     "properties": {
-      "search_query": {
+      "population_value": {
         "type": "string",
-        "description": "The query used to find population data.",
+        "description": "The population value for Springfield in 2024 that is to be entered into the Excel cell.",
         "examples": [
-          "city population 2024"
+          "186,412"
         ]
       },
-      "city_name": {
+      "file_name": {
         "type": "string",
-        "description": "The name of the city being researched.",
-        "examples": [
-          "Springfield"
-        ]
-      },
-      "spreadsheet_file": {
-        "type": "string",
-        "description": "The name of the spreadsheet file where data is recorded.",
+        "description": "The Excel file containing the data about Springfield.",
         "examples": [
           "City Research.xlsx"
         ]
       },
-      "target_cell": {
+      "city_name": {
         "type": "string",
-        "description": "The specific cell where the population value should be entered.",
+        "description": "The city name used in the data entry process.",
         "examples": [
-          "B2"
+          "Springfield"
+        ]
+      },
+      "source_url": {
+        "type": "string",
+        "description": "The URL of the search results page from Searchly.",
+        "examples": [
+          "https://searchly.example/?q=springfield+population+2024"
         ]
       }
     },
     "required": [
-      "search_query",
+      "population_value",
+      "file_name",
       "city_name",
-      "spreadsheet_file",
-      "target_cell"
+      "source_url"
     ]
   },
   "steps": [
     {
       "id": "step-1",
-      "title": "Search for city population data",
-      "instruction": "In Chrome, type '{{search_query}}' into the Searchly search bar and click the 'Search' button.",
-      "action": "type",
-      "app": "Chrome - Searchly",
-      "target": "Search",
-      "value": "{{search_query}}",
-      "value_kind": "input",
+      "title": "Click on the search bar in Searchly",
+      "instruction": "Click on the search bar in the Searchly website to focus on it.",
+      "action": "click",
+      "app": "Searchly - Google Chrome",
+      "target": "Searchly - Google Chrome",
+      "value": "Searchly",
+      "value_kind": "literal",
       "value_from": null,
-      "expect": "Search results for the query are displayed.",
-      "confidence": 0.8,
+      "expect": "The search bar is focused and ready for input.",
+      "confidence": 0.9,
       "requires_confirmation": false,
       "confirmation_reason": null,
       "source": {
         "playbook_step": 1,
-        "t_start": 0.0,
-        "t_end": 5.5
+        "t_start": 1.8,
+        "t_end": 1.8
       }
     },
     {
       "id": "step-2",
-      "title": "Navigate to official city data",
-      "instruction": "Click on the first search result link titled '{{city_name}} - Official City Data'.",
-      "action": "click",
-      "app": "Chrome - Searchly",
-      "target": "{{city_name}} - Official City Data",
-      "value": null,
+      "title": "Type 'springfield population 2024' into the search bar",
+      "instruction": "Type 'springfield population 2024' into the search bar.",
+      "action": "type",
+      "app": "Searchly - Google Chrome",
+      "target": "Searchly - Google Chrome",
+      "value": "springfield population 2024",
       "value_kind": "literal",
       "value_from": null,
-      "expect": "The browser navigates to the official city data page for {{city_name}}.",
-      "confidence": 0.8,
+      "expect": "The search bar contains the text 'springfield population 2024'.",
+      "confidence": 0.9,
       "requires_confirmation": false,
       "confirmation_reason": null,
       "source": {
         "playbook_step": 2,
-        "t_start": 5.5,
-        "t_end": 6.5
+        "t_start": 1.8,
+        "t_end": 7.4
       }
     },
     {
       "id": "step-3",
-      "title": "Identify the 2024 population estimate",
-      "instruction": "Locate and read the population estimate for 2024 on the city data page.",
-      "action": "read",
-      "app": "Chrome - https://springfield.example/data",
-      "target": "Population (2024 estimate):",
-      "value": "168,412",
-      "value_kind": "observed",
+      "title": "Press Enter to execute the search",
+      "instruction": "Press Enter to execute the search query for 'springfield population 2024'.",
+      "action": "press enter",
+      "app": "Searchly - Google Chrome",
+      "target": "Searchly - Google Chrome",
+      "value": "springfield population 2024",
+      "value_kind": "literal",
       "value_from": null,
-      "expect": "The population value '168,412' is identified.",
+      "expect": "The search results for 'springfield population 2024' are displayed on the page.",
       "confidence": 0.9,
       "requires_confirmation": false,
       "confirmation_reason": null,
       "source": {
         "playbook_step": 3,
-        "t_start": 6.5,
-        "t_end": 9.5
+        "t_start": 7.45,
+        "t_end": 8.4
       }
     },
     {
       "id": "step-4",
-      "title": "Record population in spreadsheet",
-      "instruction": "Switch to the '{{spreadsheet_file}}' spreadsheet and type the population value into cell {{target_cell}} for {{city_name}}, then wait for the 'All changes saved' confirmation.",
-      "action": "type",
-      "app": "Sheets - City Research.xlsx",
-      "target": "Cell {{target_cell}}",
-      "value": "{{step-3}}",
-      "value_kind": "from_step",
-      "value_from": {
-        "step": "step-3",
-        "recorded_source": "168,412",
-        "recorded_value": "186,412"
-      },
-      "expect": "The value is entered and the spreadsheet confirms the changes are saved.",
-      "confidence": 0.8,
-      "requires_confirmation": true,
-      "confirmation_reason": "Check: The value entered '186,412' differs from the value read '168,412' in the previous step, suggesting a transcription error.",
+      "title": "Click on the '{{city_name}} - Official City Data' link",
+      "instruction": "Click on the '{{city_name}} - Official City Data' link in the Searchly search results to open the page.",
+      "action": "click",
+      "app": "Searchly",
+      "target": "{{city_name}} - Official City Data",
+      "value": "{{city_name}} - Official City Data",
+      "value_kind": "input",
+      "value_from": null,
+      "expect": "The page displays the city's data, including population, area, and founding year.",
+      "confidence": 0.9,
+      "requires_confirmation": false,
+      "confirmation_reason": null,
       "source": {
         "playbook_step": 4,
-        "t_start": 9.5,
-        "t_end": 18.0
+        "t_start": 9.35,
+        "t_end": 10.2
+      }
+    },
+    {
+      "id": "step-5",
+      "title": "Switch to Excel application",
+      "instruction": "Switch to the Excel application from the current window.",
+      "action": "switch_app",
+      "app": "Excel",
+      "target": "{{file_name}} - Excel",
+      "value": "{{file_name}} - Excel",
+      "value_kind": "input",
+      "value_from": null,
+      "expect": "The Excel window opens with the '{{file_name}}' file loaded, and the data from the Searchly page is ready to be entered.",
+      "confidence": 0.9,
+      "requires_confirmation": false,
+      "confirmation_reason": null,
+      "source": {
+        "playbook_step": 5,
+        "t_start": 13.65,
+        "t_end": 14.6
+      }
+    },
+    {
+      "id": "step-6",
+      "title": "Click on the 'Population 2024' cell for {{city_name}} in Excel",
+      "instruction": "Click on the cell in the 'Population 2024' column for {{city_name}} in the Excel table.",
+      "action": "click",
+      "app": "Excel - City Research.xlsx",
+      "target": "Cell in the 'Population 2024' column for {{city_name}}",
+      "value": "{{population_value}}",
+      "value_kind": "input",
+      "value_from": null,
+      "expect": "The cell is selected and ready for input.",
+      "confidence": 0.9,
+      "requires_confirmation": false,
+      "confirmation_reason": null,
+      "source": {
+        "playbook_step": 6,
+        "t_start": 15.55,
+        "t_end": 16.4
+      }
+    },
+    {
+      "id": "step-7",
+      "title": "Type '{{population_value}}' into the selected cell",
+      "instruction": "Type the value '{{population_value}}' into the selected cell in the 'Population 2024' column for {{city_name}}.",
+      "action": "type",
+      "app": "Excel - City Research.xlsx",
+      "target": "Cell in the 'Population 2024' column for {{city_name}}",
+      "value": "{{population_value}}",
+      "value_kind": "input",
+      "value_from": null,
+      "expect": "The cell contains the value '{{population_value}}' and is ready for further actions.",
+      "confidence": 0.9,
+      "requires_confirmation": true,
+      "confirmation_reason": "Check: Typed \"186,412\" but \"168,412\" was seen at 00:00:10 (consistency check).",
+      "source": {
+        "playbook_step": 7,
+        "t_start": 17.35,
+        "t_end": 19.4
+      }
+    },
+    {
+      "id": "step-8",
+      "title": "Confirm the value '{{population_value}}' is entered in the cell",
+      "instruction": "The user has entered the value {{population_value}} into the 'Population 2024' cell for {{city_name}} in the Excel table.",
+      "action": "type",
+      "app": "Excel - City Research.xlsx",
+      "target": "Population 2024",
+      "value": "{{population_value}}",
+      "value_kind": "input",
+      "value_from": null,
+      "expect": "The value {{population_value}} is now displayed in the 'Population 2024' cell for {{city_name}}.",
+      "confidence": 0.9,
+      "requires_confirmation": false,
+      "confirmation_reason": null,
+      "source": {
+        "playbook_step": 8,
+        "t_start": 19.53,
+        "t_end": 20.4
       }
     }
   ],
   "excluded_steps": [],
   "open_questions": [
-    "Should the population value '186,412' be corrected to '168,412' in the spreadsheet to match the source data?"
+    "The user's action of switching to Excel is confirmed, but is there any indication of a potential error in the switch? The user may have intended to switch to a different application or file."
   ],
   "provenance": {
-    "session_id": "20261024-145602-import",
-    "source": "import",
-    "duration_s": 20.0,
-    "model": "gemini-3-flash-preview",
-    "generated_at": "2026-10-24T14:59:23",
+    "session_id": "research",
+    "source": "live",
+    "duration_s": 23.0,
+    "model": "qwen3-vl-2b",
+    "generated_at": "2026-10-28T19:38:16",
     "steps_reviewed": 0,
     "steps_needing_confirmation": 1
   }

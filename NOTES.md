@@ -35,12 +35,12 @@ labels.py: reviewer Correct/Wrong labels ──► labels.csv (future calibratio
 ## Design decisions
 
 - **Event-anchored keyframes beat fixed-interval sampling.** A timer either misses fast actions or wastes API calls on idle screens. Before/after pairs around real input events give the model exactly the frames that explain each action, and the click location (drawn as a numbered ring) removes most of the ambiguity about *what* was clicked.
-- **Two passes.** Windows of ~10 keyframes keep per-frame detail high. The consolidation pass sees the whole workflow, so it can name the goal and merge micro-actions into meaningful steps. Windows share a boundary keyframe, so every transition is analyzed exactly once.
+- **Two passes.** Windows of 3–8 keyframes (10 on Gemini) keep per-frame detail high. The consolidation pass sees the whole workflow, so it can name the goal and merge micro-actions into meaningful steps. Windows share a boundary keyframe, so every transition is analyzed exactly once.
 - **Calibrated confidence, not raw model confidence.** LLM self-reported confidence is poorly calibrated. Simple rules based on facts the model can't see (no input event, repaired JSON, long gaps) make the flag more meaningful. The model also has to give *evidence* and an *uncertainty reason*, which turns a flag into a concrete question for the reviewer.
 - **Two kinds of review flag.** Low confidence (⚠️) means *the system doesn't know what happened*. A review note (🔎) means *it knows what happened, but something looks wrong*: a typed value that differs from its source, a likely typo, an undone action. The second kind came out of the first real test (see below) and is arguably the more valuable one: it surfaces the human's mistakes and unexplained decisions, which is exactly where tacit knowledge (or its absence) shows.
 - **Never silently lose information.** A segment that fails to analyze becomes a confidence-0 step ("review the recording manually"). Candidates that pass 2 forgets are kept as raw steps. Dropped candidates are logged in `analysis.json`.
-- **Free-tier friendly.** Throttling, retries that respect Google's suggested wait, response caching (re-runs and resumes cost nothing), downscaled JPEGs, an ordered fallback chain of models (each has its own daily quota), and remembering exhausted models until their quota resets.
 - **On-prem by default; the cloud is an explicit opt-in.** The same OpenAI-compatible client talks to Ollama on `127.0.0.1`. An egress guard refuses any endpoint that isn't loopback or private-network unless `ALLOW_CLOUD=true`, and `PROVIDER=gemini` needs that flag as well, so a stray setting can't upload screenshots.
+- **Free-tier friendly in the optional cloud mode.** Throttling, retries that respect Google's suggested wait, response caching (re-runs and resumes cost nothing), downscaled JPEGs, an ordered fallback chain of models (each has its own daily quota), and remembering exhausted models until their quota resets.
 - **Hardware-aware, not one-size-fits-all.** "Suitable for most systems" means the smallest machines must work, so the model tier (Qwen3-VL 2B/4B/8B/32B), screenshots per request, image size and context window are chosen from RAM/VRAM (unified memory on Apple silicon). Pacing and quota logic is skipped for local models; timeouts are long because CPU inference takes minutes.
 - **Small models need facts, not pixels.** Rather than hoping a 4B model reads 9-pt text, the recorder takes the clicked element's name from the accessibility API (UI Automation, requested at press time so it sees the UI *before* the click changes it), local OCR adds exact text near each click and in changed regions, a full-resolution crop accompanies each click, and the JSON schema is enforced as a grammar. The consistency check also takes OCR text, so catching a mistyped value no longer depends on the model reading it.
 - **OCR only where it matters.** Full-frame OCR cost ~4.5 s per frame on this laptop. Turning off RapidOCR's upscaling to 736 px and its rotation classifier brought it to ~1.8 s; reading only crops around clicks and changed regions (cached in `ocr.json`) cuts it further.
@@ -54,7 +54,7 @@ labels.py: reviewer Correct/Wrong labels ──► labels.csv (future calibratio
 
 ## Findings so far
 
-**First real test** (3-minute live recording: looking up the populations of five cities in Edge/Chrome and entering them into Excel; 70 keyframes, 71 input events):
+**First real test** (run on Gemini, before local mode existed; 3-minute live recording: looking up the populations of five cities in Edge/Chrome and entering them into Excel; 70 keyframes, 71 input events):
 
 - The playbook correctly reconstructed the workflow: 11 steps alternating "search for X's population" / "record it in Excel", with the right values and timestamps, and inferred inputs (`city_name`, `population_value`).
 - The consolidation pass noticed **two genuine data-entry discrepancies** (315,613 entered vs 315,663 shown; 3,163,843 entered vs 3,863,148 searched) and a stray click on an empty cell. But it reported them only as open questions while the steps scored 0.95 and were not flagged. That gap motivated the review-note flag.
@@ -70,7 +70,7 @@ labels.py: reviewer Correct/Wrong labels ──► labels.csv (future calibratio
 
 All of these are fixed. The evaluation results below are the evidence.
 
-**Synthetic example** (`examples/city-population-lookup/`): a fictional search → spreadsheet workflow with a deliberate digit swap (168,412 → 186,412). It is imported as video, so there are no input events. All 4 steps were reconstructed, and the typo was flagged with both values quoted.
+**Synthetic example** (`examples/city-population-lookup/`): the `research` evaluation scenario, analyzed by the local 2B model on a laptop CPU. A fictional search → spreadsheet workflow with a deliberate digit swap (168,412 → 186,412). It has 8 steps, and the consistency check flagged the typo with both values quoted. An earlier version generated by Gemini from an imported video is in git history.
 
 ## Known limitations
 
@@ -87,29 +87,18 @@ All of these are fixed. The evaluation results below are the evidence.
 - **No audio / narration.** The *why* behind decisions is only inferred. Think-aloud narration would be the highest-value addition for capturing tacit knowledge.
 - **Keyboard-only actions with no visible effect** (e.g. Ctrl+C) are inferred from the event log only. They usually get flagged, which is intended.
 - **Typed text is recorded verbatim** unless `MASK_TYPED_TEXT=true`. Passwords typed during a recording end up in `events.jsonl` and prompts. Pause first.
-- **Fast typing in imported videos** can produce many intermediate keyframes. Keyframes have a minimum gap of 1 s, but long recordings still mean more API calls.
+- **Fast typing in imported videos** can produce many intermediate keyframes. Keyframes have a minimum gap of 1 s, but long recordings still mean more model calls.
 - **pynput on Wayland/macOS** needs extra permissions. It was developed and tested on Windows 11.
 - Model confidence is still a heuristic. Treat 0.70 as a starting point and tune it against human review results (see evaluation ideas below).
 
 ## Tuning knobs
 
-- `WINDOW_SIZE`: 4 gives more careful per-step analysis; 8–10 means fewer API calls.
+- `WINDOW_SIZE`: 4 gives more careful per-step analysis; 8–10 means fewer model calls.
 - `CHANGE_THRESHOLD`: lower it for subtle UIs (spreadsheets), raise it if video or animations create noise.
 - `settle_s` (config.py): increase for slow web apps so the "after" frame shows the loaded result.
 - Calibration constants are at the top of `analyzer.py` (`PENALTY_*`, `MERGE_LEEWAY`).
 
 ## Evaluation results
-
-`python -m playbook.evaluate`, run 2026-10-24 on `gemini-3.5-flash-lite` (the stronger free models were out of daily quota):
-
-| Scenario | Expected steps found | Planted mistake | False alarms | API calls |
-|---|---|---|---|---|
-| coding (VS Code + terminal) | 5/5 | ✅ caught by the model (`pyhton`) | 0 | 2 |
-| email (Outlook + attachment) | 5/5 | ✅ caught by the consistency check (`jon.doe@` vs `john.doe@`) | 0 | 2 |
-| files + settings | 4/4 | n/a (none planted) | 0 | 3 |
-| research + spreadsheet | 3/4 | ✅ caught by the model (`186,412` vs `168,412`) | 0 | 2 |
-
-The one missed expected step ("read the population 168,412") is Lite-model variation: the value still appears in the mismatch flag. On the first run, before the visible-values change, the email typo was missed: the model never wrote a "read John's email" step, so nothing recorded the correct address. Then the check over-flagged the corrected `python app.py` against the earlier typo still visible in the terminal. Both were fixed and are covered by tests.
 
 **Local model on an 8 GB laptop.** Development laptop: 7.6 GB RAM, Intel Core Ultra 5 135U, no GPU, `LOW_POWER=true` (4 threads, below-normal priority), with a browser open. Current setup: Qwen3-VL 2B Instruct (Q4_K_M) on llama.cpp's `llama-server`, started only for the analysis.
 
@@ -145,6 +134,17 @@ Earlier fixes on the Ollama path:
 
 The 2B model is good at listing steps but weak at judging them: it never wrote a review note for the planted email typo, so on small machines the deterministic consistency check does that job. At first it looked like the check missed it too. It had flagged the typo, but on the wrong step: the 2B model times steps a keyframe late, so its "click the To field" step contained the typing time, and the scorer rightly counted a note there as a false flag. Notes now go on the step that says it entered the value, and only OCR text or read/select steps count as proof of a correct copy (small models also write the typed address as the value of the click into the field, which used to explain the typo away). Replayed from the cached answers, the email scenario now shows the mistake caught with no false flags. In coding the model wrote "Type 'pyhton app.py'" as an ordinary step; there is no correct value on screen to compare it with, only the terminal's error, which the rejected-input check now reads. A network watcher logging every connection by Python and Ollama during a local run recorded none leaving the machine. The larger tiers on a bigger machine are still to be measured.
 
+**Optional cloud run, for comparison.** `python -m playbook.evaluate`, run 2026-10-24 on `gemini-3.5-flash-lite` (the stronger free models were out of daily quota):
+
+| Scenario | Expected steps found | Planted mistake | False alarms | API calls |
+|---|---|---|---|---|
+| coding (VS Code + terminal) | 5/5 | ✅ caught by the model (`pyhton`) | 0 | 2 |
+| email (Outlook + attachment) | 5/5 | ✅ caught by the consistency check (`jon.doe@` vs `john.doe@`) | 0 | 2 |
+| files + settings | 4/4 | n/a (none planted) | 0 | 3 |
+| research + spreadsheet | 3/4 | ✅ caught by the model (`186,412` vs `168,412`) | 0 | 2 |
+
+The one missed expected step ("read the population 168,412") is Lite-model variation: the value still appears in the mismatch flag. On the first run, before the visible-values change, the email typo was missed: the model never wrote a "read John's email" step, so nothing recorded the correct address. Then the check over-flagged the corrected `python app.py` against the earlier typo still visible in the terminal. Both were fixed and are covered by tests.
+
 **Caveats:**
 - The scenarios are synthetic: clean screens, readable fonts, one mistake each.
 - They test generality of the pipeline, not real-world accuracy.
@@ -168,7 +168,7 @@ The 2B model is good at listing steps but weak at judging them: it never wrote a
 **Collecting now, learn later: confidence calibration.** The rule-based penalties are guesses. Reviewers now mark steps Correct/Wrong, and `python -m playbook labels` exports them with the features the rules use (model confidence, event support, gaps, merges, action type). With roughly 100–200 labelled steps, a logistic or isotonic regression from those features to P(correct) can replace the hand-set penalties. That's a few lines of scikit-learn, and it's the most valuable ML addition. Fitting it now, with no data, would be fake rigour.
 
 **Considered and deferred:**
-- **Self-consistency (analyze each segment twice and compare).** A good uncertainty signal, but it doubles API use, and that's the binding constraint on the free tier.
+- **Self-consistency (analyze each segment twice and compare).** A good uncertainty signal, but it doubles analysis time, and that's the binding constraint on a laptop CPU.
 - **Fine-tuning or training a vision model.** No labelled data, and general models already handle arbitrary apps. Not worth it at prototype stage.
 - **Embeddings to compare recordings.** Useful later for clustering many recordings of the same task (expert vs novice, essential vs habitual steps). That's the digital-twin direction, and it needs many recordings first.
 
@@ -184,7 +184,7 @@ The 2B model is good at listing steps but weak at judging them: it never wrote a
 - [ ] The same on macOS/Linux; browser URL capture; multi-monitor.
 - [ ] Learned confidence calibration from reviewer labels (`labels.csv`) once ~100–200 steps are labelled.
 - [ ] Real-world evaluation set: several real recordings per activity type, scored with reviewer labels.
-- [ ] Automatic redaction of sensitive regions before upload.
+- [ ] Automatic redaction of sensitive regions.
 - [x] Export to an agent-ready skill (`SKILL.md` + `skill.json`): placeholders for inputs, data flow between steps, human gates for unconfirmed steps.
 - [ ] Replay a skill with a computer-use agent and score it against the recording (does it reach the same end state?).
 - [ ] Compare multiple recordings of the same task to separate the essential steps from personal habits, and to surface expert-vs-novice differences.
