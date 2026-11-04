@@ -34,6 +34,7 @@ class FakeClient:
 
     def __init__(self, pass1, pass2):
         self.pass1, self.pass2 = list(pass1), list(pass2)
+        self.logprobs = None  # optional: reply text -> token list, for requests that ask for them
         self.requests = []
         self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
         self.models = SimpleNamespace(list=lambda: [])
@@ -46,7 +47,10 @@ class FakeClient:
         content = queue.pop(0) if len(queue) > 1 else queue[0]
         if not isinstance(content, str):
             content = json.dumps(content)
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
+        choice = SimpleNamespace(message=SimpleNamespace(content=content))
+        if self.logprobs is not None and kw.get("logprobs"):
+            choice.logprobs = SimpleNamespace(content=self.logprobs(content))
+        return SimpleNamespace(choices=[choice])
 
 
 @pytest.fixture

@@ -4,7 +4,8 @@ Pass 1 sends overlapping windows of keyframes (annotated with click markers) plu
 event log to a vision model and gets back fine-grained step candidates as JSON.
 Pass 2 consolidates all candidates into a coherent playbook (goal, merged steps, inputs,
 open questions). Confidence is the model's own estimate adjusted by rules that the model
-can't see (missing input-event evidence, repaired output, long gaps between frames).
+can't see (missing input-event evidence, repaired output, long gaps between frames) and, on
+local models, by how firmly it chose the step's target and value (token_certainty.py).
 
 The model is reached through Gemini's OpenAI-compatible endpoint, so any OpenAI-compatible
 vision API can be substituted by changing GEMINI_BASE_URL / GEMINI_MODEL.
@@ -34,6 +35,7 @@ from .security import SecurityError
 from .consistency import annotate_steps, find_near_misses, find_rejected_input
 from .keyframes import annotate, crop_around, encode_jpeg, load_image, resize_max_width
 from .models import Event, InputVariable, Keyframe, Manifest, Playbook, Step, StepCandidate
+from .token_certainty import TOP_LOGPROBS, weakest_tokens
 
 T = TypeVar("T", bound=BaseModel)
 Progress = Callable[[float, str], None]
@@ -49,6 +51,7 @@ SCHEMA_MAX_ITEMS = 12  # local grammar bounds (see json_schema_format)
 SCHEMA_MAX_CHARS = 400
 MAX_CROPS_PER_REQUEST = 4
 MERGE_LEEWAY = 0.10  # pass 2 may raise a step merged from several candidates this much above the weakest
+UNSURE_MARGIN = 0.05  # a step the model hesitated on sits this far below the review threshold
 
 
 class AnalysisError(RuntimeError):
@@ -342,6 +345,8 @@ class VisionClient:
         self.calls = 0
         self.cache_hits = 0
         self._available: list[str] | None = None
+        self._logprobs: list[Any] | None = None  # of the latest reply; too big to keep (~130 KB per reply)
+        self.last_token_scores: dict[str, dict] | None = None  # of the latest chat(token_scores=True)
         self._status_path = self.cache_dir / "model_status.json"
         # Models known to be out of quota / unavailable from earlier runs, until their reset time.
         for model, info in (self._load_status() if remember else {}).items():
@@ -354,17 +359,28 @@ class VisionClient:
         key = hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()
         return self.cache_dir / f"{key}.json"
 
-    def chat(self, messages: list[dict], response_format: dict | None = None) -> str:
+    def chat(self, messages: list[dict], response_format: dict | None = None, token_scores: bool = False) -> str:
+        """`token_scores` asks a local server for token probabilities and leaves each step's weakest token in
+        `last_token_scores`. They stay out of the cache key, so replies cached before them still hit (and have none)."""
+        self.last_token_scores = None
         path = self._cache_path(messages, response_format)
         if path.exists():
             self.cache_hits += 1
-            return json.loads(path.read_text(encoding="utf-8"))["content"]
+            cached = json.loads(path.read_text(encoding="utf-8"))
+            self.last_token_scores = cached.get("token_scores")
+            return cached["content"]
         if self.before_call:
             hook, self.before_call = self.before_call, None
             hook()
-        content = self._call_with_retry(messages, response_format)
+        content = self._call_with_retry(messages, response_format, token_scores)
         path = self._cache_path(messages, response_format)  # the model may have changed during the call
-        path.write_text(json.dumps({"model": self.model, "content": content}), encoding="utf-8")
+        entry = {"model": self.model, "content": content}
+        if token_scores:
+            self.last_token_scores = weakest_tokens(content, self._logprobs)
+            if self.last_token_scores is not None:
+                entry["token_scores"] = self.last_token_scores
+        self._logprobs = None
+        path.write_text(json.dumps(entry), encoding="utf-8")
         return content
 
     def _sleep(self, seconds: float, msg: str) -> None:
@@ -374,7 +390,7 @@ class VisionClient:
             self.status(msg.format(left=int(left) + 1))
             time.sleep(min(1.0, left))
 
-    def _call_with_retry(self, messages: list[dict], response_format: dict | None = None) -> str:
+    def _call_with_retry(self, messages: list[dict], response_format: dict | None = None, token_scores: bool = False) -> str:
         import openai
 
         attempt = 0
@@ -391,6 +407,8 @@ class VisionClient:
                     # Qwen3.5-based models (e.g. Bonsai 2) think by default; llama-server honours this, Ollama ignores it.
                     extra = {"max_tokens": self.s.local_max_tokens,
                              "extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}
+                    if token_scores:
+                        extra.update(logprobs=True, top_logprobs=TOP_LOGPROBS)
                 resp = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
@@ -401,6 +419,7 @@ class VisionClient:
                 content = resp.choices[0].message.content
                 if not content:
                     raise _EmptyResponse("Model returned an empty response")
+                self._logprobs = getattr(getattr(resp.choices[0], "logprobs", None), "content", None)
                 return content
             except openai.RateLimitError as exc:
                 exhausted, retry_after = classify_rate_limit(exc)
@@ -515,13 +534,13 @@ class VisionClient:
         self.notes.append(msg)
         self.status(msg)
 
-    def complete_json(self, messages: list[dict], schema: type[T]) -> tuple[T, bool]:
+    def complete_json(self, messages: list[dict], schema: type[T], token_scores: bool = False) -> tuple[T, bool]:
         """Return (parsed response, repaired?) with one repair round-trip on invalid output.
 
         Local models get the JSON schema as a grammar constraint (Ollama structured output),
         so small models can't produce malformed JSON; cloud models get plain JSON mode."""
         fmt = json_schema_format(schema) if self.backend.local else None
-        content = self.chat(messages, fmt)
+        content = self.chat(messages, fmt, token_scores)
         try:
             return schema.model_validate(parse_json(content)), False
         except (json.JSONDecodeError, ValidationError) as exc:
@@ -530,7 +549,7 @@ class VisionClient:
             {"role": "assistant", "content": content},
             {"role": "user", "content": prompts.REPAIR_PROMPT.format(error=error)},
         ]
-        content = self.chat(repair, fmt)
+        content = self.chat(repair, fmt, token_scores)
         try:
             return schema.model_validate(parse_json(content)), True
         except (json.JSONDecodeError, ValidationError) as exc:
@@ -686,7 +705,8 @@ class Analyzer:
             entry: dict = {"segment": seg, "keyframes": [k.id for k in kfs], "t_start": kfs[0].t, "t_end": kfs[-1].t}
             try:
                 msgs = self._window_messages(session_dir, manifest, kfs, seg, n, prev_ctx)
-                resp, repaired = self.vc.complete_json(msgs, _Pass1Resp)
+                resp, repaired = self.vc.complete_json(msgs, _Pass1Resp, token_scores=self.vc.backend.local)
+                scores = self.vc.last_token_scores
             except AnalysisError as exc:
                 if not exc.recoverable:
                     raise
@@ -694,11 +714,12 @@ class Analyzer:
                 log.append(entry)
                 candidates.append(self._failed_segment(kfs, str(exc), len(candidates)))
                 continue
-            entry.update(context=resp.window_context, visible_values=resp.visible_values, repaired=repaired, steps=len(resp.steps))
+            entry.update(context=resp.window_context, visible_values=resp.visible_values, repaired=repaired, steps=len(resp.steps),
+                         token_scores=scores is not None)
             log.append(entry)
             prev_ctx = resp.window_context or prev_ctx
-            for st in resp.steps:
-                candidates.append(self._to_candidate(st, kfs, manifest, repaired, len(candidates)))
+            for i, st in enumerate(resp.steps):
+                candidates.append(self._to_candidate(st, kfs, manifest, repaired, len(candidates), (scores or {}).get(str(i))))
         return candidates, log
 
     def _failed_segment(self, kfs: list[Keyframe], error: str, n: int) -> StepCandidate:
@@ -716,7 +737,7 @@ class Analyzer:
             calibration_notes=["Segment could not be analyzed"],
         )
 
-    def _to_candidate(self, st: _Pass1Step, kfs: list[Keyframe], manifest: Manifest, repaired: bool, n: int) -> StepCandidate:
+    def _to_candidate(self, st: _Pass1Step, kfs: list[Keyframe], manifest: Manifest, repaired: bool, n: int, weakest: dict | None = None) -> StepCandidate:
         a = min(max(st.start_image, 1), len(kfs))
         b = min(max(st.end_image, 1), len(kfs))
         if b < a:
@@ -766,6 +787,7 @@ class Analyzer:
             evidence=fix(st.evidence),
             uncertainty_reason=fix(st.uncertainty_reason),
             calibration_notes=notes,
+            weakest_token=weakest,
         )
 
     # -- pass 2 ---------------------------------------------------------------------------
@@ -777,6 +799,10 @@ class Analyzer:
         failed = [w for w in window_log if w.get("error")]
         if failed:
             pb_notes.append(f"{len(failed)} segment(s) could not be analyzed; they appear as flagged steps.")
+        unscored = [w for w in window_log if not w.get("error") and not w.get("token_scores")]
+        if unscored and self.vc.backend.local:
+            pb_notes.append(f"{len(unscored)} segment(s) have no token probabilities (cached before they were collected, or the "
+                            "server doesn't report them), so hesitation couldn't be checked there.")
 
         resp: _Pass2Resp | None = None
         dropped: list[dict] = []
@@ -848,6 +874,13 @@ class Analyzer:
             if p2 is not None and p2.confidence is not None and p2.confidence < weakest - 0.05:
                 notes.append("Lowered by the consolidation pass")
             reason = (p2.uncertainty_reason if p2 else None) or "; ".join(_dedupe([c.uncertainty_reason or "" for c in srcs])) or None
+            # Applied here, after pass 2, so changing the cutoff changes no prompt and re-analyzing stays free.
+            token = min((c.weakest_token for c in srcs if c.weakest_token), key=lambda w: w["certainty"], default=None)
+            if token and token["certainty"] < self.s.token_certainty_min:
+                conf = min(conf, self.s.confidence_threshold - UNSURE_MARGIN)
+                doubt = f"The model hesitated on the {token['field']}: \"{token['token']}\" over \"{token['rival']}\" (certainty {token['certainty']:.2f})"
+                notes.append(doubt)
+                reason = f"{doubt}. {reason}" if reason else doubt
             first, last = min(srcs, key=lambda c: c.t_start), max(srcs, key=lambda c: c.t_end)
             base = srcs[0]
 
@@ -877,6 +910,7 @@ class Analyzer:
                 uncertainty_reason=reason,
                 review_note=(p2.review_note or None) if p2 else None,
                 calibration_notes=notes,
+                token_certainty=token["certainty"] if token else None,
                 source_ids=[c.id for c in srcs],
             )
 

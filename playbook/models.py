@@ -117,6 +117,7 @@ class StepCandidate(BaseModel):
     evidence: str = ""
     uncertainty_reason: str | None = None
     calibration_notes: list[str] = Field(default_factory=list)
+    weakest_token: dict | None = None  # see token_certainty.py; None = no probabilities or nothing to score
 
     @field_validator("model_confidence", "confidence")
     @classmethod
@@ -145,6 +146,7 @@ class Step(BaseModel):
     # (e.g. the value typed differs from the source on screen, or a likely mistake).
     review_note: str | None = None
     calibration_notes: list[str] = Field(default_factory=list)
+    token_certainty: float | None = None  # lowest of its candidates (see token_certainty.py)
     source_ids: list[str] = Field(default_factory=list)
     needs_review: bool = False
     # Human review outcome. Collected labels (see `python -m playbook labels`) are the

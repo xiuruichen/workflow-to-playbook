@@ -21,6 +21,7 @@ backend.py + hardware.py + security.py: which model (local Ollama by default, si
 analyzer.py  pass 1: windows of keyframes + events + OCR text (ocr.py) + click crops ──► vision model ──► StepCandidates
              pass 2: all candidates + first/last frame ──► vision model ──► Playbook (merged steps)
 consistency.py: typed values (keyboard log) vs values seen on screen (model + OCR) ──► review notes
+token_certainty.py: token probabilities from pass 1 ──► per-step score ──► low-confidence flag after pass 2
      │
 generator.py ──► playbook.md / playbook.html / playbook.json
 skill.py ──► skill/SKILL.md + skill.json (agent-ready: placeholders, step-to-step data, human gates)
@@ -50,6 +51,7 @@ labels.py: reviewer Correct/Wrong labels ──► labels.csv (future calibratio
 - **Video time = wall time.** The recorder duplicates frames when capture lags, so `#t=<event time>` always lands on the right moment.
 - **Domain-neutral by construction.** Nothing in capture or analysis assumes an app. Context comes from the OS (app and window title per event, window-switch events), and the prompts list what makes a step repeatable in each kind of work (paths and commands for coding, recipients and field values for email/forms, before/after values for settings). This is verified with scripted scenarios rather than assumed.
 - **An agent-ready export that carries the uncertainty with it.** The point of a digital twin is that someone (or something) else can do the task. `skill.py` turns a playbook into a skill an agent can follow: input examples become placeholders, a value typed after being read on screen becomes a reference to that earlier step (the next run will read a different value, and a recorded typo must not be replayed), and every step that was flagged and not confirmed by a reviewer becomes an explicit "ask a human first" gate. The flags that mark where tacit knowledge hides in the playbook become the places where an agent has to defer to the expert.
+- **Read how the model chose, not what it says about itself.** The local 2B model wrote confidence 0.9 for every step in the evaluation scenarios, so the number carried no signal. Token probabilities are a byproduct of generating the reply: asking for them cost about 0.2% per token (87.5 vs 87.4 ms). Raw they are ~130 KB per reply, so only each step's weakest token is cached (~160 bytes per reply). The score is the smallest gap between a chosen token and its best meaningful rival, in `target` and `value` only: in descriptions and evidence, hesitation is nearly all wording. The flag is applied after pass 2, so changing the cutoff changes no prompt and re-analyzing stays free. Replies cached before this have no scores, and the playbook says so rather than treating them as certain.
 - **Deterministic checks where possible.** The keyboard log is ground truth for what was typed, so comparing it against values seen on screen is pure string matching with no model needed. Only a value recorded *before* the typing proves a correct copy, and the user's own earlier input (e.g. a mistyped command still visible in the terminal) is never treated as a source. The same log shows when software rejected an input: error messages in every kind of app quote the input they refuse (`'pyhton' is not recognized`, `gti: command not found`, `'jon.doe@' is not a valid email`, `No results for "springfeild"`), so new on-screen error text that cites something just typed flags that entry. It needs no knowledge of the app.
 
 ## Findings so far
@@ -145,6 +147,15 @@ The 2B model is good at listing steps but weak at judging them: it never wrote a
 
 The one missed expected step ("read the population 168,412") is Lite-model variation: the value still appears in the mismatch flag. On the first run, before the visible-values change, the email typo was missed: the model never wrote a "read John's email" step, so nothing recorded the correct address. Then the check over-flagged the corrected `python app.py` against the earlier typo still visible in the terminal. Both were fixed and are covered by tests.
 
+**Token certainty (2026-11-03), a partial run.** Fresh local run of coding and email; the run was stopped for low memory partway through `files`, before `research`, so those two are unmeasured. Scores below are re-computed offline from the saved token probabilities with the final filter.
+
+| flagged by hesitation at cutoff | 0.20 | 0.25–0.35 | 0.40–0.50 |
+|---|---|---|---|
+| coding (10 steps) | 0 | 2 | 3 |
+| email (10 steps) | 0 | 0 | 0 |
+
+At 0.30 the two flags in coding are `line` over `code`, on a step that said `pyhton` was typed into "the line of code" when it went to the terminal (a real catch, though the rejected-input check had already flagged that step), and `terminal` over `command` on a Press Enter step (wording, so a false alarm). Email's specific targets (`To`, `Send`) scored 0.84–1.0. That is one good flag and one false alarm from 20 synthetic steps: enough to set a starting cutoff, not to say how well it predicts wrong steps. Reviewer labels now include `token_certainty`, so real recordings can answer that. Both planted mistakes were still caught by the deterministic checks; hesitation doesn't and shouldn't catch them, because the model firmly reports what the person typed.
+
 **Caveats:**
 - The scenarios are synthetic: clean screens, readable fonts, one mistake each.
 - They test generality of the pipeline, not real-world accuracy.
@@ -182,6 +193,8 @@ The one missed expected step ("read the population 168,412") is Lite-model varia
 - [ ] Measure the local model on real recordings and on the larger tiers. All four evaluation scenarios are measured on the 2B tier.
 - [x] Active-window metadata (app, window title) per event, and window-switch events (Windows).
 - [ ] The same on macOS/Linux; browser URL capture; multi-monitor.
+- [x] Token-probability flag for steps the local model hesitated on.
+- [ ] Measure it on `files`, `research` and real recordings: do low scores predict wrong steps?
 - [ ] Learned confidence calibration from reviewer labels (`labels.csv`) once ~100–200 steps are labelled.
 - [ ] Real-world evaluation set: several real recordings per activity type, scored with reviewer labels.
 - [ ] Automatic redaction of sensitive regions.

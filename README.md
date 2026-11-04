@@ -166,6 +166,8 @@ The first command reproduces the [example](examples/city-population-lookup/playb
 
    Review notes come from the model and from a **deterministic consistency check** (`playbook/consistency.py`, no API call). The check compares what was typed (from the keyboard log, which is exact) with values seen on screen anywhere in the recording, and flags near misses: swapped or changed digits (`315,613` vs `315,663`), or almost-identical emails, names, paths and commands (`jon.doe@` vs `john.doe@`). It catches copy mistakes that the model misses when the source and the typed copy are far apart in the recording. A number typed right after reading a similar one is held to a looser standard (up to half its digits changed, e.g. `3,163,843` for `3,863,148`), since that's a misread rather than a different value. Only local OCR text or a step where the model read a value counts as proof that a value was copied correctly. It also flags input the software rejected: when new on-screen text reads like an error and quotes or names something just typed (`The term 'pyhton' is not recognized`, `gti: command not found`, `'jon.doe@' is not a valid email`), that entry gets a review note, in any app.
 
+   On local models, a step's confidence also drops below the threshold when the model **hesitated** (`playbook/token_certainty.py`). A small model reports about 0.9 for nearly everything, but while writing it weighs each token against the alternatives. If a token in the step's target or value was nearly tied with a rival that means something different (filler words, punctuation and capitalization don't count), the step is flagged and the reason names both, e.g. `"line" over "code"`. This adds no model calls and only a score per step to the cache. It shows hesitation, not truth: a confident misread or a person's typo won't show up, which is what the consistency check is for.
+
    Flagged steps get a **NEEDS REVIEW** block with the reasons, the evidence (with timestamps), the confidence adjustments, and a "Verified by a human" checkbox.
 5. **Generation** (`playbook/generator.py`): Markdown and a self-contained HTML viewer, with a review summary, prerequisites, inputs, steps with timestamps and screenshots, and open questions.
 6. **Archiving** (`playbook/archive.py`, `playbook/tilecodec.py`): see [Archives](#archives).
@@ -220,6 +222,7 @@ Measured on a real 3-minute session (70 keyframes):
 | `GEMINI_FALLBACK_MODELS` | 3.5-flash, 3.6-flash, 3-flash-preview, then Flash-Lite models | tried in order when the model is unavailable or its free quota is used up; the switch is shown live and noted in the playbook |
 | `RPM_LIMIT` | `5` | free-tier limits differ by project (check AI Studio). Calls are throttled to this. |
 | `CONFIDENCE_THRESHOLD` | `0.70` | review flag cutoff |
+| `TOKEN_CERTAINTY_MIN` | `0.30` | local models: flag a step when a token in its target or value is this close to a rival (0 = off). Changing it needs no model call |
 | `WINDOW_SIZE` | `0` (auto) | keyframes per vision call; auto = 3–8 by local model size, 10 for Gemini |
 | `CAPTURE_FPS` | `5` | recording frame rate |
 | `HEARTBEAT_S` | `10` | idle keyframe interval |

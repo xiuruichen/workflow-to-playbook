@@ -15,7 +15,7 @@ from .models import Playbook
 
 COLUMNS = [
     "session", "step", "action", "source", "model", "model_confidence", "confidence", "threshold",
-    "event_supported", "long_gap", "repaired", "merged_candidates", "duration_s", "has_review_note",
+    "event_supported", "long_gap", "repaired", "merged_candidates", "duration_s", "has_review_note", "token_certainty",
     "flagged", "label",
 ]
 
@@ -41,6 +41,7 @@ def step_rows(pb: Playbook) -> list[dict]:
             "merged_candidates": len(s.source_ids),
             "duration_s": round(s.t_end - s.t_start, 2),
             "has_review_note": int(bool(s.review_note)),
+            "token_certainty": s.token_certainty,
             "flagged": int(s.needs_review),
             "label": int(s.review == "correct"),
         })

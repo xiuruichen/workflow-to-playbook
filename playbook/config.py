@@ -62,6 +62,9 @@ class Settings(BaseSettings):
 
     # --- Analysis ---
     confidence_threshold: float = 0.70
+    # Local models: flag a step when the gap between a token in its target/value and the best rival token
+    # is below this (see token_certainty.py). 0 turns the flag off.
+    token_certainty_min: float = 0.30
     window_size: int = 0  # keyframes per vision call; 0 = auto (smaller for small local models)
     analysis_image_width: int = 0  # width of images sent to the model; 0 = auto
     max_image_width: int = 1280  # width keyframes are stored at
