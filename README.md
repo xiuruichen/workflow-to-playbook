@@ -282,6 +282,22 @@ The same tests run on GitHub Actions (Ubuntu and Windows) for every push and pul
 
 See [NOTES.md](NOTES.md) for design rationale, limitations and the roadmap.
 
+## 9. Related work and references
+
+This project is an academic effort on capturing **tacit knowledge** from observed computer work. The full BibTeX is in [`docs/references.bib`](docs/references.bib); each entry records how far it has been checked. So far the arXiv abstract pages were read, **not** the full texts, so the notes below say only what the abstracts support. Entries marked *TODO verify* still need their author lists, venues or page numbers checked against the publisher.
+
+**Recordings to written procedures.** Wornow et al. (2024) introduce WONDERBREAD, a benchmark of business-process documentation, knowledge-transfer and improvement tasks. They report that models document workflows with good step recall but do poorly at judging whether a workflow was completed correctly. Our evaluation (Section 7) borrows that split between listing steps and judging them. Xu et al. (2024) apply in-context ensembling of pseudo labels to low-level workflow understanding in video-language models.
+
+**Recordings to reusable agent skills.** Huang et al. (2026, Work2Skill) induce skills from synchronized screen, input and accessibility-tree demonstrations, capturing workflow rules, step dependencies and completion checks. Our recorder collects the same three signals and our skill export (Section 2) carries placeholders and human gates. Jiang et al. (2026) induce task models, a hierarchical objective model plus a procedure model, from computer-use traces, separating interleaved tasks. Zhang et al. (2026, ShowUI-Aloha) and Oyamada et al. (2026, cotomi Act) also learn from human recordings; the latter has not been read yet.
+
+**Agent memory.** Wang et al. (2025, Agent Workflow Memory) induce reusable workflows from experience and supply them to later tasks. Iyamu (2026, Activity Frames) compiles captured screen activity into typed, evidence-linked episodes without a model; like that work, our consistency check (Section 3) is deterministic.
+
+**Web-scale video and long-horizon data.** Lu et al. (2025, VideoAgentTrek), Song et al. (2025, Watch and Learn) and Baker et al. (2022, VPT) learn to act from unlabeled video. Hayati et al. (2026, Kolab) and Meng et al. (2026, ClawMark) provide long-horizon, naturalistic benchmarks. These train models and are outside this project's scope; they inform the evaluation design.
+
+**Tacit knowledge.** Polanyi (1966) and Nonaka and Takeuchi (1995) give the framing: expertise that people cannot fully state, and its conversion into explicit knowledge. Zuin et al. (2025) and Brennig (2025) use LLM-driven interviews to draw out tacit knowledge and add it to organizational records. Ng and Russell (2000) frame recovering the rule behind observed behaviour as inverse reinforcement learning.
+
+**What this repository adds, and what it does not yet do.** The current code covers single-session recording, flagged steps and agent-ready export. The research direction (see [NOTES.md](NOTES.md) and the plan): classifying what kind of knowledge each item is (observable single-step, multi-step, hidden decision, non-action, cross-session, unobservable), logging decision points including non-actions, pooling them across sessions, fitting an interpretable rule, and asking the expert about the cases where rule and behaviour disagree. Frames, the decision log, rule fitting and the classes are implemented and checked on a synthetic benchmark (`python -m playbook decisions`, `python -m playbook induce`, `python -m playbook.dashboard`; see [docs/ROADMAP.md](docs/ROADMAP.md)). Cross-session memory, the ask-the-expert loop and any test on real experts are not. The techniques above are starting points, adapted rather than replicated.
+
 ## License
 
 [MIT](LICENSE)

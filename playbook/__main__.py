@@ -133,6 +133,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("check", help="test that the vision model is reachable")
     lab = sub.add_parser("labels", help="export reviewed steps (correct/wrong) as training data for calibration")
     lab.add_argument("--out", type=Path, default=Path("labels.csv"))
+    dc = sub.add_parser("decisions", help="log what was on screen at each pause and what you did next (one session)")
+    dc.add_argument("session", nargs="?", default="latest", help="session id, path, or 'latest'")
+    ind = sub.add_parser("induce", help="fit a readable rule to the decisions of several sessions and list the ones it can't explain")
+    ind.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
     args = p.parse_args(argv)
 
     from .recorder import import_video, is_archived, list_sessions, record_session, resolve_session
@@ -187,6 +191,40 @@ def main(argv: list[str] | None = None) -> int:
         print(path)
         if open_steps := [s for s in pb.review_steps if s.review != "wrong"]:
             print(f"  {len(open_steps)} step(s) still need human review; the skill asks a human to confirm them first.")
+        return 0
+    if args.cmd == "decisions":
+        from .decisions import build_decisions, save_decisions
+
+        session = resolve_session(args.session, settings)
+        found = build_decisions(session)
+        save_decisions(found, session / "decisions.jsonl")
+        for d in found:
+            print(f"{d.t0:7.1f}s  paused {d.dwell_s:5.1f}s  saw {d.readouts or 'no labelled numbers'}  then: {d.outcome}")
+        print(f"{len(found)} decision(s) written to {session / 'decisions.jsonl'}")
+        return 0
+    if args.cmd == "induce":
+        from . import induce
+        from .decisions import pool
+        from .knowledge import classify_decision
+
+        dirs = [resolve_session(x, settings) for x in args.sessions] if args.sessions else list_sessions(settings)
+        dirs = [d for d in dirs if args.sessions or (d / "decisions.jsonl").is_file()]
+        decisions = pool(dirs)
+        if len(decisions) < 6:
+            print(f"Only {len(decisions)} decision(s); need about 6 or more to fit a rule (20-40 is better).", file=sys.stderr)
+            return 1
+        tree = induce.fit(decisions)
+        print(f"{len(decisions)} decisions from {len(dirs)} session(s). Fitted rule (matches {induce.accuracy(tree, decisions):.0%} of them):")
+        for line in induce.rules(tree):
+            print(f"  {line}")
+        train, test = induce.holdout_accuracy(decisions)
+        print(f"Fit on the earliest 70%: {train:.0%} on those, {test:.0%} on the later ones.")
+        odd = induce.disagreements(decisions)
+        print()
+        print(f"{len(odd)} decision(s) the rule can't explain. Ask the person why:")
+        for d, guess in odd:
+            c = classify_decision(d, induce.features_used(tree), rule_gets_it_right=False)
+            print(f"  {d.session} @ {d.t1:.0f}s  did: {d.outcome}; rule expected: {guess}; saw {d.readouts}  [{c.observability}, tacit {c.tacit_score}/4]")
         return 0
     if args.cmd == "labels":
         from .labels import export_labels

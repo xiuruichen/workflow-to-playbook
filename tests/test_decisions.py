@@ -1,0 +1,97 @@
+"""Frames, decision log, rule fitting and knowledge classes (no model; the pipeline test uses local OCR)."""
+
+import pytest
+
+from playbook import induce, ocr
+from playbook.dashboard import make_visits, visit_scenario
+from playbook.decisions import Decision, add_context, parse_readouts, pool, save_decisions
+from playbook.frames import compile_frames
+from playbook.knowledge import classify_decision, classify_step
+from playbook.models import Event, Keyframe, Manifest, Step
+from playbook.scenarios import simulate
+
+
+def manifest(events, duration=40.0, keyframe_times=(0.0,)):
+    return Manifest(session_id="s", source="live", duration=duration, width=100, height=100, fps=5, created="now",
+                    events=events, keyframes=[Keyframe(id=i, t=t, path=f"keyframes/{i}.jpg", trigger="heartbeat")
+                                              for i, t in enumerate(keyframe_times)])
+
+
+def click(t):
+    return Event(t=t, kind="click", app="a.exe", window="w", x=1, y=1)
+
+
+def test_dwell_frames_hold_the_pauses_between_actions():
+    frames = compile_frames(manifest([click(1), click(2), click(20), click(21)], duration=22))
+    assert [(f.kind, f.t0, f.t1) for f in frames] == [("active", 1, 2), ("dwell", 2, 20), ("active", 20, 21)]
+    assert frames[1].keyframe_ids == [0], "the screen the pause started on is the evidence, even if it predates it"
+
+
+def test_trailing_pause_is_a_dwell_and_short_gaps_are_not():
+    frames = compile_frames(manifest([click(1), click(5)], duration=30))
+    assert [f.kind for f in frames] == ["active", "dwell"]
+    assert compile_frames(manifest([click(1), click(5)], duration=8))[-1].kind == "active"
+
+
+def test_parse_readouts():
+    assert parse_readouts(["Spikes: 2", "Batch size: 1,024", "Loss = 2.31", "no numbers here"]) == {
+        "spikes": 2.0, "batch_size": 1024.0, "loss": 2.31}
+
+
+def dec(i, spikes, batch, outcome):
+    return Decision("s", i, i + 12, "w", {"spikes": float(spikes), "batch_size": float(batch)}, outcome)
+
+
+def test_cross_session_context_marks_a_changed_value():
+    ds = add_context([dec(0, 1, 256, "none"), dec(1, 2, 256, "stop"), dec(2, 2, 512, "none")])
+    assert [d.features.get("changed_batch_size") for d in ds] == [None, 0.0, 1.0]
+
+
+def planted():
+    out, batch = [], 256
+    for i, (spikes, change) in enumerate([(0, 0), (2, 0), (3, 1), (1, 0), (2, 1), (2, 0), (0, 1), (3, 0), (2, 0), (1, 0),
+                                          (3, 1), (2, 0), (0, 0), (2, 1), (3, 0), (1, 1)] * 2):
+        batch *= 2 if change and i else 1
+        out.append(dec(i, spikes, batch, "stop" if spikes >= 2 and not (change and i) else "none"))
+    return add_context(out)
+
+
+def test_rule_recovers_the_planted_cross_session_rule():
+    ds = planted()
+    tree = induce.fit(ds)
+    assert induce.accuracy(tree, ds) == 1.0
+    assert {"spikes", "changed_batch_size"} <= induce.features_used(tree)
+    train, test = induce.holdout_accuracy(ds)
+    assert test == 1.0
+    plain = [Decision(**{**d.__dict__, "features": dict(d.readouts)}) for d in ds]
+    assert induce.accuracy(induce.fit(plain), plain) < 1.0, "without the earlier session the rule cannot be told apart"
+
+
+def test_disagreements_list_the_decisions_the_rule_cannot_explain():
+    ds = planted()
+    odd = ds[1]
+    odd.outcome = "none"  # the expert let a spiking run go for a reason nobody can see
+    assert odd in [d for d, _ in induce.disagreements(ds)]
+
+
+def test_knowledge_classes():
+    assert classify_decision(dec(0, 1, 256, "none")).observability == "O4"
+    assert classify_decision(dec(0, 2, 256, "stop")).observability == "O3"
+    c = classify_decision(dec(0, 2, 256, "none"), {"spikes", "changed_batch_size"}, rule_gets_it_right=False)
+    assert c.observability == "O5" and c.method == "pool and fit a rule" and c.tacit_score >= 3
+    step = Step(index=1, title="t", description="", t_start=0, t_end=1, model_confidence=0.9, confidence=0.9, action="click")
+    assert classify_step(step).observability == "O1"
+    assert classify_step(step.model_copy(update={"uncertainty_reason": "why?"})).observability == "O6"
+
+
+@pytest.mark.skipif(not ocr.available(), reason="needs the local OCR engine")
+def test_dashboard_session_becomes_a_decision(settings, tmp_path):
+    visits = make_visits(8, seed=1)
+    stop = next(v for v in visits if v.stop)
+    keep = next(v for v in visits if not v.stop)
+    paths = [simulate(visit_scenario(v, f"v{i}"), settings.model_copy(update={"use_ocr": True}), tmp_path / f"v{i}")
+             for i, v in enumerate([keep, stop])]
+    ds = pool(paths)
+    assert [d.outcome == "none" for d in ds] == [True, False]
+    assert ds[1].readouts["spikes"] == stop.spikes and ds[1].readouts["batch_size"] == stop.batch_size
+    assert (paths[0] / "decisions.jsonl").is_file()
