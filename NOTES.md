@@ -188,7 +188,7 @@ At 0.30 the two flags in coding are `line` over `code`, on a step that said `pyh
 Research direction (tacit-knowledge capture, built on ideas from the literature): see [docs/ROADMAP.md](docs/ROADMAP.md). The list below is the engineering roadmap.
 
 - [x] Frames, decision log (including non-actions), rule fitting and knowledge classes: `frames.py`, `decisions.py`, `induce.py`, `knowledge.py`; planted-rule benchmark in `dashboard.py`.
-- [ ] Ask-the-expert loop on the decisions a fitted rule can't explain (`elicit.py`).
+- [x] Ask-the-expert loop on the decisions a fitted rule can't explain (`elicit.py`, `python -m playbook elicit`): checked with a simulated expert only, not yet with a real one.
 - [ ] Optional think-aloud audio track, transcribed and aligned to steps (captures the *why*).
 - [x] Accessibility-tree / UI Automation capture of clicked and typed-into elements (Windows).
 - [ ] The same via AX (macOS) / AT-SPI (Linux).

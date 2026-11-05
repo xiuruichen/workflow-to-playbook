@@ -21,6 +21,9 @@ from .decisions import Decision
 
 MAX_DEPTH = 3
 MIN_LEAF = 2
+# Context features (changed_x, delta_x) are derived from neighbouring decisions and there are
+# many of them, so they can fit noise. They must beat a plain on-screen number by this margin.
+DERIVED_PENALTY = 0.05
 
 
 @dataclass
@@ -60,8 +63,9 @@ def _build(rows: list[Decision], depth: int, max_depth: int, min_leaf: int) -> N
             if len(lo) < min_leaf or len(hi) < min_leaf:
                 continue
             gain = base - (len(lo) * _gini(lo) + len(hi) * _gini(hi)) / len(rows)
-            if gain > 1e-9 and (best is None or gain > best[0] + 1e-12):
-                best = (gain, f, thr)
+            score = gain - (DERIVED_PENALTY if f.startswith(("changed_", "delta_")) else 0.0)
+            if gain > 1e-9 and score > 0 and (best is None or score > best[0] + 1e-12):
+                best = (score, f, thr)
     if best is None:
         return node
     _, f, thr = best

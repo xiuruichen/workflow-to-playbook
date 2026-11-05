@@ -137,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
     dc.add_argument("session", nargs="?", default="latest", help="session id, path, or 'latest'")
     ind = sub.add_parser("induce", help="fit a readable rule to the decisions of several sessions and list the ones it can't explain")
     ind.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
+    el = sub.add_parser("elicit", help="answer questions about the decisions the fitted rule can't explain, then refit")
+    el.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
     args = p.parse_args(argv)
 
     from .recorder import import_video, is_archived, list_sessions, record_session, resolve_session
@@ -225,6 +227,57 @@ def main(argv: list[str] | None = None) -> int:
         for d, guess in odd:
             c = classify_decision(d, induce.features_used(tree), rule_gets_it_right=False)
             print(f"  {d.session} @ {d.t1:.0f}s  did: {d.outcome}; rule expected: {guess}; saw {d.readouts}  [{c.observability}, tacit {c.tacit_score}/4]")
+        return 0
+    if args.cmd == "elicit":
+        from . import elicit
+        from .decisions import pool
+
+        dirs = [resolve_session(x, settings) for x in args.sessions] if args.sessions else list_sessions(settings)
+        dirs = [d for d in dirs if args.sessions or (d / "decisions.jsonl").is_file()]
+        decisions = pool(dirs)
+        if len(decisions) < 6:
+            print(f"Only {len(decisions)} decision(s); need about 6 or more to fit a rule.", file=sys.stderr)
+            return 1
+        store = settings.data_dir / "elicited.jsonl"
+        answers = elicit.load_answers(store)
+        elicit.apply_answers(decisions, answers)
+        questions = elicit.build_questions(decisions)
+        print(f"{len(decisions)} decisions; the rule can't explain {len(questions)}. Press Enter to skip a question.
+")
+        try:
+            for q in questions:
+                if any(a.key == elicit.key(q.decision) for a in answers):
+                    continue
+                print(q.text())
+                reason = input("> ").strip()
+                if not reason:
+                    print()
+                    continue
+                fact = input("Name the condition in a few words (optional): ").strip() or None
+                also: list[str] = []
+                if fact:
+                    cands = elicit.tag_candidates(q, questions)
+                    for i, c in enumerate(cands, 1):
+                        print(f"  {i}. {c.session} @ {c.t1:.0f}s did {c.outcome}, saw {c.readouts}")
+                    picks = input("Did it also hold for any of these? Numbers separated by commas: ").strip()
+                    also = [elicit.key(cands[int(n) - 1]) for n in picks.replace(" ", "").split(",")
+                            if n.isdigit() and 0 < int(n) <= len(cands)]
+                answers.append(elicit.Answer(q.decision.session, q.decision.t1, reason, fact, also))
+                elicit.save_answers(answers, store)
+                print()
+        except (EOFError, KeyboardInterrupt):
+            print("
+Stopped; answers so far are saved.")
+        fresh = pool(dirs)
+        result = elicit.effect(fresh, answers)
+        for label in ("before", "after"):
+            r = result[label]
+            print(f"
+Rule {label} your answers ({r['accuracy']:.0%} of decisions, {r['unexplained']} unexplained):")
+            for line in r["rule"]:
+                print(f"  {line}")
+        print(f"
+Answers are in {store}")
         return 0
     if args.cmd == "labels":
         from .labels import export_labels

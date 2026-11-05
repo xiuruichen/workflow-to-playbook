@@ -95,3 +95,50 @@ def test_dashboard_session_becomes_a_decision(settings, tmp_path):
     assert [d.outcome == "none" for d in ds] == [True, False]
     assert ds[1].readouts["spikes"] == stop.spikes and ds[1].readouts["batch_size"] == stop.batch_size
     assert (paths[0] / "decisions.jsonl").is_file()
+
+
+def hidden_factor_decisions(n=60, seed=3):
+    """Planted rule with a fact that is never on screen: no stop during warmup."""
+    import random
+
+    rng = random.Random(seed)
+    rows, warmup, batch = [], set(), 256
+    for i in range(n):
+        spikes, change, warm = rng.choice([0, 1, 2, 3]), int(i > 0 and rng.random() < 0.25), int(rng.random() < 0.25)
+        batch *= 2 if change else 1
+        rows.append(dec(i, spikes, batch, "stop" if spikes >= 2 and not change and not warm else "none"))
+        rows[-1].session = f"v{i:02d}"
+        if warm:
+            warmup.add(f"v{i:02d}@{rows[-1].t1:g}")
+    return add_context(rows), warmup
+
+
+def first_text(questions):
+    return questions[0].text()
+
+
+def test_questions_target_what_the_rule_cannot_explain_and_answers_fix_the_rule():
+    from playbook import elicit
+
+    ds, warm_keys = hidden_factor_decisions()
+    questions = elicit.build_questions(ds)
+    asked = {elicit.key(q.decision) for q in questions}
+    assert asked & warm_keys, "the decisions the hidden fact explains are among those asked about"
+    assert "most similar decisions" in first_text(questions) or "screen does not show" in first_text(questions)
+
+    first = next(q for q in questions if elicit.key(q.decision) in warm_keys)
+    tagged = [elicit.key(d) for d in elicit.tag_candidates(first, questions) if elicit.key(d) in warm_keys]
+    answers = [elicit.Answer(first.decision.session, first.decision.t1, "run was still warming up", "warmup phase", tagged)]
+    result = elicit.effect(ds, answers)
+    assert result["facts"] == ["warmup_phase"]
+    assert result["after"]["accuracy"] > result["before"]["accuracy"]
+    assert result["after"]["unexplained"] < result["before"]["unexplained"]
+
+
+def test_answers_round_trip(tmp_path):
+    from playbook import elicit
+
+    path = tmp_path / "a.jsonl"
+    elicit.save_answers([elicit.Answer("s", 12.0, "why", "fact x", ["t@5"])], path)
+    (a,) = elicit.load_answers(path)
+    assert (a.key, a.fact, a.also) == ("s@12", "fact x", ["t@5"]) and elicit.load_answers(tmp_path / "none") == []

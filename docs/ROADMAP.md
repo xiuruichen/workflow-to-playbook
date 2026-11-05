@@ -30,6 +30,7 @@ Cited as related work only (they train models or run agents, out of scope): Vide
 - `playbook/decisions.py`: the decision log (`decisions.jsonl`): labelled numbers read by local OCR at each pause, the outcome that followed (or `none`), and cross-session context (`changed_<name>`, `delta_<name>`).
 - `playbook/induce.py`: a depth-limited decision tree over those features, leave-one-out disagreements, chronological held-out accuracy.
 - `playbook/knowledge.py`: O1–O6 classes and a 0–4 tacit score for steps and decisions (rule-based heuristics).
+- `playbook/elicit.py` and `python -m playbook elicit`: one question per decision the rule can't explain, comparing it with the most similar decisions; the answer (verbatim, with an optional named fact and the other decisions it held for) is stored, the fact becomes a 0/1 feature and the rule is refitted. Check so far, on 60 synthetic decisions with a hidden "warmup" fact: 7 unexplained decisions, all of them warmup cases; one tagged answer raised the rule from 88% to 100% and cleared all 7. This used a simulated expert who tags perfectly, so it shows the mechanism, not how real people answer.
 - `playbook/dashboard.py`: the planted-rule benchmark (`python -m playbook.dashboard`) and `tests/test_decisions.py`.
 - CLI: `python -m playbook decisions [session]` and `python -m playbook induce [sessions...]`.
 
