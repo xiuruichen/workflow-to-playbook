@@ -11,7 +11,12 @@ follow for *new* inputs, and it must know where the recording alone is not enoug
   becomes a "confirm with a human" gate carrying the same reasons the viewer shows;
 - steps a reviewer marked wrong are left out, so a demonstrated mistake is never replayed.
 
-Only fields already in playbook.json are exported: no screenshots, video or event log.
+With `judgment` (see build_judgment), the skill also says when to act: the rules fitted to the
+person's pooled decisions, their own stated reasons, the value ranges seen, and the cases the
+rules could not explain, with a "ask a human first" boundary.
+
+Only fields already in playbook.json (plus the decision summaries passed in) are exported: no
+screenshots, video or event log.
 """
 
 from __future__ import annotations
@@ -28,6 +33,9 @@ from .consistency import (
     is_misread_number,
     is_near_miss,
 )
+from . import induce
+from .decisions import Decision, slug
+from .elicit import Answer, apply_answers
 from .generator import review_reasons
 from .models import InputVariable, Playbook, Step
 
@@ -102,7 +110,42 @@ def _copied_from(value: str, earlier: list[tuple[str, str]]) -> tuple[str, str] 
     return None
 
 
-def build_skill(pb: Playbook) -> dict:
+THIN_SUPPORT = 5  # a rule backed by fewer decisions than this is a hint, not a habit
+
+
+def build_judgment(decisions: list[Decision], answers: list[Answer] | None = None) -> dict | None:
+    """What was learned about *when to do what*, from pooled decisions (see decisions.py, induce.py).
+
+    The rules are a fitted hypothesis about one person's habits, so each carries its support, the
+    value ranges seen, and the cases it could not explain. The person's own words are kept.
+    """
+    if len(decisions) < 6:
+        return None
+    answers = answers or []
+    apply_answers(decisions, answers)
+    tree = induce.fit(decisions)
+    odd = induce.disagreements(decisions)
+    names = sorted({f for d in decisions for f in d.readouts})
+    train, test = induce.holdout_accuracy(decisions)
+    tagged = {slug(a.fact): len({a.key, *a.also}) for a in answers if a.fact}
+    return {
+        "basis": {
+            "decisions": len(decisions), "sessions": len({d.session for d in decisions}),
+            "fits_observed_decisions": round(induce.accuracy(tree, decisions), 3),
+            "accuracy_on_later_decisions": round(test, 3) if len(decisions) >= 10 else None,
+            "observed_ranges": {n: [min(d.readouts[n] for d in decisions if n in d.readouts),
+                                    max(d.readouts[n] for d in decisions if n in d.readouts)] for n in names},
+        },
+        "rules": [{"when": list(conds) or ["always"], "then": leaf.label, "support": f"{leaf.correct}/{leaf.n}",
+                   "thin_evidence": leaf.n < THIN_SUPPORT} for conds, leaf in induce.leaves(tree)],
+        "stated_by_person": [{"fact": a.fact, "reason": a.reason, "decisions_tagged": tagged.get(slug(a.fact), 0),
+                              "asked_at": a.asked_at} for a in answers if a.fact or a.reason],
+        "unexplained": [{"session": d.session, "at_s": round(d.t1, 1), "did": d.outcome, "rule_expected": guess,
+                         "saw": d.readouts} for d, guess in odd],
+    }
+
+
+def build_skill(pb: Playbook, judgment: dict | None = None) -> dict:
     pb.refresh_flags()
     inputs = _inputs(pb)
     subs = _placeholders(inputs)
@@ -155,6 +198,7 @@ def build_skill(pb: Playbook) -> dict:
         "excluded_steps": [{"playbook_step": s.index, "title": s.title, "reason": "Marked wrong in review"}
                            for s in pb.steps if s.review == "wrong"],
         "open_questions": pb.open_questions,
+        **({"judgment": judgment} if judgment else {}),
         "provenance": {
             "session_id": pb.session_id,
             "source": pb.source,
@@ -195,6 +239,33 @@ def _do(st: dict, number: dict[str, int]) -> str:
     return " ".join(parts)
 
 
+def _judgment_md(j: dict) -> list[str]:
+    b = j["basis"]
+    out = ["## Judgment calls", "",
+           (f"When to act, learned from {b['decisions']} of this person's decisions across {b['sessions']} recording(s), "
+            f"including the times they chose to do nothing. The rules below fit {b['fits_observed_decisions']:.0%} of those "
+            "decisions. They are a hypothesis about one person's habits, not a policy."), ""]
+    stated = {slug(s["fact"]) for s in j["stated_by_person"] if s["fact"]}
+    for r in j["rules"]:
+        thin = " (few examples: treat as a hint)" if r["thin_evidence"] else ""
+        then = "leave it alone (take no action)" if r["then"] == "none" else r["then"]
+        hidden = sorted(f for f in stated if any(c.startswith(f + " ") for c in r["when"]))
+        ask = f" Not visible on screen: ask whether {', '.join(hidden)} applies." if hidden else ""
+        out.append(f"- If {' and '.join(f'`{c}`' for c in r['when'])}: **{then}** (seen {r['support']}){thin}.{ask}")
+    out.append("")
+    if j["stated_by_person"]:
+        out += ["What the person said about their own reasons:", ""]
+        out += [f"- {s['fact'] or 'Reason'}: \"{s['reason']}\"" for s in j["stated_by_person"]] + [""]
+    ranges = ", ".join(f"{n} {lo:g}–{hi:g}" for n, (lo, hi) in b["observed_ranges"].items())
+    out += ["**Ask a human first** when:", "",
+            f"- a value is outside what was observed ({ranges}), or the situation involves something not listed above;",
+            "- the rule that applies has few examples, or it would take an action that is hard to undo;"]
+    if j["unexplained"]:
+        out.append(f"- the situation resembles one of the {len(j['unexplained'])} decision(s) the rules could not explain: "
+                   + "; ".join(f"{u['session']} (did {u['did']}, rules expected {u['rule_expected']})" for u in j["unexplained"][:5]))
+    return out + [""]
+
+
 def render_skill_md(pb: Playbook, skill: dict | None = None) -> str:
     sk = skill or build_skill(pb)
     # JSON strings are valid YAML scalars, so the frontmatter needs no YAML library.
@@ -225,6 +296,8 @@ def render_skill_md(pb: Playbook, skill: dict | None = None) -> str:
         if st["requires_confirmation"]:
             out.append(f"   - **Ask a human first.** {st['confirmation_reason']}")
     out.append("")
+    if sk.get("judgment"):
+        out += _judgment_md(sk["judgment"])
     if sk["excluded_steps"]:
         out += ["## Left out", "", "A reviewer marked these recorded steps wrong; do not repeat them.", ""]
         out += [f"- {x['title']}" for x in sk["excluded_steps"]] + [""]
@@ -234,16 +307,16 @@ def render_skill_md(pb: Playbook, skill: dict | None = None) -> str:
     return "\n".join(out)
 
 
-def skill_files(pb: Playbook) -> dict[str, str]:
+def skill_files(pb: Playbook, judgment: dict | None = None) -> dict[str, str]:
     """{filename: text}, e.g. for a download, without touching the disk."""
-    sk = build_skill(pb)
+    sk = build_skill(pb, judgment)
     return {"SKILL.md": render_skill_md(pb, sk), "skill.json": json.dumps(sk, indent=2, ensure_ascii=False) + "\n"}
 
 
-def write_skill(pb: Playbook, out_dir: Path) -> Path:
+def write_skill(pb: Playbook, out_dir: Path, judgment: dict | None = None) -> Path:
     """Write SKILL.md and skill.json into out_dir; returns the SKILL.md path."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    for name, text in skill_files(pb).items():
+    for name, text in skill_files(pb, judgment).items():
         (out_dir / name).write_text(text, encoding="utf-8")
     return out_dir / "SKILL.md"

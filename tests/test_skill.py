@@ -94,3 +94,25 @@ def test_typed_values_become_inputs_when_the_model_listed_none():
     sk = build_skill(pb)
     assert list(sk["parameters"]["properties"]) == ["search", "search_2"]  # not the copied number
     assert [s["value"] for s in sk["steps"][1:]] == ["{{search}}", "{{step-1}}", "{{search_2}}"]
+
+
+def test_judgment_calls_travel_with_the_skill():
+    from playbook import elicit
+    from tests.test_decisions import hidden_factor_decisions
+
+    ds, warm = hidden_factor_decisions()
+    first = next(q for q in elicit.build_questions(ds) if elicit.key(q.decision) in warm)
+    tagged = [elicit.key(d) for d in ds if elicit.key(d) in warm]
+    answers = [elicit.Answer(first.decision.session, first.decision.t1, "run was still warming up", "warmup", tagged)]
+    from playbook.skill import build_judgment, skill_files
+
+    j = build_judgment(ds, answers)
+    assert j["basis"]["decisions"] == 60 and j["basis"]["observed_ranges"]["spikes"] == [0.0, 3.0]
+    assert any("warmup > 0.5" in r["when"] for r in j["rules"])
+    assert j["stated_by_person"][0]["reason"] == "run was still warming up" and j["unexplained"] == []
+    pb = playbook([step(1, "Open the dashboard")])
+    files = skill_files(pb, j)
+    assert "## Judgment calls" in files["SKILL.md"] and "run was still warming up" in files["SKILL.md"]
+    assert "Ask a human first" in files["SKILL.md"] and json.loads(files["skill.json"])["judgment"]["rules"]
+    assert "Judgment calls" not in skill_files(pb)["SKILL.md"]
+    assert build_judgment(ds[:3]) is None

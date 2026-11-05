@@ -83,6 +83,14 @@ def fit(decisions: list[Decision], max_depth: int = MAX_DEPTH, min_leaf: int = M
     return _build(decisions, 0, max_depth, min_leaf)
 
 
+def leaves(tree: Node, conds: tuple[str, ...] = ()) -> list[tuple[tuple[str, ...], Node]]:
+    """(conditions, leaf) for every leaf, e.g. (('spikes > 1.5', 'changed_batch_size <= 0.5'), leaf)."""
+    if tree.leaf:
+        return [(conds, tree)]
+    return (leaves(tree.low, (*conds, f"{tree.feature} <= {tree.threshold:g}"))
+            + leaves(tree.high, (*conds, f"{tree.feature} > {tree.threshold:g}")))
+
+
 def predict(tree: Node, d: Decision) -> str:
     node = tree
     while not node.leaf:

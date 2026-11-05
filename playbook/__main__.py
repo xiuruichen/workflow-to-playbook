@@ -116,6 +116,8 @@ def main(argv: list[str] | None = None) -> int:
     ex = sub.add_parser("export", help="write an agent-ready skill (SKILL.md + skill.json) from a session's playbook")
     ex.add_argument("session", nargs="?", default="latest", help="session id, path, or 'latest'")
     ex.add_argument("--out", type=Path, help="output folder (default: <session>/skill)")
+    ex.add_argument("--judgment", nargs="*", metavar="SESSION",
+                    help="also say when to act, learned from the decisions of these sessions (none listed: every session with decisions)")
     sub.add_parser("list", help="list recorded sessions")
     cp = sub.add_parser("compact", help="compress + encrypt sessions into .pbx archives")
     cp.add_argument("session", nargs="?", help="session id or path")
@@ -189,7 +191,18 @@ def main(argv: list[str] | None = None) -> int:
 
         session = resolve_session(args.session, settings)
         pb = Playbook.load(session)
-        path = write_skill(pb, args.out or session / "skill")
+        judgment = None
+        if args.judgment is not None:
+            from . import elicit
+            from .decisions import pool
+            from .skill import build_judgment
+
+            dirs = [resolve_session(x, settings) for x in args.judgment] if args.judgment else list_sessions(settings)
+            dirs = [d for d in dirs if args.judgment or (d / "decisions.jsonl").is_file()]
+            judgment = build_judgment(pool(dirs), elicit.load_answers(settings.data_dir / "elicited.jsonl"))
+            if judgment is None:
+                print("Fewer than 6 decisions found; exporting without judgment calls.", file=sys.stderr)
+        path = write_skill(pb, args.out or session / "skill", judgment)
         print(path)
         if open_steps := [s for s in pb.review_steps if s.review != "wrong"]:
             print(f"  {len(open_steps)} step(s) still need human review; the skill asks a human to confirm them first.")

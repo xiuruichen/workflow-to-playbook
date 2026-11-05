@@ -189,6 +189,7 @@ Research direction (tacit-knowledge capture, built on ideas from the literature)
 
 - [x] Frames, decision log (including non-actions), rule fitting and knowledge classes: `frames.py`, `decisions.py`, `induce.py`, `knowledge.py`; planted-rule benchmark in `dashboard.py`.
 - [x] Ask-the-expert loop on the decisions a fitted rule can't explain (`elicit.py`, `python -m playbook elicit`): checked with a simulated expert only, not yet with a real one.
+- [x] Judgment calls in the agent skill export (`export --judgment`); [ ] test whether an agent that reads them decides like the person.
 - [ ] Optional think-aloud audio track, transcribed and aligned to steps (captures the *why*).
 - [x] Accessibility-tree / UI Automation capture of clicked and typed-into elements (Windows).
 - [ ] The same via AX (macOS) / AT-SPI (Linux).
