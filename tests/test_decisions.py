@@ -142,3 +142,62 @@ def test_answers_round_trip(tmp_path):
     elicit.save_answers([elicit.Answer("s", 12.0, "why", "fact x", ["t@5"])], path)
     (a,) = elicit.load_answers(path)
     assert (a.key, a.fact, a.also) == ("s@12", "fact x", ["t@5"]) and elicit.load_answers(tmp_path / "none") == []
+
+
+def test_replay_scores_deciders_on_held_out_decisions():
+    import json
+
+    from playbook import elicit, replay
+
+    ds, warm = hidden_factor_decisions(n=80, seed=5)
+    first = next(q for q in elicit.build_questions(ds[:56]) if elicit.key(q.decision) in warm)
+    answers = [elicit.Answer(first.decision.session, first.decision.t1, "warming up", "warmup",
+                             [k for k in map(elicit.key, ds[:56]) if k in warm])]
+    # a stand-in "model": acts on the skill text, so we can tell which arm it was given
+    def chat(messages, fmt):
+        has_rules = "Judgment calls" in messages[0]["content"]
+        return json.dumps({"choice": "stop" if "spikes = 3" in messages[1]["content"] or "spikes = 2" in messages[1]["content"]
+                           and (not has_rules or "warmup: no" in messages[1]["content"]) else "none"})
+
+    out = replay.run(ds, answers, chat, "Check the run.")
+    assert out["train"] == 56 and out["test"] == 24 and out["options"] == ["none", "stop"]
+    arms = out["arms"]
+    assert set(arms) == {"majority", "rules", "skill", "skill+judgment"}
+    assert arms["rules"]["agreement"] >= arms["majority"]["agreement"]
+    assert arms["skill+judgment"]["agreement"] >= arms["skill"]["agreement"]
+    assert arms["skill"]["wrong_actions"] >= arms["skill+judgment"]["wrong_actions"]
+    assert replay.run(ds, answers)["arms"].keys() == {"majority", "rules"}
+
+
+def test_rules_decider_asks_a_human_outside_the_observed_range():
+    from playbook import replay
+    from playbook.skill import build_judgment
+
+    ds, _ = hidden_factor_decisions()
+    decide = replay.rules_decider(build_judgment(ds))
+    far = Decision("x", 0, 12, "w", {"spikes": 40.0, "batch_size": 256.0}, "none",
+                   features={"spikes": 40.0, "batch_size": 256.0})
+    assert decide(far) == replay.ASK
+
+
+def test_cli_commands_run_on_saved_decisions(settings, tmp_path, monkeypatch, capsys):
+    """decisions.jsonl files are all the induce/elicit/replay commands need."""
+    import io
+
+    from playbook import __main__ as cli
+
+    ds, _ = hidden_factor_decisions(n=40, seed=2)
+    dirs = []
+    for i, d in enumerate(ds):
+        folder = tmp_path / f"s{i:02d}"
+        folder.mkdir()
+        d.session = folder.name
+        save_decisions([d], folder / "decisions.jsonl")
+        dirs.append(str(folder))
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+    assert cli.main(["induce", *dirs]) == 0 and "Fitted rule" in capsys.readouterr().out
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))  # no one to answer: stops cleanly
+    assert cli.main(["elicit", *dirs]) == 0 and "Rule before your answers" in capsys.readouterr().out
+    assert cli.main(["replay", *dirs]) == 0
+    out = capsys.readouterr().out
+    assert "majority" in out and "rules" in out

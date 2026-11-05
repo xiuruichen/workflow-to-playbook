@@ -141,6 +141,9 @@ def main(argv: list[str] | None = None) -> int:
     ind.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
     el = sub.add_parser("elicit", help="answer questions about the decisions the fitted rule can't explain, then refit")
     el.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
+    rp = sub.add_parser("replay", help="test whether the judgment calls reproduce your later decisions (fit on the earliest 70%%)")
+    rp.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
+    rp.add_argument("--model", action="store_true", help="also ask the local model to decide with and without the judgment section (slow on a laptop)")
     args = p.parse_args(argv)
 
     from .recorder import import_video, is_archived, list_sessions, record_session, resolve_session
@@ -255,8 +258,7 @@ def main(argv: list[str] | None = None) -> int:
         answers = elicit.load_answers(store)
         elicit.apply_answers(decisions, answers)
         questions = elicit.build_questions(decisions)
-        print(f"{len(decisions)} decisions; the rule can't explain {len(questions)}. Press Enter to skip a question.
-")
+        print(f"{len(decisions)} decisions; the rule can't explain {len(questions)}. Press Enter to skip a question.\n")
         try:
             for q in questions:
                 if any(a.key == elicit.key(q.decision) for a in answers):
@@ -279,18 +281,54 @@ def main(argv: list[str] | None = None) -> int:
                 elicit.save_answers(answers, store)
                 print()
         except (EOFError, KeyboardInterrupt):
-            print("
-Stopped; answers so far are saved.")
+            print("\nStopped; answers so far are saved.")
         fresh = pool(dirs)
         result = elicit.effect(fresh, answers)
         for label in ("before", "after"):
             r = result[label]
-            print(f"
-Rule {label} your answers ({r['accuracy']:.0%} of decisions, {r['unexplained']} unexplained):")
+            print(f"\nRule {label} your answers ({r['accuracy']:.0%} of decisions, {r['unexplained']} unexplained):")
             for line in r["rule"]:
                 print(f"  {line}")
-        print(f"
-Answers are in {store}")
+        print(f"\nAnswers are in {store}")
+        return 0
+    if args.cmd == "replay":
+        from contextlib import ExitStack
+
+        from . import elicit, replay
+        from .decisions import pool
+
+        dirs = [resolve_session(x, settings) for x in args.sessions] if args.sessions else list_sessions(settings)
+        dirs = [d for d in dirs if args.sessions or (d / "decisions.jsonl").is_file()]
+        decisions = pool(dirs)
+        answers = elicit.load_answers(settings.data_dir / "elicited.jsonl")
+        procedure = ""
+        with ExitStack() as stack:
+            chat = None
+            if args.model:
+                from .analyzer import VisionClient
+
+                vc = VisionClient(settings)
+                if vc.backend.server is not None:
+                    from .llama_runtime import serving
+
+                    stack.enter_context(serving(settings, vc.backend.server, status=print))
+                chat = vc.chat
+                with_playbook = next((d for d in dirs if (d / "playbook.json").is_file()), None)
+                if with_playbook:
+                    from .models import Playbook
+                    from .skill import render_skill_md
+
+                    procedure = render_skill_md(Playbook.load(with_playbook))
+            try:
+                out = replay.run(decisions, answers, chat, procedure)
+            except ValueError as exc:
+                print(exc, file=sys.stderr)
+                return 1
+        print(f"Fit on {out['train']} earlier decisions, replayed {out['test']} later ones.")
+        print(f"{'decider':<16} {'agree':>6} {'ask human':>10} {'agree if answered':>18} {'wrong actions':>14} {'missed actions':>15}")
+        for name, r in out["arms"].items():
+            ans = "-" if r["agreement_when_answered"] is None else f"{r['agreement_when_answered']:.0%}"
+            print(f"{name:<16} {r['agreement']:>6.0%} {r['ask_human']:>10} {ans:>18} {r['wrong_actions']:>14} {r['missed_actions']:>15}")
         return 0
     if args.cmd == "labels":
         from .labels import export_labels

@@ -125,7 +125,8 @@ def build_judgment(decisions: list[Decision], answers: list[Answer] | None = Non
     apply_answers(decisions, answers)
     tree = induce.fit(decisions)
     odd = induce.disagreements(decisions)
-    names = sorted({f for d in decisions for f in d.readouts})
+    used = {f for f in induce.features_used(tree) if not f.startswith(("changed_", "delta_"))}
+    names = sorted({f for d in decisions for f in d.readouts} & used)  # a value the rules ignore can drift freely
     train, test = induce.holdout_accuracy(decisions)
     tagged = {slug(a.fact): len({a.key, *a.also}) for a in answers if a.fact}
     return {
