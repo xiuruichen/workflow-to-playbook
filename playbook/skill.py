@@ -15,8 +15,8 @@ With `judgment` (see build_judgment), the skill also says when to act: the rules
 person's pooled decisions, their own stated reasons, the value ranges seen, and the cases the
 rules could not explain, with a "ask a human first" boundary.
 
-Only fields already in playbook.json (plus the decision summaries passed in) are exported: no
-screenshots, video or event log.
+Only fields already in playbook.json (plus the decision summaries passed in: on-screen numbers,
+session ids and the person's own words) are exported: no screenshots, video or event log.
 """
 
 from __future__ import annotations
@@ -246,6 +246,11 @@ def _judgment_md(j: dict) -> list[str]:
            (f"When to act, learned from {b['decisions']} of this person's decisions across {b['sessions']} recording(s), "
             f"including the times they chose to do nothing. The rules below fit {b['fits_observed_decisions']:.0%} of those "
             "decisions. They are a hypothesis about one person's habits, not a policy."), ""]
+    changed = sorted({c.split()[0] for r in j["rules"] for c in r["when"] if c.startswith("changed_")})
+    if changed:
+        out += ["In the rules, `changed_x` means: the value of x differs from what it was at the previous check "
+                "(1 = changed, 0 = not). It is not shown on the current screen; compare with the earlier check "
+                "or ask.", ""]
     stated = {slug(s["fact"]) for s in j["stated_by_person"] if s["fact"]}
     for r in j["rules"]:
         thin = " (few examples: treat as a hint)" if r["thin_evidence"] else ""

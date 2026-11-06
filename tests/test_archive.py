@@ -208,3 +208,16 @@ def test_migrate_moves_and_archives(settings, session, key, tmp_path, monkeypatc
     shutil.move(str(session), str(old / session.name))
     assert archive.migrate(settings, [old], status=lambda m: None) == 1
     assert (settings.sessions_dir / f"{session.name}.pbx").exists()
+
+
+def test_decision_log_survives_archiving_and_is_read_without_restoring(settings, session, key, monkeypatch):
+    from playbook.decisions import Decision, has_saved, pool, save_decisions
+
+    save_decisions([Decision(session.name, 1.0, 13.0, "w", {"spikes": 2.0}, "none")], session / "decisions.jsonl")
+    res = archive.compact(session, settings, key, video="original")
+    assert not session.exists()
+    monkeypatch.setattr(archive, "default_key", lambda *a, **k: key)
+    assert has_saved(res.archive)
+    (d,) = pool([res.archive])
+    assert (d.session, d.readouts, d.outcome) == (session.name, {"spikes": 2.0}, "none")
+    assert not session.exists(), "reading the log must not restore the session"

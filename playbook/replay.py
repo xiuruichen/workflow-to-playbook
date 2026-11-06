@@ -69,13 +69,18 @@ def rules_decider(judgment: dict) -> Decider:
     return decide
 
 
-def _screen(d: Decision, facts: list[str]) -> str:
+def _screen(d: Decision, facts: list[str], context: list[str] = ()) -> str:
     seen = ", ".join(f"{k.replace('_', ' ')} = {v:g}" for k, v in d.readouts.items())
     known = [f"{f.replace('_', ' ')}: {'yes' if d.features.get(f) else 'no'}" for f in facts]
-    return f"The screen shows: {seen}." + (f" A human confirms - {'; '.join(known)}." if known else "")
+    # What the rules call changed_x is not on this screen: it compares with the previous check.
+    prior = [f"{c.removeprefix('changed_').replace('_', ' ')} changed since the previous check: "
+             f"{'yes' if d.features.get(c) else 'no'}" for c in context if c.startswith("changed_")]
+    return (f"The screen shows: {seen}." + (f" From earlier checks: {'; '.join(prior)}." if prior else "")
+            + (f" A human confirms - {'; '.join(known)}." if known else ""))
 
 
-def model_decider(chat: Callable[[list[dict], dict], str], skill_md: str, options: list[str], facts: list[str] = ()) -> Decider:
+def model_decider(chat: Callable[[list[dict], dict], str], skill_md: str, options: list[str], facts: list[str] = (),
+                  context: list[str] = ()) -> Decider:
     """A language model that reads the skill and picks one of `options` (or asks a human)."""
     choices = [*options, ASK]
     fmt = {"type": "json_schema", "json_schema": {"name": "choice", "schema": {
@@ -84,7 +89,7 @@ def model_decider(chat: Callable[[list[dict], dict], str], skill_md: str, option
     def decide(d: Decision) -> str:
         messages = [
             {"role": "system", "content": "You act for a person using the skill below. Choose what they would do now.\n\n" + skill_md},
-            {"role": "user", "content": f"{_screen(d, list(facts))}\nOptions: {', '.join(choices)}. "
+            {"role": "user", "content": f"{_screen(d, list(facts), list(context))}\nOptions: {', '.join(choices)}. "
                                         f"('{NONE}' means take no action.) Reply as JSON: {{\"choice\": ...}}"},
         ]
         try:
@@ -120,11 +125,12 @@ def run(decisions: list[Decision], answers=None, chat=None, procedure_md: str = 
         raise ValueError("need at least 6 training decisions")
     options = sorted({d.outcome for d in train if d.outcome != NONE} | {NONE})
     facts = [slug(s["fact"]) for s in judgment["stated_by_person"] if s["fact"]]
+    context = sorted({c.split()[0] for r in judgment["rules"] for c in r["when"] if c.startswith(("changed_", "delta_"))})
     arms: dict[str, Decider] = {"majority": majority_decider(train), "rules": rules_decider(judgment)}
     if chat is not None:
         with_judgment = procedure_md + "\n\n" + _judgment_text(judgment)
         arms["skill"] = model_decider(chat, procedure_md or "Check the run and decide whether to act.", options)
-        arms["skill+judgment"] = model_decider(chat, with_judgment, options, facts)
+        arms["skill+judgment"] = model_decider(chat, with_judgment, options, facts, context)
     return {"train": len(train), "test": len(test), "options": options,
             "arms": {name: score(decide, test) for name, decide in arms.items()}}
 

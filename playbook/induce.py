@@ -62,6 +62,11 @@ def _build(rows: list[Decision], depth: int, max_depth: int, min_leaf: int) -> N
             hi = [d.outcome for d in rows if d.features.get(f, float("-inf")) > thr]
             if len(lo) < min_leaf or len(hi) < min_leaf:
                 continue
+            # A split must get more training decisions right, not just look purer: otherwise it only
+            # memorises a stray case (and a readout that drifts with time, like loss, can do that).
+            right = Counter(lo).most_common(1)[0][1] + Counter(hi).most_common(1)[0][1]
+            if right <= count:
+                continue
             gain = base - (len(lo) * _gini(lo) + len(hi) * _gini(hi)) / len(rows)
             score = gain - (DERIVED_PENALTY if f.startswith(("changed_", "delta_")) else 0.0)
             if gain > 1e-9 and score > 0 and (best is None or score > best[0] + 1e-12):

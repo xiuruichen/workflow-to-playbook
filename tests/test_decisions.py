@@ -201,3 +201,20 @@ def test_cli_commands_run_on_saved_decisions(settings, tmp_path, monkeypatch, ca
     assert cli.main(["replay", *dirs]) == 0
     out = capsys.readouterr().out
     assert "majority" in out and "rules" in out
+
+
+@pytest.mark.skipif(not ocr.available(), reason="needs the local OCR engine")
+def test_outcome_label_reads_the_words_at_the_click_on_a_high_resolution_screen(settings, tmp_path):
+    """Live test finding: events are in screen pixels, keyframes are smaller; the click must be scaled."""
+    from playbook.decisions import build_decisions
+
+    stop = next(v for v in make_visits(12, seed=1) if v.stop)
+    s = settings.model_copy(update={"use_ocr": True})
+    path = simulate(visit_scenario(stop, "v"), s, tmp_path / "v")
+    m = Manifest.load(path)
+    for e in m.events:  # pretend the screen was twice as large as the saved keyframes
+        e.x, e.y = e.x * 2, e.y * 2
+    m.width *= 2
+    m.save(path)
+    (d,) = build_decisions(path)
+    assert d.outcome == "Stop run"

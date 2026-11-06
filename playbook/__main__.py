@@ -197,11 +197,11 @@ def main(argv: list[str] | None = None) -> int:
         judgment = None
         if args.judgment is not None:
             from . import elicit
-            from .decisions import pool
+            from .decisions import has_saved, pool
             from .skill import build_judgment
 
             dirs = [resolve_session(x, settings) for x in args.judgment] if args.judgment else list_sessions(settings)
-            dirs = [d for d in dirs if args.judgment or (d / "decisions.jsonl").is_file()]
+            dirs = [d for d in dirs if args.judgment or has_saved(d)]
             judgment = build_judgment(pool(dirs), elicit.load_answers(settings.data_dir / "elicited.jsonl"))
             if judgment is None:
                 print("Fewer than 6 decisions found; exporting without judgment calls.", file=sys.stderr)
@@ -222,11 +222,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "induce":
         from . import induce
-        from .decisions import pool
+        from .decisions import has_saved, pool
         from .knowledge import classify_decision
 
         dirs = [resolve_session(x, settings) for x in args.sessions] if args.sessions else list_sessions(settings)
-        dirs = [d for d in dirs if args.sessions or (d / "decisions.jsonl").is_file()]
+        dirs = [d for d in dirs if args.sessions or has_saved(d)]
         decisions = pool(dirs)
         if len(decisions) < 6:
             print(f"Only {len(decisions)} decision(s); need about 6 or more to fit a rule (20-40 is better).", file=sys.stderr)
@@ -246,10 +246,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "elicit":
         from . import elicit
-        from .decisions import pool
+        from .decisions import has_saved, pool
 
         dirs = [resolve_session(x, settings) for x in args.sessions] if args.sessions else list_sessions(settings)
-        dirs = [d for d in dirs if args.sessions or (d / "decisions.jsonl").is_file()]
+        dirs = [d for d in dirs if args.sessions or has_saved(d)]
         decisions = pool(dirs)
         if len(decisions) < 6:
             print(f"Only {len(decisions)} decision(s); need about 6 or more to fit a rule.", file=sys.stderr)
@@ -295,10 +295,10 @@ def main(argv: list[str] | None = None) -> int:
         from contextlib import ExitStack
 
         from . import elicit, replay
-        from .decisions import pool
+        from .decisions import has_saved, pool
 
         dirs = [resolve_session(x, settings) for x in args.sessions] if args.sessions else list_sessions(settings)
-        dirs = [d for d in dirs if args.sessions or (d / "decisions.jsonl").is_file()]
+        dirs = [d for d in dirs if args.sessions or has_saved(d)]
         decisions = pool(dirs)
         answers = elicit.load_answers(settings.data_dir / "elicited.jsonl")
         procedure = ""

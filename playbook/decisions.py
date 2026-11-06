@@ -73,12 +73,14 @@ def default_labeler(ev: Event, ocr: SessionOCR | None, keyframe: str | None) -> 
     """A short label for an action: the UI element, the typed text, or the words next to the click."""
     if ev.kind == "type":
         return f"type {(ev.text or '')[:30]}".strip()
-    if ev.element:
+    if ev.element and '"' in ev.element:  # a named element, e.g. Button "Stop run"
         return ev.element
     if ocr is not None and keyframe and ev.x is not None and ev.y is not None:
         near = ocr.near(keyframe, ev.x, ev.y, size=200, limit=1)
-        if near:
+        if near:  # an unnamed control (a bare 'Button'): the words on it say more
             return near[0]
+    if ev.element:
+        return ev.element
     return f"{ev.kind} {ev.text or ''}".strip()
 
 
@@ -98,6 +100,10 @@ def build_decisions(session_dir: Path, ocr: SessionOCR | None = None, labeler: L
         # The action only counts as this decision's outcome if it comes right after the pause.
         starts_here = nxt is not None and nxt.t - fr.t1 < 1e-6
         after = by_id[max((k.id for k in m.keyframes if k.t <= fr.t1), default=seen.id)]
+        if starts_here and nxt.x is not None and ocr.enabled:
+            # Event coordinates are screen pixels; the saved keyframes may be smaller.
+            scale = ocr._image(after.path).shape[1] / m.width
+            nxt = nxt.model_copy(update={"x": round(nxt.x * scale), "y": round((nxt.y or 0) * scale)})
         outcome = labeler(nxt, ocr, after.path) if starts_here else NONE
         readouts = parse_readouts([b.text for b in ocr.boxes(seen.path)])
         out.append(Decision(m.session_id, round(fr.t0, 3), round(fr.t1, 3), fr.window, readouts, outcome, seen.path))
@@ -137,13 +143,45 @@ def load_decisions(path: Path) -> list[Decision]:
     return out
 
 
+def has_saved(session: Path) -> bool:
+    """True if the session (a folder, or an encrypted .pbx archive) already has a decision log."""
+    session = Path(session)
+    if session.suffix == ".pbx":
+        from .archive import read_member
+
+        try:
+            return read_member(session, "decisions.jsonl") is not None
+        except Exception:  # unreadable archive or no key: treat as having none
+            return False
+    return (session / "decisions.jsonl").is_file()
+
+
+def _load_saved(session: Path) -> list[Decision]:
+    session = Path(session)
+    if session.suffix == ".pbx":
+        from .archive import read_member
+
+        raw = (read_member(session, "decisions.jsonl") or b"").decode("utf-8")
+        out = []
+        for line in raw.splitlines():
+            if line.strip():
+                row = json.loads(line)
+                row.pop("dwell_s", None)
+                out.append(Decision(**row))
+        return out
+    return load_decisions(session / "decisions.jsonl")
+
+
 def pool(session_dirs: list[Path], **kw) -> list[Decision]:
-    """All decisions of several sessions, oldest first, with cross-session context added."""
+    """All decisions of several sessions, oldest first, with cross-session context added.
+
+    Sessions without a log are analysed now and the log is saved; archives are read without restoring."""
     all_d: list[Decision] = []
-    for s in sorted(session_dirs, key=lambda p: p.name):
-        path = Path(s) / "decisions.jsonl"
-        d = load_decisions(path) if path.is_file() else build_decisions(Path(s), **kw)
-        if not path.is_file():
-            save_decisions(d, path)
+    for s in sorted(session_dirs, key=lambda p: Path(p).stem):
+        if has_saved(s):
+            d = _load_saved(s)
+        else:
+            d = build_decisions(Path(s), **kw)
+            save_decisions(d, Path(s) / "decisions.jsonl")
         all_d.extend(d)
     return add_context(all_d)

@@ -98,6 +98,11 @@ python -m playbook migrate                  # move sessions from the old ./sessi
 python -m playbook key --export             # back up the archive encryption key
 python -m playbook check                    # is the model installed and reachable?
 python -m playbook labels                   # export your Correct/Wrong reviews to labels.csv
+python -m playbook decisions [session]      # log what was on screen at each pause and what you did next
+python -m playbook induce [sessions...]     # fit a readable rule to pooled decisions; list what it can't explain
+python -m playbook elicit [sessions...]     # answer questions about those; named facts become features, rule is refitted
+python -m playbook replay [sessions...]     # fit on the earliest 70% of decisions, replay the rest (--model adds a local model)
+python -m playbook export --judgment [...]  # agent skill that also says when to act
 python -m playbook.evaluate                 # score the pipeline on 4 scripted scenarios (see Evaluation)
 ```
 
@@ -124,7 +129,7 @@ A playbook is written for people. `python -m playbook export` (or **⬇ Download
 - **Inputs become placeholders.** The values that change between runs (search terms, recipients, file names) appear as `{{city_name}}` in every step. When the model listed no inputs (common with small local models), what the user typed is used instead.
 - **Data flows between steps.** A value typed after being read on screen (copied from a web page into a sheet, say) is exported as "the value read in step 3", not as a constant, because next time the page will show something else. This also stops a recorded typo being replayed. Small models don't always write a step for reading the value: in the [example](examples/city-population-lookup/skill/SKILL.md) it becomes an input instead, and the flagged step still says *Ask a human first*.
 - **Uncertainty becomes a gate.** Every step that was flagged and not confirmed in review says **Ask a human first**, with the same reasons the viewer shows. Steps a reviewer marked wrong are left out.
-- **Nothing private beyond the playbook text.** No screenshots, video or event log are included.
+- **Nothing private beyond the playbook text.** No screenshots, video or event log are included. With `--judgment` (see [below](#when-to-act-decisions-rules-and-the-expert-loop)) the skill also carries summaries of your decisions: the numbers that were on screen, session ids, the rules fitted to them, and your own words if you answered questions. Read it before sharing.
 
 Review the playbook first: the skill can only be as good as the steps it is built from.
 
@@ -139,6 +144,14 @@ python -m playbook import sample_workflow.mp4
 ```
 
 The first command reproduces the [example](examples/city-population-lookup/playbook.md) in `<sessions>/_eval/research/` after `setup-local` (model output varies a little between runs; expect several minutes or more on a laptop CPU).
+
+<a id="when-to-act-decisions-rules-and-the-expert-loop"></a>
+
+### When to act: decisions, rules and the expert loop
+
+A playbook says *what* to do. Much expertise is *when*: looking at a chart for twenty seconds and leaving a run alone leaves no click. For that, the tool can also log **decision points**: every pause of 8 seconds or more (`playbook/frames.py`) together with the labelled numbers on screen at that moment (local OCR) and the action that followed, or `none` (`playbook/decisions.py`). Decisions from many sessions are pooled, with cross-session context such as "this value changed since the last check". `induce` fits a short, readable decision tree (`playbook/induce.py`) and lists the decisions it can't explain; `elicit` asks you about each of those, compared with the most similar decisions, and turns a condition you name into a feature (`playbook/elicit.py`); `replay` tests whether the rules reproduce your later decisions; `export --judgment` writes the rules, your reasons and an "ask a human first" boundary into the agent skill. Each item is also classified by how observable it is (`playbook/knowledge.py`).
+
+This is a research direction and is checked only on a synthetic benchmark (`python -m playbook.dashboard`), where the planted rule was recovered exactly; a first run of a small local model with the resulting skill did **not** follow it. Readouts must be text on screen (charts are not read), and a pause is only a rough proxy for attention. See [docs/ROADMAP.md](docs/ROADMAP.md) for results and limits.
 
 ## 3. How it works
 
@@ -296,7 +309,7 @@ This project is an academic effort on capturing **tacit knowledge** from observe
 
 **Tacit knowledge.** Polanyi (1966) and Nonaka and Takeuchi (1995) give the framing: expertise that people cannot fully state, and its conversion into explicit knowledge. Zuin et al. (2025) and Brennig (2025) use LLM-driven interviews to draw out tacit knowledge and add it to organizational records. Ng and Russell (2000) frame recovering the rule behind observed behaviour as inverse reinforcement learning.
 
-**What this repository adds, and what it does not yet do.** The current code covers single-session recording, flagged steps and agent-ready export. The research direction (see [NOTES.md](NOTES.md) and the plan): classifying what kind of knowledge each item is (observable single-step, multi-step, hidden decision, non-action, cross-session, unobservable), logging decision points including non-actions, pooling them across sessions, fitting an interpretable rule, and asking the expert about the cases where rule and behaviour disagree. Frames, the decision log, rule fitting and the classes are implemented and checked on a synthetic benchmark (`python -m playbook decisions`, `python -m playbook induce`, `python -m playbook.dashboard`; see [docs/ROADMAP.md](docs/ROADMAP.md)). Cross-session memory, the ask-the-expert loop and any test on real experts are not. The techniques above are starting points, adapted rather than replicated.
+**What this repository adds, and what it does not yet do.** The current code covers single-session recording, flagged steps and agent-ready export. The research direction (see [NOTES.md](NOTES.md) and the plan): classifying what kind of knowledge each item is (observable single-step, multi-step, hidden decision, non-action, cross-session, unobservable), logging decision points including non-actions, pooling them across sessions, fitting an interpretable rule, and asking the expert about the cases where rule and behaviour disagree. Frames, the decision log, rule fitting and the classes are implemented and checked on a synthetic benchmark (`python -m playbook decisions`, `python -m playbook induce`, `python -m playbook.dashboard`; see [docs/ROADMAP.md](docs/ROADMAP.md)). The ask-the-expert loop and the replay test exist but have only been tried with simulated experts and a 2B model. Persistent cross-session memory, task models and any test on real experts are not done. The techniques above are starting points, adapted rather than replicated.
 
 ## License
 
