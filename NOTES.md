@@ -191,7 +191,7 @@ Research direction (tacit-knowledge capture, built on ideas from the literature)
 - [x] Ask-the-expert loop on the decisions a fitted rule can't explain (`elicit.py`, `python -m playbook elicit`): checked with a simulated expert only, not yet with a real one.
 - [x] Judgment calls in the agent skill export (`export --judgment`).
 - [x] Replay harness (`replay`). First run with the local 2B model: the judgment section did not help it (1/12 vs 5/12 without; it mostly asked a human). [ ] Try a larger model and repeats; [ ] run on real recordings.
-- [x] Live test with a real window and real input (`scripts/live_dashboard_test.py`): capture exact on 24/24; exception rule not learned from 24 visits.
+- [x] Live test with a real window and real input (`scripts/live_dashboard_test.py`): capture exact on 24/24 and 40/40; the exception rule was not learned from 24 visits but was, exactly, from 40.
 - [ ] Optional think-aloud audio track, transcribed and aligned to steps (captures the *why*).
 - [x] Accessibility-tree / UI Automation capture of clicked and typed-into elements (Windows).
 - [ ] The same via AX (macOS) / AT-SPI (Linux).
