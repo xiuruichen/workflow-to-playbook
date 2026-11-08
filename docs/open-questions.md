@@ -1,21 +1,23 @@
-# Open questions for the user
+# Open questions and known problems
 
-Each has the conservative default I took during the autonomous block (2026-11-07 night).
+## Decisions still to make
 
-## Decisions only you can make
-1. **Consent and ethics route** for recording anyone other than yourself (roadmap open item). *Default:* the pilot guide assumes the researcher is the participant, or someone who agrees in writing; nothing leaves the computer.
-2. **What the first paper is about:** the benchmark, the ask-the-expert loop, or both. The confirmatory results lean toward "the loop is weak and the method fails on compound rules with few visits", which reads as a negative-result paper unless the pilot with a real person goes well. *Default:* report everything, claim nothing about experts.
-3. **H7 needs a human-labelled set** (which steps a reviewer calls "reason not visible"). I cannot supply that. *Default:* E6 (classifier vs. planted ground truth) is the only classifier check, and it is a proxy.
-4. **Think-aloud audio** (roadmap B8, the cheapest way into class O6) needs a local speech-to-text model and microphone capture. *Default:* not built; the pilot's typed reasons and interview cover the same ground at small scale.
-5. **Which theme and which person for the pilot** (`docs/pilot-guide.md`). The best pilot is someone with real experience in the theme.
+1. **Consent and ethics** for recording anyone other than the researcher. Until decided, the pilot guide assumes the participant is the researcher or someone who agrees in writing, and nothing leaves the computer.
+2. **Scope of the first paper:** the benchmark, the ask-the-expert loop, or both. The results so far (the loop helps little; compound rules need about 100 visits) read as a paper with negative and mixed findings unless the pilot goes well.
+3. **A human-labelled set for H7** (which steps a reviewer calls "reason not visible"). Until it exists, E6 (the classifier against planted ground truth) is the only check, and it is a proxy.
+4. **Think-aloud audio** (roadmap B8, the cheapest route to class O6) needs a local speech-to-text dependency and microphone capture. Not built; the pilot's typed reasons and interview cover the same ground at small scale.
+5. **Theme and participant for the pilot** ([pilot-guide.md](pilot-guide.md)). Someone with real experience in the theme gives a real rule; otherwise the rule is improvised.
 
-## Things I could not do
-- **Re-score the four scripted scenarios** with the new step-recall and flag-F1 metrics. That needs the cached model answers or a model run (the cloud provider is configured in `.env`, but you asked for no cloud calls). The metrics are implemented and unit-tested; run `python -m playbook.evaluate` when a provider is available.
-- **A bigger model than the 4B** for H5 (the 8B does not fit comfortably in 15 GB with the rest of the system).
-- **Cloud comparison** for H5.
+## Not done
 
-## Known problems found on the way (not fixed)
-- OCR can read `9,871` as `9.871`, which silently turns thousands into decimals (found by comparing the fast harness with real OCR). The triage screen shows amounts without separators to avoid it; a real screen with separators would be misread.
-- OCR can drop the space in a label (`Batchsize`); fixed for names that differ only by underscores (`decisions.unify_names`), but not for other variants.
+- **The four scripted scenarios were not re-scored** with the step-recall and flag-F1 metrics in `evaluate.py`. That needs a model run or cached answers; the metrics themselves are implemented and tested. Run `python -m playbook.evaluate` with a provider configured.
+- **A model larger than the 4B** for H5 (an 8B does not fit comfortably in 15 GB), and any cloud model.
+- **A browser test of the pilot page.** Its JavaScript is exercised under node with a stub DOM only.
+
+## Known problems (not fixed)
+
+- Local OCR can read `9,871` as `9.871`, silently turning thousands into decimals. The triage screen shows amounts without separators to avoid it.
+- OCR can drop the space in a label (`Batchsize`). Names that differ only by underscores are merged (`decisions.unify_names`); other variants, two spellings on one screen, and category labels are not.
 - The decision log needs readouts as `Label: value` text; charts and unlabelled numbers are not read.
-- The classifier `knowledge.classify_decision` calls every decision O5 once the fitted rule uses any cross-session feature (see E6).
+- A long recording of many checks needs `--dwell` and `--navigation`; nothing infers which controls only move to the next item (experiment E7).
+- `decisions.add_ratios` is switched on per call site (`--ratios`), not stored with the log.
