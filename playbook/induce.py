@@ -51,7 +51,7 @@ def _gini(labels: list[str]) -> float:
 
 
 def _penalty(f: str) -> float:
-    return DERIVED_PENALTY if f.startswith(("changed_", "delta_")) else 0.0
+    return DERIVED_PENALTY if f.startswith(("changed_", "delta_")) or "/" in f else 0.0
 
 
 def _best_split(rows: list[Decision], min_leaf: int) -> tuple[float, str, float, int] | None:

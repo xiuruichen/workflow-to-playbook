@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from . import elicit, induce
-from .decisions import NONE, Decision, add_context
+from .decisions import NONE, Decision, add_context, add_ratios
 
 HIDDEN_FACT = "warmup"
 HIDDEN_PERIOD = (3, 4)  # visits i with i % 9 in this range happen "during warmup": the person waits
@@ -58,10 +58,11 @@ def _dashboard() -> Domain:
 def domains() -> dict[str, Domain]:
     out = {"dashboard": _dashboard()}
     try:
-        from . import triage
+        from . import service, triage
 
         out["triage"] = triage.domain()
-    except ImportError:  # the second domain is optional until it exists
+        out["service"] = service.domain()
+    except ImportError:  # the extra domains are optional
         pass
     return out
 
@@ -88,7 +89,7 @@ class Built:
 
 
 def build(domain: Domain, n: int, seed: int, *, label_noise: float = 0.0, misread: float = 0.0, distractors: int = 0,
-          drift_at: int | None = None, hidden_fact: bool = False) -> Built:
+          drift_at: int | None = None, hidden_fact: bool = False, ratios: bool = False) -> Built:
     visits = domain.make_visits(n, seed)
     rng = random.Random(f"study-{domain.name}-{seed}")
     rows, clean, hidden, flipped = [], {}, set(), set()
@@ -116,7 +117,10 @@ def build(domain: Domain, n: int, seed: int, *, label_noise: float = 0.0, misrea
             hidden.add(key)
         if shown != planted:
             flipped.add(key)
-    return Built(add_context(rows), clean, hidden, flipped)
+    rows = add_context(rows)
+    if ratios:
+        add_ratios(rows)
+    return Built(rows, clean, hidden, flipped)
 
 
 def majority_accuracy(train: list[Decision], test: list[Decision]) -> float:

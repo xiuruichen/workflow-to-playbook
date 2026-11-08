@@ -102,3 +102,14 @@ Hardware/time limits: all runs are on one Windows laptop (15 GB RAM); H5 uses a 
 Motivation: the confirmatory runs showed the default greedy tree failing H1 on the triage domain. On development seeds 100-119 (20 seeds, never used for a claim) a search over `min_leaf` and the lookahead margin showed lookahead with `min_leaf = 3` (variant C) at or above the default (variant A: greedy, `min_leaf = 2`) in every cell tried, e.g. triage 40 visits 0.80 vs 0.65, 80 visits 0.92 vs 0.79, dashboard unchanged. Constants other than `min_leaf` stay as they are (the margin and penalty grid was flat, 0.86-0.89, so they are not tuned further).
 
 **Test (fresh seeds 6-10; code unchanged since `freeze-1`, apart from the deviations listed above):** held-out agreement of A and C on both domains at 40 and 80 visits and at 60 visits with 10% label noise (6 cells, mean over seeds). **C is adopted as the default only if** its mean is at least A's in every cell and it is better than A by at least 0.05 in the mean over cells; otherwise A stays and the result is reported as a negative one. Ties on the dashboard (1.00 vs 1.00) count as "at least".
+
+### Amendment 3 (2026-11-08, before any run of the service domain on seeds 6-10)
+
+New domain `playbook/service.py` (rule in its docstring, fixed before results): an on-call engineer; the rule turns on a *rate*, errors divided by requests, which the screen shows only as two counts, plus a latency threshold and a version-changed exception. Purpose: a tree that splits on one readout at a time cannot express a quotient, which is how people often reason. Development seeds 100-119 (not used for any claim) were used to set the request volumes (the first version let the raw error count stand in for the rate, which would have hidden the problem) and to build the option under test.
+
+Option R: `decisions.add_ratios` adds one feature `a/b` for every pair of readouts that are always present and positive (penalised like the other derived features in `induce.py`). Everything else is the default tree (variant A of amendment 2).
+
+**Predictions, before running:** A (no ratios) fails H1 on the service domain at 40 and 80 visits. R improves on A but does **not** reach 0.90 mean at 80 visits (development seeds: A 0.59 / 0.66, R 0.85 / 0.88 at 40 / 80 visits).
+**Test (seeds 6-10; cells: service at 40 and 80 visits and 60 visits with 10% label noise; dashboard and triage at 40 and 80 visits as a cost check):**
+- R is **adopted as an option to switch on** (it is never silently on) if on service it is at least A in every cell with a mean gain of at least 0.10, **and** on dashboard and triage its mean over the four cost cells is no more than 0.03 below A's.
+- Otherwise ratios stay out and the result is reported as negative.

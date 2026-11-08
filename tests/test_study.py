@@ -198,3 +198,31 @@ def test_strict_prompt_variant_changes_the_system_message():
     replay.model_decider(chat, "skill text", ["none"])(d)
     replay.model_decider(chat, "skill text", ["none"], strict=True)(d)
     assert replay.STRICT not in seen[0] and replay.STRICT in seen[1]
+
+
+def test_service_domain_rule_and_ratio_features():
+    from playbook import service
+    from playbook.decisions import Decision, add_ratios
+
+    v = service.Visit(requests=10000, errors=150, latency=500, version=41, version_changed=False)
+    assert v.outcome == "Roll back"
+    assert service.Visit(10000, 150, 500, 42, True).outcome == "none", "a new version buys time"
+    assert service.Visit(10000, 600, 100, 41, True).outcome == "Page on-call", "paging ignores everything else"
+    assert service.Visit(100000, 150, 900, 41, False).outcome == "none", "150 errors in 100000 requests is 0.15%"
+    rows = add_ratios([Decision("a", 0, 1, "w", {"errors": 10.0, "requests": 100.0, "version": 3.0}, "none"),
+                       Decision("b", 2, 3, "w", {"errors": 0.0, "requests": 200.0, "version": 3.0}, "none")])
+    assert "requests/version" in rows[0].features and not any(k.startswith("errors/") for k in rows[0].features), \
+        "a readout that is ever zero gets no ratios"
+    S = study.domains()["service"]
+    assert {d.outcome for d in study.build(S, 100, 100).decisions} == {"none", "Page on-call", "Roll back"}
+
+
+def test_ratio_features_let_the_tree_learn_a_rate_rule():
+    S = study.domains()["service"]
+    plain, ratio = [], []
+    for seed in range(100, 106):
+        plain.append(induce.holdout(study.build(S, 80, seed).decisions)["test_accuracy"])
+        ratio.append(induce.holdout(study.build(S, 80, seed, ratios=True).decisions)["test_accuracy"])
+    assert sum(ratio) / 6 > sum(plain) / 6 + 0.1
+    rules = induce.rules(induce.fit(study.build(S, 80, 100, ratios=True).decisions))
+    assert any("errors/requests" in r for r in rules)

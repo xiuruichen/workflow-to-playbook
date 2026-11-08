@@ -179,6 +179,23 @@ def add_context(decisions: list[Decision]) -> list[Decision]:
     return decisions
 
 
+def add_ratios(decisions: list[Decision]) -> list[Decision]:
+    """Add one feature per pair of readouts that are always present and positive: "errors/requests".
+
+    People decide on rates ("1% of requests failing") while screens show counts, and a tree that splits on one
+    readout at a time cannot express a quotient. The names contain "/", which no readout name does, so these can
+    be told apart from on-screen values (and are penalised like the other derived features in induce.py).
+    Alphabetical order picks the direction; for a tree a/b and b/a split identically.
+    """
+    names = sorted({k for d in decisions for k in d.readouts})
+    usable = [n for n in names if decisions and all(d.readouts.get(n, 0) > 0 for d in decisions)]
+    for d in decisions:
+        for i, a in enumerate(usable):
+            for b in usable[i + 1:]:
+                d.features[f"{a}/{b}"] = d.readouts[a] / d.readouts[b]
+    return decisions
+
+
 def save_decisions(decisions: list[Decision], path: Path) -> None:
     path.write_text("".join(json.dumps(d.to_dict(), ensure_ascii=False) + "\n" for d in decisions), encoding="utf-8")
 
