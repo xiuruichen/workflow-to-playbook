@@ -139,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     dc.add_argument("session", nargs="?", default="latest", help="session id, path, or 'latest'")
     ind = sub.add_parser("induce", help="fit a readable rule to the decisions of several sessions and list the ones it can't explain")
     ind.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
+    ind.add_argument("--without", choices=["context", "none"], help="ablation: fit without cross-session context, or without the non-action decisions")
     el = sub.add_parser("elicit", help="answer questions about the decisions the fitted rule can't explain, then refit")
     el.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
     rp = sub.add_parser("replay", help="test whether the judgment calls reproduce your later decisions (fit on the earliest 70%%)")
@@ -237,6 +238,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {line}")
         train, test = induce.holdout_accuracy(decisions)
         print(f"Fit on the earliest 70%: {train:.0%} on those, {test:.0%} on the later ones.")
+        if args.without:
+            ab = induce.holdout(decisions, without=args.without)
+            print(f"Ablation (without {args.without}): {ab['train_accuracy']:.0%} on the earliest 70%, {ab['test_accuracy']:.0%} on the later ones.")
+            for line in ab["rule"]:
+                print(f"  {line}")
         odd = induce.disagreements(decisions)
         print()
         print(f"{len(odd)} decision(s) the rule can't explain. Ask the person why:")

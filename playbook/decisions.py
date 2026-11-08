@@ -111,12 +111,30 @@ def build_decisions(session_dir: Path, ocr: SessionOCR | None = None, labeler: L
     return out
 
 
+def unify_names(decisions: list[Decision]) -> None:
+    """OCR sometimes drops the space in a label ("Batchsize" for "Batch size"), which would split one
+    readout into two features that each look constant. Names that differ only by underscores are one
+    readout; the most common spelling wins (a tie goes to the one with underscores)."""
+    count: dict[str, int] = {}
+    for d in decisions:
+        for name in d.readouts:
+            count[name] = count.get(name, 0) + 1
+    groups: dict[str, list[str]] = {}
+    for name in count:
+        groups.setdefault(name.replace("_", ""), []).append(name)
+    rename = {n: max(names, key=lambda x: (count[x], "_" in x)) for names in groups.values() if len(names) > 1 for n in names}
+    if rename:
+        for d in decisions:
+            d.readouts = {rename.get(k, k): v for k, v in d.readouts.items()}
+
+
 def add_context(decisions: list[Decision]) -> list[Decision]:
     """Fill in `features` from readouts plus the previous decision's values (time order).
 
     changed_<name> is 1.0 when the value differs from the previous decision's (a change the
     person remembers but no single screen shows); delta_<name> is the difference.
     """
+    unify_names(decisions)
     prev: dict[str, float] = {}
     for d in decisions:
         feats = dict(d.readouts)

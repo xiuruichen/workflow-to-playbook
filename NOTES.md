@@ -192,6 +192,7 @@ Research direction (tacit-knowledge capture, built on ideas from the literature)
 - [x] Frames, decision log (including non-actions), rule fitting and knowledge classes: `frames.py`, `decisions.py`, `induce.py`, `knowledge.py`; planted-rule benchmark in `dashboard.py`.
 - [x] Ask-the-expert loop on the decisions a fitted rule can't explain (`elicit.py`, `python -m playbook elicit`): checked with a simulated expert only, not yet with a real one.
 - [x] Judgment calls in the agent skill export (`export --judgment`).
+- [x] Fast experiment harness (`study.py`), ablation switches (`induce --without`), flag precision/recall/F1 in `evaluate.py`, and a fix for OCR spelling a label two ways (`unify_names`).
 - [x] Evaluation protocol written before the next runs (`docs/evaluation-protocol.md`). [ ] Run it: fresh seeds, a second domain, a larger model with repeats.
 - [x] Observability class (`O1`–`O6`) and tacit score on every playbook step, shown in the report, viewer and skill export; `O6` only on measured evidence. [ ] Check the classes against what real experts call tacit.
 - [x] Replay harness (`replay`). First run with the local 2B model: the judgment section did not help it (1/12 vs 5/12 without; it mostly asked a human). [ ] Try a larger model and repeats; [ ] run on real recordings.

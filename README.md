@@ -99,11 +99,11 @@ python -m playbook key --export             # back up the archive encryption key
 python -m playbook check                    # is the model installed and reachable?
 python -m playbook labels                   # export your Correct/Wrong reviews to labels.csv
 python -m playbook decisions [session]      # log what was on screen at each pause and what you did next
-python -m playbook induce [sessions...]     # fit a readable rule to pooled decisions; list what it can't explain
+python -m playbook induce [sessions...]     # fit a readable rule to pooled decisions; list what it can't explain (--without context|none: ablation)
 python -m playbook elicit [sessions...]     # answer questions about those; named facts become features, rule is refitted
 python -m playbook replay [sessions...]     # fit on the earliest 70% of decisions, replay the rest (--model adds a local model)
 python -m playbook export --judgment [...]  # agent skill that also says when to act
-python -m playbook.evaluate                 # score the pipeline on 4 scripted scenarios (see Evaluation)
+python -m playbook.evaluate                 # score the pipeline on 4 scripted scenarios: step recall, flag precision/recall/F1 (see Evaluation)
 ```
 
 Sessions live in a per-user local folder, **not** the project folder (which may be inside OneDrive): `%LOCALAPPDATA%\WorkflowPlaybook\sessions\` on Windows, `~/Library/Application Support/WorkflowPlaybook/sessions/` on macOS, `~/.local/share/WorkflowPlaybook/sessions/` on Linux. Each session is a folder `<timestamp>/` while in use, or a single `<timestamp>.pbx` archive when not:

@@ -15,9 +15,9 @@ The cases the rule gets wrong, or fits only by luck, are where the expert is ask
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
-from .decisions import Decision
+from .decisions import NONE, Decision
 
 MAX_DEPTH = 3
 MIN_LEAF = 2
@@ -134,6 +134,33 @@ def disagreements(decisions: list[Decision], max_depth: int = MAX_DEPTH, min_lea
         if guess != d.outcome:
             out.append((d, guess))
     return out
+
+
+WITHOUT = ("context", "none")
+
+
+def strip_context(decisions: list[Decision]) -> list[Decision]:
+    """Copies whose features are the on-screen readouts only (no changed_x / delta_x from neighbouring decisions)."""
+    return [replace(d, features={k: v for k, v in d.features.items() if not k.startswith(("changed_", "delta_"))}) for d in decisions]
+
+
+def holdout(decisions: list[Decision], train_fraction: float = 0.7, without: str | None = None, **kw) -> dict:
+    """Chronological split with an optional ablation (protocol H2/H3).
+
+    without="context": fit and test on on-screen readouts only. without="none": fit only on decisions where
+    the person acted (the non-actions are dropped from training; the test set is unchanged).
+    """
+    if without not in (None, *WITHOUT):
+        raise ValueError(f"without must be one of {WITHOUT}")
+    if without == "context":
+        decisions = strip_context(decisions)
+    cut = max(1, int(len(decisions) * train_fraction))
+    train, test = decisions[:cut], decisions[cut:]
+    if without == "none":
+        train = [d for d in train if d.outcome != NONE] or train
+    tree = fit(train, **kw)
+    return {"train": len(train), "test": len(test), "train_accuracy": accuracy(tree, train),
+            "test_accuracy": accuracy(tree, test), "rule": rules(tree), "tree": tree}
 
 
 def holdout_accuracy(decisions: list[Decision], train_fraction: float = 0.7, **kw) -> tuple[float, float]:
