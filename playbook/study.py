@@ -38,6 +38,8 @@ class Domain:
     actions: tuple[str, ...]  # every label other than NONE the rule can produce
     drift_note: str = ""
     cats: Callable[[object], dict[str, str]] | None = None  # words on screen, e.g. {"vendor": "known"}
+    # Ground truth for E6: does the planted outcome of this visit depend on a fact only earlier visits show?
+    depends_on_history: Callable[[object], bool] | None = None
 
 
 def _dashboard() -> Domain:
@@ -49,7 +51,8 @@ def _dashboard() -> Domain:
 
     return Domain("dashboard", dashboard.make_visits,
                   lambda v: {"spikes": float(v.spikes), "batch_size": float(v.batch_size), "loss": float(v.loss)},
-                  outcome, ("Stop run",), "the spike limit rises from 2 to 3")
+                  outcome, ("Stop run",), "the spike limit rises from 2 to 3",
+                  depends_on_history=lambda v: v.spikes >= dashboard.SPIKE_LIMIT)
 
 
 def domains() -> dict[str, Domain]:

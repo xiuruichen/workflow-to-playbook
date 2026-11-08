@@ -67,4 +67,29 @@ No dwell frames; no cross-session context; no elicitation round; skill without t
 
 ## Amendments
 
+### Amendment 1 (2026-11-07, before any confirmatory run)
+
+**Code frozen as tag `freeze-1`.** Everything below was developed and tuned on seeds 0 and 100-109 only; seeds 1-5 have not been used for anything. Code changes after the tag are listed under "Deviations" at the end of this section.
+
+What changed since the protocol was first written, and why:
+- **Second domain exists** (`playbook/triage.py`, rule fixed in its docstring before results). Its base rates were adjusted on seeds 100-102 so every branch of the rule is learnable from 40 visits (the first version, with 4 escalations in 40 visits, was not). On-screen *words* are now features (`decisions.py`), and OCR spelling variants of a label are merged (`unify_names`).
+- **Two induction arms.** `induce.fit` is greedy by default; `lookahead=True` picks a split by how well its children fit after one more split and is used only if it adds at least 5% training accuracy. Both are reported for H1, H2 and H3. Reason: on development seeds the greedy tree reached 0.64 held-out agreement on triage at 40 visits (lookahead 0.83) and 1.0 on the dashboard (lookahead also 1.0); with 10% label noise the dashboard fell from 0.82 to 0.76 under lookahead.
+- **Prediction recorded before running:** H1 (>= 0.90 on every seed, 40 visits) will hold for the dashboard and **fail for triage** under greedy induction, and may fail under lookahead. We therefore also run **80 visits** for H1 on both domains. A failure on triage is a result, not a reason to retune.
+- **Baseline 3 (single-session fit) is not computable**: each session holds one decision, so there is nothing to fit; reported as n/a. The without-context ablation stands in for "no pooling of state across sessions".
+- **H3 is descriptive.** Without the non-action decisions the training set has a single outcome and the fitted rule can only ever say "act", so held-out agreement is poor by construction. We report it, but it does not test whether non-actions carry information beyond their obvious presence.
+- **H5 prompts**: variant A is `replay.model_decider` as it stands; variant B (`strict=True`) adds one sentence telling the model to apply the exported rules literally, to reason no further, and to ask a human when none applies. No other prompt variants.
+
+Exploratory studies (labelled exploratory in every report; run after the confirmatory runs; 5 seeds, both domains; held-out agreement unless stated, greedy and lookahead):
+- **E1 learning curve**: n in {10, 20, 30, 40, 60, 80, 120}.
+- **E2 label noise**: the person acts against their rule with p in {0, 0.05, 0.1, 0.2}, n = 60; also the share of `disagreements` that are the noisy visits.
+- **E3 OCR misreads**: a digit of a readout is wrong with p in {0, 0.02, 0.05, 0.1}, n = 60.
+- **E4a distractors**: k in {0, 2, 4, 8} irrelevant readouts, n = 60. **E4b drift**: the rule changes at visit 40 of 80; compare a rule fitted on all visits with one fitted on the visits after the change, on the last 20 visits.
+- **E5 imperfect expert**: n = 80 with the hidden warmup fact; the expert names the right fact with probability {1, 0.8, 0.6, 0}, and (separately) tags the wrong decisions with a wrong fact.
+- **E6 classifier check** (`knowledge.classify_decision`): ground truth per decision is O5 if the planted outcome depends on an earlier visit (`Domain.depends_on_history`), else O4 if the planted outcome is "none", else O3. Report the confusion matrix, n = 40, seeds 1-5. The current classifier calls every decision O5 once the fitted rule uses any cross-session feature, so low O5 precision is expected.
+
+H6 (real capture): triage seed 1 and dashboard seed 1, 40 visits each, on the real recorder with real mouse input. Scripted people.
+
+Hardware/time limits: all runs are on one Windows laptop (15 GB RAM); H5 uses a 4B Qwen3-VL (Q4_K_M, publisher checksums in `llama_runtime.py`) in place of the 2B used before, text only.
+
+#### Deviations
 (none yet)

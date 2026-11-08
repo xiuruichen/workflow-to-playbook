@@ -182,7 +182,8 @@ def rules(tree: Node, prefix: str = "") -> list[str]:
             + rules(tree.high, f"{glue}{tree.feature} > {tree.threshold:g}"))
 
 
-def disagreements(decisions: list[Decision], max_depth: int = MAX_DEPTH, min_leaf: int = MIN_LEAF) -> list[tuple[Decision, str]]:
+def disagreements(decisions: list[Decision], max_depth: int = MAX_DEPTH, min_leaf: int = MIN_LEAF,
+                  lookahead: bool | None = None) -> list[tuple[Decision, str]]:
     """Decisions whose outcome the rule fitted on all the *other* decisions would not predict.
 
     Leave-one-out, so a decision can't be explained by itself. Returns (decision, predicted outcome).
@@ -192,7 +193,7 @@ def disagreements(decisions: list[Decision], max_depth: int = MAX_DEPTH, min_lea
         rest = decisions[:i] + decisions[i + 1:]
         if len({r.outcome for r in rest}) < 1 or not rest:
             continue
-        guess = predict(fit(rest, max_depth, min_leaf), d)
+        guess = predict(fit(rest, max_depth, min_leaf, lookahead), d)
         if guess != d.outcome:
             out.append((d, guess))
     return out

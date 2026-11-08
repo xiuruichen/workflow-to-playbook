@@ -116,3 +116,15 @@ def test_judgment_calls_travel_with_the_skill():
     assert "Ask a human first" in files["SKILL.md"] and json.loads(files["skill.json"])["judgment"]["rules"]
     assert "Judgment calls" not in skill_files(pb)["SKILL.md"]
     assert build_judgment(ds[:3]) is None
+
+
+def test_judgment_explains_word_conditions():
+    from playbook.skill import _judgment_md
+
+    j = {"basis": {"decisions": 10, "sessions": 10, "fits_observed_decisions": 1.0, "accuracy_on_later_decisions": None,
+                   "observed_ranges": {"amount": [450, 9800]}},
+         "rules": [{"when": ["vendor=known > 0.5"], "then": "Approve", "support": "6/6", "thin_evidence": False},
+                   {"when": ["vendor=known <= 0.5"], "then": "none", "support": "4/4", "thin_evidence": True}],
+         "stated_by_person": [], "unexplained": []}
+    text = "\n".join(_judgment_md(j))
+    assert "`label=word > 0.5` means the screen shows that word" in text and "`vendor=known`" in text

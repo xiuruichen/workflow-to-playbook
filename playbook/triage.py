@@ -142,6 +142,7 @@ def domain():
         ("Escalate", "Approve"),
         "the overdue limit rises from 30 to 45 days",
         cats=lambda v: {"vendor": v.vendor.lower()},
+        depends_on_history=lambda v: v.amount >= AMOUNT_LIMIT and v.days_overdue >= OVERDUE_LIMIT,
     )
 
 

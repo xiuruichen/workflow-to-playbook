@@ -192,6 +192,7 @@ Research direction (tacit-knowledge capture, built on ideas from the literature)
 - [x] Frames, decision log (including non-actions), rule fitting and knowledge classes: `frames.py`, `decisions.py`, `induce.py`, `knowledge.py`; planted-rule benchmark in `dashboard.py`.
 - [x] Ask-the-expert loop on the decisions a fitted rule can't explain (`elicit.py`, `python -m playbook elicit`): checked with a simulated expert only, not yet with a real one.
 - [x] Judgment calls in the agent skill export (`export --judgment`).
+- [x] Protocol amendment 1 and code freeze `freeze-1` (2026-11-07), before the confirmatory runs; it records a prediction that H1 fails on triage at 40 visits.
 - [x] Second domain (`triage.py`: invoice triage, three outcomes, a categorical cue, a different cross-session exception) and categorical on-screen words as features. Live script: `scripts/live_triage_test.py`. Found two capture problems by comparing the fast harness with real OCR: "Batch size" read as "Batchsize" (fixed, `unify_names`) and "9,871" read as "9.871" (**not fixed**: the triage screen shows amounts without separators; a real screen with thousands separators would be misread).
 - [x] Fast experiment harness (`study.py`), ablation switches (`induce --without`), flag precision/recall/F1 in `evaluate.py`, and a fix for OCR spelling a label two ways (`unify_names`).
 - [x] Evaluation protocol written before the next runs (`docs/evaluation-protocol.md`). [ ] Run it: fresh seeds, a second domain, a larger model with repeats.

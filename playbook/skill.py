@@ -114,7 +114,7 @@ def _copied_from(value: str, earlier: list[tuple[str, str]]) -> tuple[str, str] 
 THIN_SUPPORT = 5  # a rule backed by fewer decisions than this is a hint, not a habit
 
 
-def build_judgment(decisions: list[Decision], answers: list[Answer] | None = None) -> dict | None:
+def build_judgment(decisions: list[Decision], answers: list[Answer] | None = None, lookahead: bool | None = None) -> dict | None:
     """What was learned about *when to do what*, from pooled decisions (see decisions.py, induce.py).
 
     The rules are a fitted hypothesis about one person's habits, so each carries its support, the
@@ -124,11 +124,11 @@ def build_judgment(decisions: list[Decision], answers: list[Answer] | None = Non
         return None
     answers = answers or []
     apply_answers(decisions, answers)
-    tree = induce.fit(decisions)
-    odd = induce.disagreements(decisions)
+    tree = induce.fit(decisions, lookahead=lookahead)
+    odd = induce.disagreements(decisions, lookahead=lookahead)
     used = {f for f in induce.features_used(tree) if not f.startswith(("changed_", "delta_"))}
     names = sorted({f for d in decisions for f in d.readouts} & used)  # a value the rules ignore can drift freely
-    train, test = induce.holdout_accuracy(decisions)
+    train, test = induce.holdout_accuracy(decisions, lookahead=lookahead)
     tagged = {slug(a.fact): len({a.key, *a.also}) for a in answers if a.fact}
     return {
         "basis": {
@@ -254,6 +254,10 @@ def _judgment_md(j: dict) -> list[str]:
         out += ["In the rules, `changed_x` means: the value of x differs from what it was at the previous check "
                 "(1 = changed, 0 = not). It is not shown on the current screen; compare with the earlier check "
                 "or ask.", ""]
+    words = sorted({c.split()[0] for r in j["rules"] for c in r["when"] if "=" in c.split()[0]})
+    if words:
+        out += [f"`label=word > 0.5` means the screen shows that word for that label (here: {', '.join(f'`{w}`' for w in words)}); "
+                "`label=word <= 0.5` means it shows a different word or none.", ""]
     stated = {slug(s["fact"]) for s in j["stated_by_person"] if s["fact"]}
     for r in j["rules"]:
         thin = " (few examples: treat as a hint)" if r["thin_evidence"] else ""
