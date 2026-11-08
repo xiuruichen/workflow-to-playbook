@@ -32,6 +32,15 @@ Fixed on purpose (these are checks, not wording): the model never sees the rule;
 | **What a good answer is.** Specific, actionable (becomes a feature), consistent with earlier answers, backed by evidence (the refit improves), calibrated (the person says how sure they are) | `evaluate_answer`, `load_rubric` | mechanical measures only |
 | **Success with a real expert.** What counts, beyond the held-out score: the person says "yes, that is it"; the rule changes in a way they endorse | [pilot-guide.md](pilot-guide.md) | the guide's four scoring questions |
 
+## Options for which misfit to ask about, and how (added in round 2)
+
+These are mechanics, not wording; the wording stays in `interview_prompts.py`.
+
+- **Order** (`run_interview(order=...)`): `time` (the order they happened), `surprise` (the ones the rule was surest about first), `burst` (misfits with misfits next to them in time first), `cluster` (those whose action, expectation and place in the rule match the most others). On the planted data none of them clearly beat time order ([results.md](results.md#round-2-fixing-what-failed)): in the invoice domain the hidden-fact misfits are a minority and look like the rest.
+- **A group question** (`run_interview(group_first=True)`): one question about the largest group of similar misfits ("in these 6 cases you chose X where similar cases got Y; what do they have in common? say which"). The case numbers are read by code, and a condition named without numbers is taken to apply to the whole group. The group wording is `GROUP_QUESTION` in `interview_prompts.py`.
+- **Extraction** (`interpret(..., method="gated")`, the default): a three-way classification (a reason about the item / about the person / none), then a phrase of at most eight words that must appear in the answer, chosen by a majority of three wordings. `method="v0"` is the first, one-shot version, kept as a baseline. On a development set of 60 paraphrases the gated version read 25 of 30 clear answers (against 13) and left 29 of 30 vague and irrelevant ones empty.
+- **What to look at when comparing strategies:** the number of interviews that named a condition is not the same as the number that named the *right* one; a condition from an irrelevant remark is cheap (the tree ignores a feature that does not help) but not free.
+
 ## Trying a different set of questions
 
 1. Add an entry to `STRATEGIES` in `playbook/interview_prompts.py`: a name, a description for readers, and an `instruction` appended to the question-writing prompt.

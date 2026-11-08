@@ -16,8 +16,10 @@ from playbook.config import get_settings  # noqa: E402
 from playbook.decisions import pool  # noqa: E402
 
 RESULTS = Path(__file__).resolve().parent.parent / "docs" / "results"
+seed = int(sys.argv[1]) if len(sys.argv) > 1 else 11  # 11: the pre-registered test; 100: the development seed where a comma was once misread (post hoc)
+count = int(sys.argv[2]) if len(sys.argv) > 2 else 40
 settings = get_settings().model_copy(update={"use_ocr": True})
-visits = triage.make_visits(40, 11)
+visits = triage.make_visits(count, seed)
 root = Path(tempfile.mkdtemp(prefix="capture_sep_"))
 decisions = pool(triage.build_sessions(settings, root, visits, separators=True))
 n = len(visits)
@@ -29,5 +31,5 @@ text = (f"# Amendment 11, H20: thousands separators through OCR (40 triage visit
         f"| reading | amounts exact |\n|---|---|\n| before the repair (old parsing) | {baseline}/{n} |\n| after the repair | {after}/{n} |\n\n"
         f"Readings OCR gave with a full stop where the comma was drawn: {len(misread)} ({', '.join(misread[:8])}).\n\n"
         f"**H20 (40 of 40 exact after the repair): {'holds' if after == n else 'FAILS'}.**\n")
-(RESULTS / "fix_capture.md").write_text(text, encoding="utf-8")
+(RESULTS / ("fix_capture.md" if seed == 11 else f"fix_capture_seed{seed}.md")).write_text(text.replace("(40 triage visits, seed 11)", f"({count} triage visits, seed {seed})"), encoding="utf-8")
 print(text)
