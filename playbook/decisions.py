@@ -100,8 +100,13 @@ def default_labeler(ev: Event, ocr: SessionOCR | None, keyframe: str | None) -> 
 
 
 def build_decisions(session_dir: Path, ocr: SessionOCR | None = None, labeler: Labeler = default_labeler,
-                    dwell_min_s: float = DWELL_MIN_S) -> list[Decision]:
-    """Decision points of one session, in time order. Needs OCR for the screen readouts."""
+                    dwell_min_s: float = DWELL_MIN_S, navigation: tuple[str, ...] = ()) -> list[Decision]:
+    """Decision points of one session, in time order. Needs OCR for the screen readouts.
+
+    `navigation` lists words on controls that only move on to the next item ("Next run"): clicking one after a
+    pause is not an action on the item, it is the end of the look, so the decision's outcome is "none". Without
+    this, one long recording of many checks would count every "Next" click as a decision to act.
+    """
     session_dir = Path(session_dir)
     m = Manifest.load(session_dir)
     ocr = ocr if ocr is not None else SessionOCR(session_dir)
@@ -120,6 +125,8 @@ def build_decisions(session_dir: Path, ocr: SessionOCR | None = None, labeler: L
             scale = ocr._image(after.path).shape[1] / m.width
             nxt = nxt.model_copy(update={"x": round(nxt.x * scale), "y": round((nxt.y or 0) * scale)})
         outcome = labeler(nxt, ocr, after.path) if starts_here else NONE
+        if any(w.lower() in outcome.lower() for w in navigation if w):
+            outcome = NONE
         lines = [b.text for b in ocr.boxes(seen.path)]
         readouts = parse_readouts(lines)
         cats = {k: v for k, v in parse_categories(lines).items() if k not in readouts}

@@ -52,7 +52,10 @@ def make_visits(n: int, seed: int = 0) -> list[Visit]:
     return visits
 
 
-def dashboard_screen(v: Visit, stopped: bool = False) -> np.ndarray:
+NEXT_BTN = (200, 650)  # "Next run": moves on to the next run without touching this one
+
+
+def dashboard_screen(v: Visit, stopped: bool = False, with_next: bool = False) -> np.ndarray:
     img = canvas((245, 247, 250))
     titlebar(img, "Run 7 - Training dashboard - Chrome")
     text(img, "pretrain-sweep / run-7", 40, 80, 0.9, thick=2)
@@ -70,6 +73,9 @@ def dashboard_screen(v: Visit, stopped: bool = False) -> np.ndarray:
     text(img, "Stop run", 925, 608, 0.8, (255, 255, 255), 2)
     if stopped:
         text(img, "Run stopped", 40, 360, 1.0, (40, 40, 180), 2)
+    if with_next:
+        box(img, 100, 625, 300, 675, fill=(120, 120, 120), border=None)
+        text(img, "Next run", 130, 658, 0.8, (255, 255, 255), 2)
     return img
 
 
@@ -86,6 +92,26 @@ def visit_scenario(v: Visit, name: str, dwell_s: float = 12.0) -> Scenario:
         return s
 
     return Scenario(name, "Check a training run and decide whether to stop it", build, expected_steps=[])
+
+
+def continuous_scenario(visits: list[Visit], dwells: list[float], name: str) -> Scenario:
+    """Many checks in ONE recording, as real work looks: look for `dwell` seconds, stop the run or press
+    "Next run", repeat. Used to ask how many of the person's decisions the pipeline finds when they decide fast."""
+    def build() -> Script:
+        s = Script(dashboard_screen(visits[0], with_next=True), "chrome.exe", "Run 7 - Training dashboard - Chrome")
+        s.wait(1.0)
+        for i, (v, d) in enumerate(zip(visits, dwells)):
+            if i == 0:
+                s.click(200, 80, hold=0.5)  # first event: the session starts with an action
+            s.wait(max(0.1, d - (0.5 if i == 0 else 1.0)))  # the look
+            nxt = dashboard_screen(visits[i + 1], with_next=True) if i + 1 < len(visits) else None
+            if v.stop:
+                s.click(*STOP_BTN, then=dashboard_screen(v, stopped=True, with_next=True), hold=1.0)
+                s.wait(0.5)
+            s.click(*NEXT_BTN, then=nxt, hold=1.0)
+        return s
+
+    return Scenario(name, "Check many training runs and decide for each whether to stop it", build, expected_steps=[])
 
 
 def planted_label(v: Visit) -> str:

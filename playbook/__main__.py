@@ -137,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
     lab.add_argument("--out", type=Path, default=Path("labels.csv"))
     dc = sub.add_parser("decisions", help="log what was on screen at each pause and what you did next (one session)")
     dc.add_argument("session", nargs="?", default="latest", help="session id, path, or 'latest'")
+    dc.add_argument("--navigation", default="", help="comma-separated words on controls that only move to the next item (e.g. 'Next run,Next'); clicking one is not an action")
+    dc.add_argument("--dwell", type=float, default=None, help="shortest pause (seconds) that counts as a look; default 8")
     ind = sub.add_parser("induce", help="fit a readable rule to the decisions of several sessions and list the ones it can't explain")
     ind.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
     ind.add_argument("--ratios", action="store_true", help="also try ratios of readouts (errors/requests) as features; helps when the rule is about a rate")
@@ -224,7 +226,10 @@ def main(argv: list[str] | None = None) -> int:
         from .decisions import build_decisions, save_decisions
 
         session = resolve_session(args.session, settings)
-        found = build_decisions(session)
+        kw = {"navigation": tuple(w.strip() for w in args.navigation.split(",") if w.strip())}
+        if args.dwell is not None:
+            kw["dwell_min_s"] = args.dwell
+        found = build_decisions(session, **kw)
         save_decisions(found, session / "decisions.jsonl")
         for d in found:
             print(f"{d.t0:7.1f}s  paused {d.dwell_s:5.1f}s  saw {d.readouts or 'no labelled numbers'}  then: {d.outcome}")
