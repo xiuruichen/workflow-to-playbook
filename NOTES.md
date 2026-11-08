@@ -29,6 +29,12 @@ archive.py + tilecodec.py: idle session folder ◄──► encrypted <id>.pbx (
 app.py (Streamlit) and playbook/__main__.py (CLI) orchestrate the above; local_setup.py installs the model.
 scenarios.py + evaluate.py: scripted multi-domain recordings with ground truth ──► scorecard
 labels.py: reviewer Correct/Wrong labels ──► labels.csv (future calibration data)
+
+Research layer (decisions, not steps):
+frames.py ──► decisions.py (pauses + OCR readouts + words + next action; pooled across sessions; add_ratios optional)
+     ──► induce.py (readable tree; lookahead, --without) ──► elicit.py (questions, vet) ──► skill.py judgment ──► replay.py (deciders)
+knowledge.py: O1-O6 class and tacit score; study.py: fast harness on dashboard.py / triage.py / service.py (planted rules)
+pilot.py: offline case page, report and interview for a real person; scripts/run_*.py: the experiments; docs/results/: outputs
 ```
 
 `models.py` holds the pydantic contracts between stages. Every stage reads and writes files, so any stage can be re-run on its own (`analyze`, `render`).
@@ -86,6 +92,11 @@ All of these are fixed. The evaluation results below are the evidence.
 - **App/window metadata is Windows-only** for now (Win32 calls via ctypes). On macOS/Linux events have no window context; the model falls back to reading the screen.
 - **Tiny changes can merge.** A change smaller than ~150 pixels at 640 px wide (e.g. a single digit in a cell) doesn't get its own keyframe, so that blinking cursors and spinners don't create keyframes. The event log still records exactly what was typed.
 - **The consistency check is conservative.** It needs 5+ digit numbers or 5+ character strings. Against any value seen in the recording it allows at most 2 changed digits; against a number read since the previous typed entry it allows up to half the digits (same magnitude and leading digit), which catches Los Angeles (3,163,843 vs 3,863,148). Bigger rewrites of text, and numbers copied from further back, still rely on the model.
+- **Decision log needs `Label: value` text.** Charts and unlabelled numbers are not read; words are read only as `Label: Word` and kept only if they vary and recur. OCR may read `9,871` as `9.871` (not handled) or drop a label's space (merged only when names differ by underscores; two spellings on one screen, and category labels, are not merged).
+- **Decision capture assumes one check per recording by default.** The 8 s dwell finds 38% of fast decisions and a "Next" click counts as an action unless `--dwell` and `--navigation` are set (E7). Nothing infers which controls only navigate.
+- **Rules are depth-3 trees on one person's habits.** One condition per regime; compound rules need about 100 visits; label noise hurts them quickly (E2); the tree does not follow a drifting rule (E4b); ratios are only tried with `--ratios`, between always-positive readouts, in alphabetical direction.
+- **Everything in the research layer was checked with a scripted person** following a clean rule, on three synthetic domains, with a 4B local model for the agent test. No real expert, no larger model, no cloud model.
+- **The four scripted scenarios were not re-scored** with the new step-recall and flag-F1 metrics.
 - **No audio / narration.** The *why* behind decisions is only inferred. Think-aloud narration would be the highest-value addition for capturing tacit knowledge.
 - **Keyboard-only actions with no visible effect** (e.g. Ctrl+C) are inferred from the event log only. They usually get flagged, which is intended.
 - **Typed text is recorded verbatim** unless `MASK_TYPED_TEXT=true`. Passwords typed during a recording end up in `events.jsonl` and prompts. Pause first.
@@ -235,10 +246,15 @@ Research direction (tacit-knowledge capture, built on ideas from the literature)
 - [x] Protocol amendment 1 and code freeze `freeze-1` (2026-11-07), before the confirmatory runs; it records a prediction that H1 fails on triage at 40 visits.
 - [x] Second domain (`triage.py`: invoice triage, three outcomes, a categorical cue, a different cross-session exception) and categorical on-screen words as features. Live script: `scripts/live_triage_test.py`. Found two capture problems by comparing the fast harness with real OCR: "Batch size" read as "Batchsize" (fixed, `unify_names`) and "9,871" read as "9.871" (**not fixed**: the triage screen shows amounts without separators; a real screen with thousands separators would be misread).
 - [x] Fast experiment harness (`study.py`), ablation switches (`induce --without`), flag precision/recall/F1 in `evaluate.py`, and a fix for OCR spelling a label two ways (`unify_names`).
-- [x] Evaluation protocol written before the next runs (`docs/evaluation-protocol.md`). [ ] Run it: fresh seeds, a second domain, a larger model with repeats.
+- [x] Evaluation protocol written before the runs (`docs/evaluation-protocol.md`) and run (H1-H6 with amendments 1-6, three domains, a 4B model with repeats, a continuous-recording study; results in `docs/results/`). [ ] H7 (a human-labelled set of tacit steps); [ ] a model larger than 4B; [ ] a real expert.
 - [x] Observability class (`O1`–`O6`) and tacit score on every playbook step, shown in the report, viewer and skill export; `O6` only on measured evidence. [ ] Check the classes against what real experts call tacit.
 - [x] Replay harness (`replay`). First run with the local 2B model: the judgment section did not help it (1/12 vs 5/12 without; it mostly asked a human). [ ] Try a larger model and repeats; [ ] run on real recordings.
 - [x] Live test with a real window and real input (`scripts/live_dashboard_test.py`): capture exact on 24/24 and 40/40; the exception rule was not learned from 24 visits but was, exactly, from 40.
+- [ ] **Run the real-person pilot** (`docs/pilot-guide.md`) and, if it works, a recorded real task (`--dwell`, `--navigation`).
+- [ ] Re-score the four scripted scenarios with the new step-recall and flag-F1 metrics (needs a model).
+- [ ] Handle thousands separators in OCR'd numbers (`9,871` read as `9.871`) and merge more label spelling variants.
+- [ ] Cross-session memory (`memory.py`) and task models (`taskmodel.py`) from the research roadmap, only if the pilot shows they are the bottleneck.
+- [x] Ratio features (`--ratios`), a third domain, the elicitation guard (`elicit.vet`, not adopted), the lookahead tree (opt-in), continuous-recording options (`--dwell`, `--navigation`).
 - [ ] Optional think-aloud audio track, transcribed and aligned to steps (captures the *why*).
 - [x] Accessibility-tree / UI Automation capture of clicked and typed-into elements (Windows).
 - [ ] The same via AX (macOS) / AT-SPI (Linux).
