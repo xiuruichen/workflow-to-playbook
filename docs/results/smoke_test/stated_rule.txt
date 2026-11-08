@@ -1,0 +1,1 @@
+I kill a run when it is overfitting (validation loss clearly above training loss, once it is past the first few epochs) or when it barely uses the GPU, except Carol's runs, which are meant to be light. If I just looked at the same run I leave it.

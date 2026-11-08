@@ -1,0 +1,6 @@
+SEALED BEFORE SEEING ANY CASE (smoke test, 2026-11-08)
+Context: I watch experiment runs and decide Kill or Keep.
+1. Overfitting: if Epoch >= 5 and Val loss is at least about 25% above Train loss (a ratio, not shown on screen), Kill.
+2. Wasted GPU: if GPU util is under about 30, Kill, EXCEPT runs owned by Carol (her runs are data-loading bound on purpose; I keep them).
+3. If it is the same Run ID as the check just before (I already judged it), Keep.
+Everything else: Keep. Grad norm and the clock are noise to me.

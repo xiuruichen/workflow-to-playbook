@@ -1,0 +1,752 @@
+[
+ {
+  "index": 0,
+  "case": {
+   "run_id": 4817,
+   "epoch": 27,
+   "train": 1.56,
+   "val": 1.48,
+   "gpu": 78,
+   "grad": 3.28,
+   "owner": "Alice"
+  },
+  "choice": "Keep run",
+  "t": 24.1,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 1,
+  "case": {
+   "run_id": 4817,
+   "epoch": 28,
+   "train": 1.56,
+   "val": 1.48,
+   "gpu": 81,
+   "grad": 3.57,
+   "owner": "Alice"
+  },
+  "choice": "Keep run",
+  "t": 31.7,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 2,
+  "case": {
+   "run_id": 4824,
+   "epoch": 24,
+   "train": 1.28,
+   "val": 1.22,
+   "gpu": 31,
+   "grad": 1.47,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 40.9,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 3,
+  "case": {
+   "run_id": 4824,
+   "epoch": 25,
+   "train": 1.28,
+   "val": 1.22,
+   "gpu": 28,
+   "grad": 1.18,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 47.9,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 4,
+  "case": {
+   "run_id": 4833,
+   "epoch": 7,
+   "train": 0.52,
+   "val": 0.49,
+   "gpu": 29,
+   "grad": 4.37,
+   "owner": "Bob"
+  },
+  "choice": "Kill run",
+  "t": 55.0,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 5,
+  "case": {
+   "run_id": 4846,
+   "epoch": 6,
+   "train": 1.22,
+   "val": 1.37,
+   "gpu": 31,
+   "grad": 1.56,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 63.4,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 6,
+  "case": {
+   "run_id": 4856,
+   "epoch": 10,
+   "train": 0.75,
+   "val": 0.98,
+   "gpu": 14,
+   "grad": 0.42,
+   "owner": "Bob"
+  },
+  "choice": "Kill run",
+  "t": 72.1,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 7,
+  "case": {
+   "run_id": 4887,
+   "epoch": 16,
+   "train": 1.48,
+   "val": 1.55,
+   "gpu": 78,
+   "grad": 0.38,
+   "owner": "Alice"
+  },
+  "choice": "Keep run",
+  "t": 78.9,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 8,
+  "case": {
+   "run_id": 4910,
+   "epoch": 18,
+   "train": 1.74,
+   "val": 1.65,
+   "gpu": 64,
+   "grad": 1.94,
+   "owner": "Alice"
+  },
+  "choice": "Keep run",
+  "t": 86.5,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 9,
+  "case": {
+   "run_id": 4922,
+   "epoch": 4,
+   "train": 1.36,
+   "val": 1.52,
+   "gpu": 31,
+   "grad": 1.79,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 94.3,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 10,
+  "case": {
+   "run_id": 4939,
+   "epoch": 19,
+   "train": 1.62,
+   "val": 1.62,
+   "gpu": 50,
+   "grad": 0.28,
+   "owner": "Alice"
+  },
+  "choice": "Keep run",
+  "t": 101.1,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 11,
+  "case": {
+   "run_id": 4939,
+   "epoch": 20,
+   "train": 1.62,
+   "val": 1.62,
+   "gpu": 54,
+   "grad": 0.37,
+   "owner": "Alice"
+  },
+  "choice": "Keep run",
+  "t": 109.3,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 12,
+  "case": {
+   "run_id": 4961,
+   "epoch": 10,
+   "train": 0.77,
+   "val": 0.77,
+   "gpu": 50,
+   "grad": 0.97,
+   "owner": "Alice"
+  },
+  "choice": "Keep run",
+  "t": 117.2,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 13,
+  "case": {
+   "run_id": 4981,
+   "epoch": 24,
+   "train": 1.99,
+   "val": 2.09,
+   "gpu": 12,
+   "grad": 4.93,
+   "owner": "Carol"
+  },
+  "choice": "Keep run",
+  "t": 125.6,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 14,
+  "case": {
+   "run_id": 4984,
+   "epoch": 27,
+   "train": 0.7,
+   "val": 0.91,
+   "gpu": 38,
+   "grad": 3.29,
+   "owner": "Alice"
+  },
+  "choice": "Kill run",
+  "t": 134.0,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 15,
+  "case": {
+   "run_id": 4984,
+   "epoch": 28,
+   "train": 0.7,
+   "val": 0.91,
+   "gpu": 34,
+   "grad": 3.53,
+   "owner": "Alice"
+  },
+  "choice": "Keep run",
+  "t": 142.2,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 16,
+  "case": {
+   "run_id": 4998,
+   "epoch": 21,
+   "train": 0.52,
+   "val": 0.55,
+   "gpu": 62,
+   "grad": 0.93,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 149.3,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 17,
+  "case": {
+   "run_id": 4998,
+   "epoch": 22,
+   "train": 0.52,
+   "val": 0.55,
+   "gpu": 64,
+   "grad": 0.77,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 157.1,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 18,
+  "case": {
+   "run_id": 5009,
+   "epoch": 16,
+   "train": 1.96,
+   "val": 3.33,
+   "gpu": 51,
+   "grad": 1.44,
+   "owner": "Bob"
+  },
+  "choice": "Kill run",
+  "t": 166.1,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 19,
+  "case": {
+   "run_id": 5019,
+   "epoch": 21,
+   "train": 0.49,
+   "val": 0.51,
+   "gpu": 79,
+   "grad": 0.98,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 174.3,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 20,
+  "case": {
+   "run_id": 5019,
+   "epoch": 22,
+   "train": 0.49,
+   "val": 0.51,
+   "gpu": 83,
+   "grad": 1.27,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 182.4,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 21,
+  "case": {
+   "run_id": 5042,
+   "epoch": 25,
+   "train": 1.48,
+   "val": 1.41,
+   "gpu": 37,
+   "grad": 2.84,
+   "owner": "Carol"
+  },
+  "choice": "Keep run",
+  "t": 189.4,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 22,
+  "case": {
+   "run_id": 5042,
+   "epoch": 26,
+   "train": 1.48,
+   "val": 1.41,
+   "gpu": 40,
+   "grad": 2.65,
+   "owner": "Carol"
+  },
+  "choice": "Keep run",
+  "t": 197.1,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 23,
+  "case": {
+   "run_id": 5061,
+   "epoch": 21,
+   "train": 1.93,
+   "val": 2.51,
+   "gpu": 24,
+   "grad": 2.42,
+   "owner": "Bob"
+  },
+  "choice": "Kill run",
+  "t": 204.4,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 24,
+  "case": {
+   "run_id": 5079,
+   "epoch": 12,
+   "train": 1.09,
+   "val": 1.42,
+   "gpu": 37,
+   "grad": 3.72,
+   "owner": "Bob"
+  },
+  "choice": "Kill run",
+  "t": 212.0,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 25,
+  "case": {
+   "run_id": 5091,
+   "epoch": 12,
+   "train": 1.78,
+   "val": 3.03,
+   "gpu": 49,
+   "grad": 2.69,
+   "owner": "Alice"
+  },
+  "choice": "Kill run",
+  "t": 219.9,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 26,
+  "case": {
+   "run_id": 5091,
+   "epoch": 13,
+   "train": 1.78,
+   "val": 3.03,
+   "gpu": 50,
+   "grad": 3.04,
+   "owner": "Alice"
+  },
+  "choice": "Keep run",
+  "t": 226.7,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 27,
+  "case": {
+   "run_id": 5097,
+   "epoch": 6,
+   "train": 1.52,
+   "val": 2.2,
+   "gpu": 94,
+   "grad": 1.58,
+   "owner": "Carol"
+  },
+  "choice": "Kill run",
+  "t": 234.8,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 28,
+  "case": {
+   "run_id": 5115,
+   "epoch": 7,
+   "train": 1.52,
+   "val": 1.44,
+   "gpu": 27,
+   "grad": 3.16,
+   "owner": "Alice"
+  },
+  "choice": "Kill run",
+  "t": 243.0,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 29,
+  "case": {
+   "run_id": 5115,
+   "epoch": 8,
+   "train": 1.52,
+   "val": 1.44,
+   "gpu": 25,
+   "grad": 3.26,
+   "owner": "Alice"
+  },
+  "choice": "Keep run",
+  "t": 249.7,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 30,
+  "case": {
+   "run_id": 5115,
+   "epoch": 9,
+   "train": 1.52,
+   "val": 1.44,
+   "gpu": 28,
+   "grad": 3.64,
+   "owner": "Alice"
+  },
+  "choice": "Keep run",
+  "t": 258.2,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 31,
+  "case": {
+   "run_id": 5115,
+   "epoch": 10,
+   "train": 1.52,
+   "val": 1.44,
+   "gpu": 26,
+   "grad": 3.33,
+   "owner": "Alice"
+  },
+  "choice": "Keep run",
+  "t": 265.8,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 32,
+  "case": {
+   "run_id": 5146,
+   "epoch": 14,
+   "train": 0.63,
+   "val": 0.6,
+   "gpu": 79,
+   "grad": 1.96,
+   "owner": "Carol"
+  },
+  "choice": "Keep run",
+  "t": 272.5,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 33,
+  "case": {
+   "run_id": 5146,
+   "epoch": 15,
+   "train": 0.63,
+   "val": 0.6,
+   "gpu": 78,
+   "grad": 1.75,
+   "owner": "Carol"
+  },
+  "choice": "Keep run",
+  "t": 280.7,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 34,
+  "case": {
+   "run_id": 5147,
+   "epoch": 28,
+   "train": 0.9,
+   "val": 1.08,
+   "gpu": 62,
+   "grad": 3.48,
+   "owner": "Carol"
+  },
+  "choice": "Keep run",
+  "t": 288.6,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 35,
+  "case": {
+   "run_id": 5150,
+   "epoch": 4,
+   "train": 1.23,
+   "val": 1.48,
+   "gpu": 37,
+   "grad": 4.76,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 296.7,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 36,
+  "case": {
+   "run_id": 5159,
+   "epoch": 15,
+   "train": 1.01,
+   "val": 1.31,
+   "gpu": 25,
+   "grad": 3.02,
+   "owner": "Carol"
+  },
+  "choice": "Kill run",
+  "t": 303.8,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 37,
+  "case": {
+   "run_id": 5172,
+   "epoch": 12,
+   "train": 1.95,
+   "val": 1.95,
+   "gpu": 15,
+   "grad": 0.63,
+   "owner": "Carol"
+  },
+  "choice": "Keep run",
+  "t": 312.2,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 38,
+  "case": {
+   "run_id": 5207,
+   "epoch": 14,
+   "train": 0.54,
+   "val": 0.78,
+   "gpu": 63,
+   "grad": 2.52,
+   "owner": "Bob"
+  },
+  "choice": "Kill run",
+  "t": 320.1,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 39,
+  "case": {
+   "run_id": 5232,
+   "epoch": 20,
+   "train": 0.95,
+   "val": 1.0,
+   "gpu": 37,
+   "grad": 2.53,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 327.1,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 40,
+  "case": {
+   "run_id": 5232,
+   "epoch": 21,
+   "train": 0.95,
+   "val": 1.0,
+   "gpu": 37,
+   "grad": 2.52,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 333.9,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 41,
+  "case": {
+   "run_id": 5232,
+   "epoch": 22,
+   "train": 0.95,
+   "val": 1.0,
+   "gpu": 40,
+   "grad": 2.14,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 340.9,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 42,
+  "case": {
+   "run_id": 5261,
+   "epoch": 26,
+   "train": 0.72,
+   "val": 0.68,
+   "gpu": 27,
+   "grad": 0.16,
+   "owner": "Carol"
+  },
+  "choice": "Keep run",
+  "t": 348.8,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 43,
+  "case": {
+   "run_id": 5277,
+   "epoch": 8,
+   "train": 1.89,
+   "val": 1.8,
+   "gpu": 79,
+   "grad": 4.24,
+   "owner": "Carol"
+  },
+  "choice": "Keep run",
+  "t": 357.3,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 44,
+  "case": {
+   "run_id": 5296,
+   "epoch": 17,
+   "train": 1.14,
+   "val": 1.94,
+   "gpu": 18,
+   "grad": 3.83,
+   "owner": "Bob"
+  },
+  "choice": "Kill run",
+  "t": 365.4,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 45,
+  "case": {
+   "run_id": 5296,
+   "epoch": 18,
+   "train": 1.14,
+   "val": 1.94,
+   "gpu": 19,
+   "grad": 3.92,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 375.2,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 46,
+  "case": {
+   "run_id": 5298,
+   "epoch": 22,
+   "train": 1.09,
+   "val": 1.42,
+   "gpu": 24,
+   "grad": 0.11,
+   "owner": "Carol"
+  },
+  "choice": "Kill run",
+  "t": 383.4,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 47,
+  "case": {
+   "run_id": 5305,
+   "epoch": 1,
+   "train": 1.81,
+   "val": 2.03,
+   "gpu": 65,
+   "grad": 3.01,
+   "owner": "Carol"
+  },
+  "choice": "Keep run",
+  "t": 392.0,
+  "pressed": "Keep run"
+ },
+ {
+  "index": 48,
+  "case": {
+   "run_id": 5336,
+   "epoch": 16,
+   "train": 1.76,
+   "val": 2.55,
+   "gpu": 63,
+   "grad": 4.5,
+   "owner": "Bob"
+  },
+  "choice": "Kill run",
+  "t": 400.2,
+  "pressed": "Kill run"
+ },
+ {
+  "index": 49,
+  "case": {
+   "run_id": 5341,
+   "epoch": 23,
+   "train": 0.82,
+   "val": 0.78,
+   "gpu": 64,
+   "grad": 3.28,
+   "owner": "Bob"
+  },
+  "choice": "Keep run",
+  "t": 408.1,
+  "pressed": "Keep run"
+ }
+]
