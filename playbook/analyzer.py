@@ -33,6 +33,7 @@ from .ocr import SessionOCR
 from .ocr import set_threads as ocr_set_threads
 from .security import SecurityError
 from .consistency import annotate_steps, cites_discrepancy, find_near_misses, find_rejected_input
+from .knowledge import annotate_playbook
 from .keyframes import annotate, crop_around, encode_jpeg, load_image, resize_max_width
 from .models import Event, InputVariable, Keyframe, Manifest, Playbook, Step, StepCandidate
 from .token_certainty import TOP_LOGPROBS, weakest_tokens
@@ -981,6 +982,7 @@ class Analyzer:
             notes=self.vc.notes + pb_notes,
         )
         pb.refresh_flags()
+        annotate_playbook(pb)
         return pb, dropped
 
 

@@ -81,7 +81,7 @@ def test_knowledge_classes():
     assert c.observability == "O5" and c.method == "pool and fit a rule" and c.tacit_score >= 3
     step = Step(index=1, title="t", description="", t_start=0, t_end=1, model_confidence=0.9, confidence=0.9, action="click")
     assert classify_step(step).observability == "O1"
-    assert classify_step(step.model_copy(update={"uncertainty_reason": "why?"})).observability == "O6"
+    assert classify_step(step.model_copy(update={"confidence": 0.4})).observability == "O6"  # measured doubt, not prose
 
 
 @pytest.mark.skipif(not ocr.available(), reason="needs the local OCR engine")
@@ -217,4 +217,15 @@ def test_outcome_label_reads_the_words_at_the_click_on_a_high_resolution_screen(
     m.width *= 2
     m.save(path)
     (d,) = build_decisions(path)
-    assert d.outcome == "Stop run"
+    assert d.outcome.replace(" ", "").lower() == "stoprun"  # OCR engines differ on whether they keep the space
+
+
+def test_a_step_is_unobservable_only_on_measured_evidence():
+    step = Step(index=1, title="t", description="", t_start=0, t_end=1, model_confidence=0.9, confidence=0.9, action="click",
+                uncertainty_reason="No ambiguity; the action is confirmed.")
+    assert classify_step(step).observability == "O1"
+    assert classify_step(step.model_copy(update={"confidence": 0.5})).observability == "O6"
+    hesitant = step.model_copy(update={"calibration_notes": ['The model hesitated on the target: "a" over "b" (certainty 0.10)']})
+    assert classify_step(hesitant).observability == "O6"
+    off = step.model_copy(update={"review_note": 'Typed "186,412" but "168,412" was seen (consistency check).'})
+    assert classify_step(off).observability == "O2" and classify_step(off).tacit_score == 1

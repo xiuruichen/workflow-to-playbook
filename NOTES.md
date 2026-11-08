@@ -178,6 +178,8 @@ At 0.30 the two flags in coding are `line` over `code`, on a step that said `pyh
 
 **Collecting now, learn later: confidence calibration.** The rule-based penalties are guesses. Reviewers now mark steps Correct/Wrong, and `python -m playbook labels` exports them with the features the rules use (model confidence, event support, gaps, merges, action type). With roughly 100–200 labelled steps, a logistic or isotonic regression from those features to P(correct) can replace the hand-set penalties. That's a few lines of scikit-learn, and it's the most valuable ML addition. Fitting it now, with no data, would be fake rigour.
 
+**Fixes from the live runs (2026-11).** Four changes came from running the local 2B model on real recordings, each with a test: (1) on the 8192-token window the consolidation prompt (steps plus two screenshots) overflowed by 58 tokens, so it now retries once text-only and compact; (2) OCR dropped spaces ("isnotrecognized"), hiding the terminal's rejection of a typo, so the rejected-input check also tries the text with spaces removed; (3) the model's free-text review remarks appeared on nearly every step, so on local models a remark becomes a flag only if it quotes two near-miss values that code can check, and is otherwise kept as a plain note; (4) for the same reason a step is `O6` only on low confidence or a hesitation note. Not re-measured on the full four-scenario table above.
+
 **Considered and deferred:**
 - **Self-consistency (analyze each segment twice and compare).** A good uncertainty signal, but it doubles analysis time, and that's the binding constraint on a laptop CPU.
 - **Fine-tuning or training a vision model.** No labelled data, and general models already handle arbitrary apps. Not worth it at prototype stage.
@@ -190,6 +192,7 @@ Research direction (tacit-knowledge capture, built on ideas from the literature)
 - [x] Frames, decision log (including non-actions), rule fitting and knowledge classes: `frames.py`, `decisions.py`, `induce.py`, `knowledge.py`; planted-rule benchmark in `dashboard.py`.
 - [x] Ask-the-expert loop on the decisions a fitted rule can't explain (`elicit.py`, `python -m playbook elicit`): checked with a simulated expert only, not yet with a real one.
 - [x] Judgment calls in the agent skill export (`export --judgment`).
+- [x] Observability class (`O1`–`O6`) and tacit score on every playbook step, shown in the report, viewer and skill export; `O6` only on measured evidence. [ ] Check the classes against what real experts call tacit.
 - [x] Replay harness (`replay`). First run with the local 2B model: the judgment section did not help it (1/12 vs 5/12 without; it mostly asked a human). [ ] Try a larger model and repeats; [ ] run on real recordings.
 - [x] Live test with a real window and real input (`scripts/live_dashboard_test.py`): capture exact on 24/24 and 40/40; the exception rule was not learned from 24 visits but was, exactly, from 40.
 - [ ] Optional think-aloud audio track, transcribed and aligned to steps (captures the *why*).

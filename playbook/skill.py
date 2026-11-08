@@ -37,6 +37,7 @@ from . import induce
 from .decisions import Decision, slug
 from .elicit import Answer, apply_answers
 from .generator import review_reasons
+from .knowledge import annotate_playbook
 from .models import InputVariable, Playbook, Step
 
 MAX_NAME = 64  # Agent Skills frontmatter limits
@@ -148,6 +149,7 @@ def build_judgment(decisions: list[Decision], answers: list[Answer] | None = Non
 
 def build_skill(pb: Playbook, judgment: dict | None = None) -> dict:
     pb.refresh_flags()
+    annotate_playbook(pb)
     inputs = _inputs(pb)
     subs = _placeholders(inputs)
     kept = [s for s in pb.steps if s.review != "wrong"]
@@ -177,6 +179,7 @@ def build_skill(pb: Playbook, judgment: dict | None = None) -> dict:
             "value_from": value_from,
             "expect": _fill(s.expected_result, subs),
             "confidence": round(s.confidence, 2),
+            "observability": s.observability,
             "requires_confirmation": bool(reasons),
             "confirmation_reason": " ".join(reasons) or None,
             "source": {"playbook_step": s.index, "t_start": round(s.t_start, 2), "t_end": round(s.t_end, 2)},

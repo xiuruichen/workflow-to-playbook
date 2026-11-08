@@ -13,6 +13,7 @@ import html
 from pathlib import Path
 
 from .analyzer import fmt_ts
+from .knowledge import CLASS_NAMES, METHOD, annotate_playbook
 from .models import Playbook, Step
 
 
@@ -56,6 +57,23 @@ def _cell(text: str) -> str:
     return text.replace("|", "\\|").replace("\n", " ")
 
 
+def knowledge_map(pb: Playbook) -> list[str]:
+    """How much of this procedure a recording explains, by observability class (knowledge.py)."""
+    counts = annotate_playbook(pb)
+    if not counts:
+        return []
+    out = ["## What the recording could and could not explain", "",
+           "| Class | Steps | How it is handled |", "|---|---|---|"]
+    for k in sorted(counts):
+        out.append(f"| **{k}** {CLASS_NAMES[k]} | {counts[k]} | {METHOD[k]} |")
+    ask = [s for s in pb.steps if s.observability == "O6"]
+    out += ["", (f"**{len(ask)} of {len(pb.steps)} steps are tacit as far as this recording goes**: what is on screen "
+                 "does not settle why they were done. Ask the person about "
+                 + ", ".join(f"step {s.index}" for s in ask) + ".") if ask else
+            "Every step's reason is visible in the recording; nothing here needs the person to articulate it.", ""]
+    return out
+
+
 def render_markdown(pb: Playbook) -> str:
     pb.refresh_flags()
     flagged = pb.review_steps
@@ -87,6 +105,8 @@ def render_markdown(pb: Playbook) -> str:
     for note in pb.notes:
         out += ["", f"> ℹ️ {note}"]
     out.append("")
+
+    out += knowledge_map(pb)
 
     if pb.prerequisites:
         out += ["## Prerequisites", ""] + [f"- {p}" for p in pb.prerequisites] + [""]
@@ -125,6 +145,7 @@ def _render_step(pb: Playbook, s: Step) -> list[str]:
     details = [
         ("App", s.app),
         ("Action", s.action),
+        ("Observability", f"{s.observability} {CLASS_NAMES[s.observability]} (tacit {s.tacit_score}/4)" if s.observability else None),
         ("Target", s.target),
         ("Value", s.value),
         ("Expected result", s.expected_result),
@@ -190,6 +211,7 @@ s.style.display=f.checked&&!s.classList.contains('flag')?'none':'';}));
 def render_html(pb: Playbook) -> str:
     """A single-file viewer: the recording on the left, steps on the right; click to seek."""
     pb.refresh_flags()
+    counts = annotate_playbook(pb)
     e = html.escape
     flagged = pb.review_steps
     parts = [
@@ -199,7 +221,7 @@ def render_html(pb: Playbook) -> str:
         f"<header><h1>{e(pb.title)}</h1>",
         f"<div class='muted'>{e(pb.goal)}</div>" if pb.goal else "",
         f"<div class='muted' style='font-size:13px;margin-top:6px'>{fmt_ts(pb.duration)} · {len(pb.steps)} steps · "
-        f"{len(flagged)} need review · {e(', '.join(pb.apps))} · {e(pb.model)}</div></header>",
+        f"{len(flagged)} need review · {e(' '.join(f'{k}×{n}' for k, n in sorted(counts.items())))} · {e(', '.join(pb.apps))} · {e(pb.model)}</div></header>",
         "<div class='wrap'><div class='player'>",
     ]
     if pb.video:
@@ -223,7 +245,7 @@ def render_html(pb: Playbook) -> str:
         parts.append(f"<h3>{e(s.title)}</h3>")
         if s.description and s.description != s.title:
             parts.append(f"<div>{e(s.description)}</div>")
-        rows = [("App", s.app), ("Target", s.target), ("Value", s.value), ("Expected", s.expected_result)]
+        rows = [("App", s.app), ("Observability", f"{s.observability} {CLASS_NAMES[s.observability]}" if s.observability else None), ("Target", s.target), ("Value", s.value), ("Expected", s.expected_result)]
         if any(v for _, v in rows):
             parts.append("<dl>" + "".join(f"<dt>{k}</dt><dd>{e(v)}</dd>" for k, v in rows if v) + "</dl>")
         if flag:

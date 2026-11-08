@@ -149,6 +149,10 @@ class Step(BaseModel):
     token_certainty: float | None = None  # lowest of its candidates (see token_certainty.py)
     source_ids: list[str] = Field(default_factory=list)
     needs_review: bool = False
+    # What a recording can show about this step (knowledge.py: O1 single-step ... O6 unobservable)
+    # and how much of the reason behind it the person would still have to articulate (0-4).
+    observability: str | None = None
+    tacit_score: int = 0
     # Human review outcome. Collected labels (see `python -m playbook labels`) are the
     # training data for a future learned confidence calibrator.
     review: ReviewLabel = "unreviewed"
