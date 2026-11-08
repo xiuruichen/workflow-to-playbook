@@ -44,29 +44,58 @@ def majority_decider(train: list[Decision]) -> Decider:
     return lambda d: label
 
 
+def evaluate_rules(judgment: dict, features: dict[str, float], readouts: dict[str, float]) -> dict:
+    """Apply the exported rules to one situation, in order: the first that matches wins. The one place this logic lives:
+    the mechanical reader below, `python -m playbook judge` and the agent arm of the H5 tests all call it.
+
+    Returns {"outcome": a label, or "ask a human", "rule": the rule that fired (or None), "reason": why}. It asks a human
+    when a value is outside the range seen (the rules were never fitted there) or no rule matches."""
+    for n, (lo, hi) in judgment["basis"]["observed_ranges"].items():
+        if n in readouts and not (lo <= readouts[n] <= hi):
+            return {"outcome": ASK, "rule": None, "reason": f"{n} = {readouts[n]:g} is outside the range seen ({lo:g} to {hi:g})"}
+    for rule in judgment["rules"]:
+        ok = True
+        for cond in rule["when"]:
+            if cond == "always":
+                continue
+            m = _COND.match(cond)
+            value = features.get(m["f"], float("-inf")) if m else None
+            if m is None or not ((value <= float(m["v"])) if m["op"] == "<=" else (value > float(m["v"]))):
+                ok = False
+                break
+        if ok:
+            return {"outcome": rule["then"], "rule": " and ".join(rule["when"]), "reason": f"matches: {' and '.join(rule['when'])} (seen {rule['support']})"}
+    return {"outcome": ASK, "rule": None, "reason": "no rule matches"}
+
+
+def situation_features(judgment: dict, readouts: dict[str, float], cats: dict[str, str] | None = None, previous: dict[str, float] | None = None) -> dict[str, float]:
+    """The features the rules talk about, from what is on screen now (and, for changed_x / delta_x, at the previous check):
+    readouts, `label=word` as 0/1, `a/b` as the quotient. Only the features the rules mention are computed beyond the readouts."""
+    feats = dict(readouts)
+    for n, v in readouts.items():
+        if previous and n in previous:
+            feats[f"changed_{n}"], feats[f"delta_{n}"] = float(v != previous[n]), v - previous[n]
+    wanted = {m["f"] for rule in judgment["rules"] for c in rule["when"] if (m := _COND.match(c))}
+    for f in wanted:
+        if "=" in f:
+            label, word = f.split("=", 1)
+            feats[f] = float((cats or {}).get(label) == word)
+        elif "/" in f:
+            a, b = f.split("/", 1)
+            if a in readouts and readouts.get(b, 0) > 0:
+                feats[f] = readouts[a] / readouts[b]
+    return feats
+
+
+def judge(judgment: dict, readouts: dict[str, float], cats: dict[str, str] | None = None, previous: dict[str, float] | None = None) -> dict:
+    """What the exported rules say about a situation. `judgment` is the "judgment" part of a skill.json."""
+    return evaluate_rules(judgment, situation_features(judgment, readouts, cats, previous), readouts)
+
+
 def rules_decider(judgment: dict) -> Decider:
     """Follow the exported rules literally. Asks a human when a value is outside the observed range
     or no rule matches (the same boundary the skill text gives to an agent)."""
-    ranges = judgment["basis"]["observed_ranges"]
-
-    def decide(d: Decision) -> str:
-        if any(not (lo <= d.readouts[n] <= hi) for n, (lo, hi) in ranges.items() if n in d.readouts):
-            return ASK
-        for rule in judgment["rules"]:
-            ok = True
-            for cond in rule["when"]:
-                if cond == "always":
-                    continue
-                m = _COND.match(cond)
-                value = d.features.get(m["f"], float("-inf")) if m else None
-                if m is None or not ((value <= float(m["v"])) if m["op"] == "<=" else (value > float(m["v"]))):
-                    ok = False
-                    break
-            if ok:
-                return rule["then"]
-        return ASK
-
-    return decide
+    return lambda d: evaluate_rules(judgment, d.features, d.readouts)["outcome"]
 
 
 def _screen(d: Decision, facts: list[str], context: list[str] = ()) -> str:

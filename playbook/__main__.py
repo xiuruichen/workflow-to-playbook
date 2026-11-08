@@ -150,6 +150,11 @@ def main(argv: list[str] | None = None) -> int:
     rp = sub.add_parser("replay", help="test whether the judgment calls reproduce your later decisions (fit on the earliest 70%%)")
     rp.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
     rp.add_argument("--model", action="store_true", help="also ask the local model to decide with and without the judgment section (slow on a laptop)")
+    jd = sub.add_parser("judge", help="apply an exported skill's decision rules to one situation (what an agent should call instead of applying thresholds itself)")
+    jd.add_argument("--rules", type=Path, required=True, help="a skill.json written by `export --judgment` (or a judgment JSON)")
+    jd.add_argument("--readouts", required=True, help='numbers on screen now, as JSON, e.g. \'{"spikes": 2, "batch_size": 512}\'')
+    jd.add_argument("--cats", default="{}", help='words on screen now, as JSON, e.g. \'{"vendor": "known"}\'')
+    jd.add_argument("--previous", default=None, help="the readouts at the previous check, as JSON, for the rules about change")
     pl = sub.add_parser("pilot", help="a pilot with a real person: make the case page, then turn their log into a report")
     pl.add_argument("action", choices=["make", "report", "elicit"], help="make: write the offline page; report: read the downloaded log; elicit: answer the questions about the choices the rule cannot explain")
     pl.add_argument("path", nargs="?", type=Path, help="report: the pilot_log.json the page downloaded")
@@ -238,6 +243,19 @@ def main(argv: list[str] | None = None) -> int:
         for d in found:
             print(f"{d.t0:7.1f}s  paused {d.dwell_s:5.1f}s  saw {d.readouts or 'no labelled numbers'}  then: {d.outcome}")
         print(f"{len(found)} decision(s) written to {session / 'decisions.jsonl'}")
+        return 0
+    if args.cmd == "judge":
+        import json as _json
+
+        from . import replay
+
+        raw = _json.loads(args.rules.read_text(encoding="utf-8"))
+        judgment = raw.get("judgment", raw)
+        if "rules" not in judgment:
+            print("No decision rules in that file: export with `python -m playbook export --judgment`.", file=sys.stderr)
+            return 1
+        out = replay.judge(judgment, _json.loads(args.readouts), _json.loads(args.cats), _json.loads(args.previous) if args.previous else None)
+        print(_json.dumps(out))
         return 0
     if args.cmd == "pilot":
         from . import pilot

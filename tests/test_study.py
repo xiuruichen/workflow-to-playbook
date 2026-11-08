@@ -292,3 +292,45 @@ def test_continuous_recording_needs_the_navigation_word_and_a_short_dwell(settin
     assert any(d.outcome != NONE for d in counted) and all(d.outcome != NONE for d in counted if "next" in d.outcome.lower())
     acted = sum(d.outcome != NONE for d in ignored)
     assert acted <= sum(v.stop for v in visits) and acted < sum(d.outcome != NONE for d in counted)
+
+
+def test_judge_gives_the_same_answer_as_the_mechanical_reader_and_asks_outside_the_range(tmp_path, capsys):
+    import json
+
+    from playbook import __main__ as cli
+    from playbook import replay
+    from playbook.skill import build_judgment
+
+    S = study.domains()["service"]
+    ds = study.build(S, 80, 100, ratios=True).decisions
+    train, test = ds[:56], ds[56:]
+    j = build_judgment(train, None)
+    decider = replay.rules_decider(j)
+    for i, d in enumerate(test):
+        previous = ds[56 + i - 1].readouts  # the check before, as the decision log knows it
+        assert replay.judge(j, d.readouts, d.cats, previous)["outcome"] == decider(d)
+    d = test[0]
+    out = replay.judge(j, d.readouts)
+    assert out["outcome"] in {r["then"] for r in j["rules"]} | {replay.ASK} and out["reason"]
+    far = dict(d.readouts, errors=d.readouts["errors"] * 1000)
+    assert replay.judge(j, far)["outcome"] == replay.ASK and "outside the range" in replay.judge(j, far)["reason"]
+    path = tmp_path / "skill.json"
+    path.write_text(json.dumps({"judgment": j}), encoding="utf-8")
+    assert cli.main(["judge", "--rules", str(path), "--readouts", json.dumps(d.readouts)]) == 0
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["outcome"] == out["outcome"]
+    path.write_text(json.dumps({"steps": []}), encoding="utf-8")
+    assert cli.main(["judge", "--rules", str(path), "--readouts", "{}"]) == 1
+
+
+def test_judge_computes_words_changes_and_quotients_the_rules_mention():
+    from playbook import replay
+
+    j = {"basis": {"observed_ranges": {}}, "rules": [
+        {"when": ["errors/requests > 0.05"], "then": "Page", "support": "9/9", "thin_evidence": False},
+        {"when": ["vendor=known > 0.5", "changed_amount <= 0.5"], "then": "Approve", "support": "5/5", "thin_evidence": False},
+        {"when": ["always"], "then": "none", "support": "3/3", "thin_evidence": False}]}
+    assert replay.judge(j, {"errors": 600.0, "requests": 8000.0})["outcome"] == "Page"
+    assert replay.judge(j, {"errors": 10.0, "requests": 8000.0, "amount": 5.0}, {"vendor": "known"}, {"amount": 5.0})["outcome"] == "Approve"
+    assert replay.judge(j, {"errors": 10.0, "requests": 8000.0, "amount": 6.0}, {"vendor": "known"}, {"amount": 5.0})["outcome"] == "none"
+    assert replay.judge({"basis": {"observed_ranges": {}}, "rules": []}, {"x": 1.0})["outcome"] == replay.ASK

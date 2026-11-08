@@ -17,7 +17,8 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, replace
 
-from .decisions import NONE, Decision
+from .decisions import NONE, Decision, add_ratio_pairs, ratio_pairs
+from .rulelist import RuleList, fit_rulelist  # noqa: F401  (a rule list is accepted wherever a tree is)
 
 MAX_DEPTH = 3
 MIN_LEAF = 2
@@ -151,7 +152,9 @@ def fit(decisions: list[Decision], max_depth: int = MAX_DEPTH, min_leaf: int = M
 
 
 def leaves(tree: Node, conds: tuple[str, ...] = ()) -> list[tuple[tuple[str, ...], Node]]:
-    """(conditions, leaf) for every leaf, e.g. (('spikes > 1.5', 'changed_batch_size <= 0.5'), leaf)."""
+    """(conditions, leaf) for every leaf, e.g. (('spikes > 1.5', 'changed_batch_size <= 0.5'), leaf). For a rule list: its rules in order."""
+    if isinstance(tree, RuleList):
+        return tree.leaves()
     if tree.leaf:
         return [(conds, tree)]
     return (leaves(tree.low, (*conds, f"{tree.feature} <= {tree.threshold:g}"))
@@ -159,6 +162,8 @@ def leaves(tree: Node, conds: tuple[str, ...] = ()) -> list[tuple[tuple[str, ...
 
 
 def predict(tree: Node, d: Decision) -> str:
+    if isinstance(tree, RuleList):
+        return tree.predict(d)
     node = tree
     while not node.leaf:
         node = node.low if d.features.get(node.feature, float("-inf")) <= node.threshold else node.high
@@ -170,11 +175,15 @@ def accuracy(tree: Node, decisions: list[Decision]) -> float:
 
 
 def features_used(tree: Node) -> set[str]:
+    if isinstance(tree, RuleList):
+        return tree.features_used()
     return set() if tree.leaf else {tree.feature} | features_used(tree.low) | features_used(tree.high)
 
 
 def path_features(tree: Node, d: Decision) -> set[str]:
-    """The features tested on the way from the root to the leaf that decides `d`."""
+    """The features tested on the way from the root to the leaf that decides `d` (for a rule list: those of the rule that fires)."""
+    if isinstance(tree, RuleList):
+        return tree.path_features(d)
     out: set[str] = set()
     node = tree
     while not node.leaf:
@@ -185,6 +194,8 @@ def path_features(tree: Node, d: Decision) -> set[str]:
 
 def rules(tree: Node, prefix: str = "") -> list[str]:
     """One readable line per leaf, e.g. 'spikes > 1.5 and changed_batch_size <= 0.5 -> stop (7/7)'."""
+    if isinstance(tree, RuleList):
+        return tree.lines()
     if tree.leaf:
         return [f"{prefix or 'always'} -> {tree.label} ({tree.correct}/{tree.n})"]
     glue = f"{prefix} and " if prefix else ""
@@ -242,3 +253,83 @@ def holdout_accuracy(decisions: list[Decision], train_fraction: float = 0.7, **k
     train, test = decisions[:cut], decisions[cut:]
     tree = fit(train, **kw)
     return accuracy(tree, train), accuracy(tree, test)
+
+
+# --------------------------------------------------------------------------- automatic selection (amendment 9)
+
+AUTO_MARGIN = 0.04  # cross-validated accuracy a variant must add over the plain tree to be preferred
+AUTO_FOLDS = 5
+# From simplest to most elaborate; ties and near-ties go to the earlier one.
+AUTO_MENU = (("plain", "tree"), ("plain", "lookahead"), ("plain", "rulelist"), ("ratios", "tree"), ("ratios", "lookahead"), ("ratios", "rulelist"))
+
+
+def _copies(decisions: list[Decision]) -> list[Decision]:
+    return [replace(d, features=dict(d.features)) for d in decisions]
+
+
+def _fit_kind(decisions: list[Decision], kind: str):
+    if kind == "rulelist":
+        return fit_rulelist(decisions)
+    return fit(decisions, lookahead=kind == "lookahead")
+
+
+def _cv_accuracy(decisions: list[Decision], ratios: bool, kind: str, folds: int = AUTO_FOLDS) -> float:
+    """Blocked (contiguous) k-fold accuracy, so that a rule that drifts is not flattered by shuffling."""
+    n = len(decisions)
+    if n < 2 * folds:
+        return 0.0
+    right = total = 0
+    for k in range(folds):
+        lo, hi = k * n // folds, (k + 1) * n // folds
+        train, test = _copies(decisions[:lo] + decisions[hi:]), _copies(decisions[lo:hi])
+        if ratios:
+            pairs = ratio_pairs(train)
+            add_ratio_pairs(train, pairs)
+            add_ratio_pairs(test, pairs)
+        model = _fit_kind(train, kind)
+        right += sum(predict(model, d) == d.outcome for d in test)
+        total += len(test)
+    return right / total if total else 0.0
+
+
+@dataclass
+class Auto:
+    """The result of `fit_auto`: the model, what it was chosen from, and the means to apply it to new decisions."""
+    model: object
+    ratios: bool
+    kind: str
+    pairs: list
+    cv: dict
+
+    def prepare(self, decisions: list[Decision]) -> list[Decision]:
+        out = _copies(decisions)
+        return add_ratio_pairs(out, self.pairs) if self.ratios else out
+
+    def predict(self, d: Decision) -> str:
+        return predict(self.model, self.prepare([d])[0])
+
+    def accuracy(self, decisions: list[Decision]) -> float:
+        return accuracy(self.model, self.prepare(decisions))
+
+    def rules(self) -> list[str]:
+        return rules(self.model)
+
+    @property
+    def choice(self) -> str:
+        return f"{'with ratio features' if self.ratios else 'plain features'}, {self.kind}"
+
+
+def fit_auto(decisions: list[Decision], margin: float = AUTO_MARGIN, menu=AUTO_MENU) -> Auto:
+    """Fit the plain tree unless a more elaborate variant (ratio features, a lookahead tree, a rule list) predicts clearly
+    better under blocked cross-validation on the same decisions (by `margin`). Nothing is tuned on the data to be predicted,
+    and with fewer than ten decisions only the plain tree is fitted."""
+    cv = {(r, k): _cv_accuracy(decisions, r == "ratios", k) for r, k in menu}
+    base = cv[menu[0]]
+    best = max(menu, key=lambda m: (cv[m], -menu.index(m)))
+    chosen = best if cv[best] >= base + margin else menu[0]
+    ratios, kind = chosen[0] == "ratios", chosen[1]
+    train = _copies(decisions)
+    pairs = ratio_pairs(train) if ratios else []
+    if ratios:
+        add_ratio_pairs(train, pairs)
+    return Auto(_fit_kind(train, kind), ratios, kind, pairs, {f"{r}/{k}": round(v, 3) for (r, k), v in cv.items()})

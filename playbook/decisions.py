@@ -194,11 +194,22 @@ def add_ratios(decisions: list[Decision]) -> list[Decision]:
     be told apart from on-screen values (and are penalised like the other derived features in induce.py).
     Alphabetical order picks the direction; for a tree a/b and b/a split identically.
     """
+    return add_ratio_pairs(decisions, ratio_pairs(decisions))
+
+
+def ratio_pairs(decisions: list[Decision]) -> list[tuple[str, str]]:
+    """The pairs of readouts (a, b), a before b alphabetically, that are present and positive in every decision."""
     names = sorted({k for d in decisions for k in d.readouts})
     usable = [n for n in names if decisions and all(d.readouts.get(n, 0) > 0 for d in decisions)]
+    return [(a, b) for i, a in enumerate(usable) for b in usable[i + 1:]]
+
+
+def add_ratio_pairs(decisions: list[Decision], pairs: list[tuple[str, str]]) -> list[Decision]:
+    """Add the quotient feature "a/b" for each given pair, where both are present and the denominator is positive.
+    Fitting chooses the pairs; the decisions to be predicted get the same pairs."""
     for d in decisions:
-        for i, a in enumerate(usable):
-            for b in usable[i + 1:]:
+        for a, b in pairs:
+            if d.readouts.get(a) is not None and d.readouts.get(b, 0) > 0:
                 d.features[f"{a}/{b}"] = d.readouts[a] / d.readouts[b]
     return decisions
 

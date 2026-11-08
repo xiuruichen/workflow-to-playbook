@@ -268,7 +268,10 @@ def _judgment_md(j: dict) -> list[str]:
     out = ["## Judgment calls", "",
            (f"When to act, learned from {b['decisions']} of this person's decisions across {b['sessions']} recording(s), "
             f"including the times they chose to do nothing. The rules below fit {b['fits_observed_decisions']:.0%} of those "
-            "decisions. They are a hypothesis about one person's habits, not a policy."), ""]
+            "decisions. They are a hypothesis about one person's habits, not a policy."),
+           "To apply them exactly, do not compare thresholds yourself: run `python -m playbook judge --rules skill.json "
+           "--readouts '{\"name\": value, ...}'` (add `--cats` for words on screen and `--previous` for the readouts at the previous "
+           "check). It returns the outcome, the rule that fired, and whether to ask a human instead.", ""]
     changed = sorted({c.split()[0] for r in j["rules"] for c in r["when"] if c.startswith("changed_")})
     if changed:
         out += ["In the rules, `changed_x` means: the value of x differs from what it was at the previous check "
