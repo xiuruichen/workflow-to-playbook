@@ -1,0 +1,636 @@
+{
+ "commit": "08625ca",
+ "describe": "freeze-1",
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "rows": [
+  {
+   "domain": "dashboard",
+   "n": 40,
+   "seed": 1,
+   "test_size": 12,
+   "majority": 0.6666666666666666,
+   "greedy_agreement": 1.0,
+   "greedy_without_context": 0.6666666666666666,
+   "greedy_without_none": 0.3333333333333333,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "spikes <= 1.5 -> none (16/16)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (16/16)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (8/8)"
+   ],
+   "lookahead_agreement": 1.0,
+   "lookahead_without_context": 0.6666666666666666,
+   "lookahead_without_none": 0.3333333333333333,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "spikes <= 1.5 -> none (16/16)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (16/16)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (8/8)"
+   ]
+  },
+  {
+   "domain": "dashboard",
+   "n": 40,
+   "seed": 2,
+   "test_size": 12,
+   "majority": 0.16666666666666666,
+   "greedy_agreement": 1.0,
+   "greedy_without_context": 0.75,
+   "greedy_without_none": 0.16666666666666666,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "spikes <= 1.5 -> none (14/14)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (18/18)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (8/8)"
+   ],
+   "lookahead_agreement": 1.0,
+   "lookahead_without_context": 0.75,
+   "lookahead_without_none": 0.16666666666666666,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "spikes <= 1.5 -> none (14/14)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (18/18)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (8/8)"
+   ]
+  },
+  {
+   "domain": "dashboard",
+   "n": 40,
+   "seed": 3,
+   "test_size": 12,
+   "majority": 0.25,
+   "greedy_agreement": 1.0,
+   "greedy_without_context": 0.8333333333333334,
+   "greedy_without_none": 0.25,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "spikes <= 1.5 -> none (16/16)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (17/17)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (7/7)"
+   ],
+   "lookahead_agreement": 1.0,
+   "lookahead_without_context": 0.25,
+   "lookahead_without_none": 0.25,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "spikes <= 1.5 -> none (16/16)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (17/17)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (7/7)"
+   ]
+  },
+  {
+   "domain": "dashboard",
+   "n": 40,
+   "seed": 4,
+   "test_size": 12,
+   "majority": 0.75,
+   "greedy_agreement": 1.0,
+   "greedy_without_context": 1.0,
+   "greedy_without_none": 0.25,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "spikes <= 1.5 -> none (19/19)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (14/14)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (7/7)"
+   ],
+   "lookahead_agreement": 1.0,
+   "lookahead_without_context": 1.0,
+   "lookahead_without_none": 0.25,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "spikes <= 1.5 -> none (19/19)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (14/14)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (7/7)"
+   ]
+  },
+  {
+   "domain": "dashboard",
+   "n": 40,
+   "seed": 5,
+   "test_size": 12,
+   "majority": 0.16666666666666666,
+   "greedy_agreement": 1.0,
+   "greedy_without_context": 0.6666666666666666,
+   "greedy_without_none": 0.16666666666666666,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "spikes <= 1.5 -> none (16/16)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (16/16)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (8/8)"
+   ],
+   "lookahead_agreement": 1.0,
+   "lookahead_without_context": 0.16666666666666666,
+   "lookahead_without_none": 0.16666666666666666,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "spikes <= 1.5 -> none (16/16)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (16/16)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (8/8)"
+   ]
+  },
+  {
+   "domain": "dashboard",
+   "n": 80,
+   "seed": 1,
+   "test_size": 24,
+   "majority": 0.5833333333333334,
+   "greedy_agreement": 1.0,
+   "greedy_without_context": 0.9166666666666666,
+   "greedy_without_none": 0.4166666666666667,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "spikes <= 1.5 -> none (35/35)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (31/31)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (14/14)"
+   ],
+   "lookahead_agreement": 1.0,
+   "lookahead_without_context": 0.75,
+   "lookahead_without_none": 0.4166666666666667,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "spikes <= 1.5 -> none (35/35)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (31/31)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (14/14)"
+   ],
+   "h4": {
+    "questions": 14,
+    "answers": 0,
+    "test_before": 0.75,
+    "test_after": 0.75,
+    "unexplained_before": 14,
+    "unexplained_after": 14
+   }
+  },
+  {
+   "domain": "dashboard",
+   "n": 80,
+   "seed": 2,
+   "test_size": 24,
+   "majority": 0.625,
+   "greedy_agreement": 1.0,
+   "greedy_without_context": 0.75,
+   "greedy_without_none": 0.375,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "spikes <= 1.5 -> none (32/32)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (34/34)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (14/14)"
+   ],
+   "lookahead_agreement": 1.0,
+   "lookahead_without_context": 0.75,
+   "lookahead_without_none": 0.375,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "spikes <= 1.5 -> none (32/32)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (34/34)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (14/14)"
+   ],
+   "h4": {
+    "questions": 3,
+    "answers": 3,
+    "test_before": 0.875,
+    "test_after": 1.0,
+    "unexplained_before": 3,
+    "unexplained_after": 0
+   }
+  },
+  {
+   "domain": "dashboard",
+   "n": 80,
+   "seed": 3,
+   "test_size": 24,
+   "majority": 0.5416666666666666,
+   "greedy_agreement": 1.0,
+   "greedy_without_context": 0.8333333333333334,
+   "greedy_without_none": 0.4583333333333333,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "spikes <= 1.5 -> none (35/35)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (33/33)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (12/12)"
+   ],
+   "lookahead_agreement": 1.0,
+   "lookahead_without_context": 0.8333333333333334,
+   "lookahead_without_none": 0.4583333333333333,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "spikes <= 1.5 -> none (35/35)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (33/33)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (12/12)"
+   ],
+   "h4": {
+    "questions": 1,
+    "answers": 1,
+    "test_before": 0.8333333333333334,
+    "test_after": 0.8333333333333334,
+    "unexplained_before": 1,
+    "unexplained_after": 1
+   }
+  },
+  {
+   "domain": "dashboard",
+   "n": 80,
+   "seed": 4,
+   "test_size": 24,
+   "majority": 0.625,
+   "greedy_agreement": 1.0,
+   "greedy_without_context": 0.5833333333333334,
+   "greedy_without_none": 0.375,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "spikes <= 1.5 -> none (32/32)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (29/29)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (19/19)"
+   ],
+   "lookahead_agreement": 1.0,
+   "lookahead_without_context": 0.5833333333333334,
+   "lookahead_without_none": 0.375,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "spikes <= 1.5 -> none (32/32)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (29/29)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (19/19)"
+   ],
+   "h4": {
+    "questions": 9,
+    "answers": 1,
+    "test_before": 0.6666666666666666,
+    "test_after": 0.6666666666666666,
+    "unexplained_before": 9,
+    "unexplained_after": 9
+   }
+  },
+  {
+   "domain": "dashboard",
+   "n": 80,
+   "seed": 5,
+   "test_size": 24,
+   "majority": 0.4166666666666667,
+   "greedy_agreement": 1.0,
+   "greedy_without_context": 0.9166666666666666,
+   "greedy_without_none": 0.5833333333333334,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "spikes <= 1.5 -> none (27/27)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (40/40)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (13/13)"
+   ],
+   "lookahead_agreement": 1.0,
+   "lookahead_without_context": 0.9166666666666666,
+   "lookahead_without_none": 0.5833333333333334,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "spikes <= 1.5 -> none (27/27)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (40/40)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (13/13)"
+   ],
+   "h4": {
+    "questions": 6,
+    "answers": 6,
+    "test_before": 0.9166666666666666,
+    "test_after": 1.0,
+    "unexplained_before": 6,
+    "unexplained_after": 0
+   }
+  },
+  {
+   "domain": "triage",
+   "n": 40,
+   "seed": 1,
+   "test_size": 12,
+   "majority": 0.08333333333333333,
+   "greedy_agreement": 0.6666666666666666,
+   "greedy_without_context": 0.6666666666666666,
+   "greedy_without_none": 0.3333333333333333,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "amount <= 4340.5 and vendor=known <= 0.5 -> none (10/10)",
+    "amount <= 4340.5 and vendor=known > 0.5 -> Approve (11/11)",
+    "amount > 4340.5 and changed_amount <= 0.5 -> none (5/5)",
+    "amount > 4340.5 and changed_amount > 0.5 and days_overdue <= 29.5 -> none (3/3)",
+    "amount > 4340.5 and changed_amount > 0.5 and days_overdue > 29.5 -> Escalate (11/11)"
+   ],
+   "lookahead_agreement": 0.6666666666666666,
+   "lookahead_without_context": 0.6666666666666666,
+   "lookahead_without_none": 0.3333333333333333,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "amount <= 4340.5 and vendor=known <= 0.5 -> none (10/10)",
+    "amount <= 4340.5 and vendor=known > 0.5 -> Approve (11/11)",
+    "amount > 4340.5 and changed_amount <= 0.5 -> none (5/5)",
+    "amount > 4340.5 and changed_amount > 0.5 and days_overdue <= 29.5 -> none (3/3)",
+    "amount > 4340.5 and changed_amount > 0.5 and days_overdue > 29.5 -> Escalate (11/11)"
+   ]
+  },
+  {
+   "domain": "triage",
+   "n": 40,
+   "seed": 2,
+   "test_size": 12,
+   "majority": 0.5833333333333334,
+   "greedy_agreement": 0.9166666666666666,
+   "greedy_without_context": 0.9166666666666666,
+   "greedy_without_none": 0.4166666666666667,
+   "greedy_recovery": 0.975,
+   "greedy_rule": [
+    "amount <= 4359 and vendor=known <= 0.5 -> none (9/9)",
+    "amount <= 4359 and vendor=known > 0.5 -> Approve (12/12)",
+    "amount > 4359 and days_overdue <= 30 -> none (9/9)",
+    "amount > 4359 and days_overdue > 30 -> Escalate (9/10)"
+   ],
+   "lookahead_agreement": 0.9166666666666666,
+   "lookahead_without_context": 0.9166666666666666,
+   "lookahead_without_none": 0.4166666666666667,
+   "lookahead_recovery": 0.975,
+   "lookahead_rule": [
+    "amount <= 4359 and vendor=known <= 0.5 -> none (9/9)",
+    "amount <= 4359 and vendor=known > 0.5 -> Approve (12/12)",
+    "amount > 4359 and days_overdue <= 30 -> none (9/9)",
+    "amount > 4359 and days_overdue > 30 -> Escalate (9/10)"
+   ]
+  },
+  {
+   "domain": "triage",
+   "n": 40,
+   "seed": 3,
+   "test_size": 12,
+   "majority": 0.4166666666666667,
+   "greedy_agreement": 1.0,
+   "greedy_without_context": 1.0,
+   "greedy_without_none": 0.5833333333333334,
+   "greedy_recovery": 0.975,
+   "greedy_rule": [
+    "amount <= 5227.5 and vendor=known <= 0.5 -> none (10/10)",
+    "amount <= 5227.5 and vendor=known > 0.5 -> Approve (8/9)",
+    "amount > 5227.5 and changed_amount <= 0.5 -> none (4/4)",
+    "amount > 5227.5 and changed_amount > 0.5 and days_overdue <= 30.5 -> none (3/3)",
+    "amount > 5227.5 and changed_amount > 0.5 and days_overdue > 30.5 -> Escalate (14/14)"
+   ],
+   "lookahead_agreement": 1.0,
+   "lookahead_without_context": 0.5,
+   "lookahead_without_none": 0.5833333333333334,
+   "lookahead_recovery": 0.975,
+   "lookahead_rule": [
+    "amount <= 5227.5 and vendor=known <= 0.5 -> none (10/10)",
+    "amount <= 5227.5 and vendor=known > 0.5 -> Approve (8/9)",
+    "amount > 5227.5 and changed_amount <= 0.5 -> none (4/4)",
+    "amount > 5227.5 and changed_amount > 0.5 and days_overdue <= 30.5 -> none (3/3)",
+    "amount > 5227.5 and changed_amount > 0.5 and days_overdue > 30.5 -> Escalate (14/14)"
+   ]
+  },
+  {
+   "domain": "triage",
+   "n": 40,
+   "seed": 4,
+   "test_size": 12,
+   "majority": 0.4166666666666667,
+   "greedy_agreement": 0.8333333333333334,
+   "greedy_without_context": 0.8333333333333334,
+   "greedy_without_none": 0.5833333333333334,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "vendor=known <= 0.5 and amount <= 5236.5 -> none (21/21)",
+    "vendor=known <= 0.5 and amount > 5236.5 -> Escalate (2/2)",
+    "vendor=known > 0.5 and amount <= 4344 -> Approve (11/11)",
+    "vendor=known > 0.5 and amount > 4344 and delta_amount <= 1363.5 -> none (3/3)",
+    "vendor=known > 0.5 and amount > 4344 and delta_amount > 1363.5 -> Escalate (3/3)"
+   ],
+   "lookahead_agreement": 0.8333333333333334,
+   "lookahead_without_context": 0.8333333333333334,
+   "lookahead_without_none": 0.5833333333333334,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "vendor=known <= 0.5 and amount <= 5236.5 -> none (21/21)",
+    "vendor=known <= 0.5 and amount > 5236.5 -> Escalate (2/2)",
+    "vendor=known > 0.5 and amount <= 4344 -> Approve (11/11)",
+    "vendor=known > 0.5 and amount > 4344 and delta_amount <= 1363.5 -> none (3/3)",
+    "vendor=known > 0.5 and amount > 4344 and delta_amount > 1363.5 -> Escalate (3/3)"
+   ]
+  },
+  {
+   "domain": "triage",
+   "n": 40,
+   "seed": 5,
+   "test_size": 12,
+   "majority": 0.5,
+   "greedy_agreement": 0.9166666666666666,
+   "greedy_without_context": 0.9166666666666666,
+   "greedy_without_none": 0.5,
+   "greedy_recovery": 0.95,
+   "greedy_rule": [
+    "vendor=known <= 0.5 and delta_amount <= 4375 -> none (16/17)",
+    "vendor=known <= 0.5 and delta_amount > 4375 -> Escalate (3/3)",
+    "vendor=known > 0.5 and amount <= 4364 -> Approve (17/17)",
+    "vendor=known > 0.5 and amount > 4364 -> none (2/3)"
+   ],
+   "lookahead_agreement": 0.9166666666666666,
+   "lookahead_without_context": 0.8333333333333334,
+   "lookahead_without_none": 0.5,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "amount <= 4364 and amount <= 490 -> none (2/2)",
+    "amount <= 4364 and amount > 490 and vendor=known <= 0.5 -> none (8/8)",
+    "amount <= 4364 and amount > 490 and vendor=known > 0.5 -> Approve (17/17)",
+    "amount > 4364 and days_overdue <= 39.5 and days_overdue <= 29 -> none (4/4)",
+    "amount > 4364 and days_overdue <= 39.5 and days_overdue > 29 -> Escalate (2/2)",
+    "amount > 4364 and days_overdue > 39.5 and changed_amount <= 0.5 -> none (4/4)",
+    "amount > 4364 and days_overdue > 39.5 and changed_amount > 0.5 -> Escalate (3/3)"
+   ]
+  },
+  {
+   "domain": "triage",
+   "n": 80,
+   "seed": 1,
+   "test_size": 24,
+   "majority": 0.4166666666666667,
+   "greedy_agreement": 0.75,
+   "greedy_without_context": 0.5833333333333334,
+   "greedy_without_none": 0.5833333333333334,
+   "greedy_recovery": 0.8625,
+   "greedy_rule": [
+    "vendor=known <= 0.5 and amount <= 7480.5 -> none (30/37)",
+    "vendor=known <= 0.5 and amount > 7480.5 -> Escalate (2/3)",
+    "vendor=known > 0.5 and amount <= 4339 -> Approve (18/18)",
+    "vendor=known > 0.5 and amount > 4339 and changed_amount <= 0.5 -> none (7/7)",
+    "vendor=known > 0.5 and amount > 4339 and changed_amount > 0.5 -> Escalate (12/15)"
+   ],
+   "lookahead_agreement": 0.9166666666666666,
+   "lookahead_without_context": 0.8333333333333334,
+   "lookahead_without_none": 0.5833333333333334,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "amount <= 4340.5 and amount <= 504.5 -> none (3/3)",
+    "amount <= 4340.5 and amount > 504.5 and vendor=known <= 0.5 -> none (16/16)",
+    "amount <= 4340.5 and amount > 504.5 and vendor=known > 0.5 -> Approve (18/18)",
+    "amount > 4340.5 and days_overdue <= 29 -> none (8/8)",
+    "amount > 4340.5 and days_overdue > 29 and changed_amount <= 0.5 -> none (14/14)",
+    "amount > 4340.5 and days_overdue > 29 and changed_amount > 0.5 -> Escalate (21/21)"
+   ],
+   "h4": {
+    "questions": 24,
+    "answers": 4,
+    "test_before": 0.5,
+    "test_after": 0.5,
+    "unexplained_before": 24,
+    "unexplained_after": 24
+   }
+  },
+  {
+   "domain": "triage",
+   "n": 80,
+   "seed": 2,
+   "test_size": 24,
+   "majority": 0.5833333333333334,
+   "greedy_agreement": 0.9583333333333334,
+   "greedy_without_context": 0.8333333333333334,
+   "greedy_without_none": 0.4166666666666667,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "amount <= 4345 and vendor=known <= 0.5 -> none (21/21)",
+    "amount <= 4345 and vendor=known > 0.5 -> Approve (22/22)",
+    "amount > 4345 and days_overdue <= 30 -> none (15/15)",
+    "amount > 4345 and days_overdue > 30 and changed_amount <= 0.5 -> none (6/6)",
+    "amount > 4345 and days_overdue > 30 and changed_amount > 0.5 -> Escalate (16/16)"
+   ],
+   "lookahead_agreement": 0.9583333333333334,
+   "lookahead_without_context": 0.8333333333333334,
+   "lookahead_without_none": 0.4166666666666667,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "amount <= 4345 and vendor=known <= 0.5 -> none (21/21)",
+    "amount <= 4345 and vendor=known > 0.5 -> Approve (22/22)",
+    "amount > 4345 and days_overdue <= 30 -> none (15/15)",
+    "amount > 4345 and days_overdue > 30 and changed_amount <= 0.5 -> none (6/6)",
+    "amount > 4345 and days_overdue > 30 and changed_amount > 0.5 -> Escalate (16/16)"
+   ],
+   "h4": {
+    "questions": 24,
+    "answers": 4,
+    "test_before": 0.6666666666666666,
+    "test_after": 0.6666666666666666,
+    "unexplained_before": 24,
+    "unexplained_after": 24
+   }
+  },
+  {
+   "domain": "triage",
+   "n": 80,
+   "seed": 3,
+   "test_size": 24,
+   "majority": 0.4166666666666667,
+   "greedy_agreement": 1.0,
+   "greedy_without_context": 0.9583333333333334,
+   "greedy_without_none": 0.5833333333333334,
+   "greedy_recovery": 1.0,
+   "greedy_rule": [
+    "amount <= 4341.5 and vendor=known <= 0.5 -> none (15/15)",
+    "amount <= 4341.5 and vendor=known > 0.5 -> Approve (22/22)",
+    "amount > 4341.5 and days_overdue <= 30 -> none (13/13)",
+    "amount > 4341.5 and days_overdue > 30 and changed_amount <= 0.5 -> none (7/7)",
+    "amount > 4341.5 and days_overdue > 30 and changed_amount > 0.5 -> Escalate (23/23)"
+   ],
+   "lookahead_agreement": 1.0,
+   "lookahead_without_context": 0.9583333333333334,
+   "lookahead_without_none": 0.5833333333333334,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "amount <= 4341.5 and vendor=known <= 0.5 -> none (15/15)",
+    "amount <= 4341.5 and vendor=known > 0.5 -> Approve (22/22)",
+    "amount > 4341.5 and days_overdue <= 30 -> none (13/13)",
+    "amount > 4341.5 and days_overdue > 30 and changed_amount <= 0.5 -> none (7/7)",
+    "amount > 4341.5 and days_overdue > 30 and changed_amount > 0.5 -> Escalate (23/23)"
+   ],
+   "h4": {
+    "questions": 19,
+    "answers": 4,
+    "test_before": 0.8333333333333334,
+    "test_after": 0.875,
+    "unexplained_before": 19,
+    "unexplained_after": 18
+   }
+  },
+  {
+   "domain": "triage",
+   "n": 80,
+   "seed": 4,
+   "test_size": 24,
+   "majority": 0.375,
+   "greedy_agreement": 0.7916666666666666,
+   "greedy_without_context": 0.7083333333333334,
+   "greedy_without_none": 0.625,
+   "greedy_recovery": 0.925,
+   "greedy_rule": [
+    "vendor=known <= 0.5 and amount <= 9838 -> none (32/36)",
+    "vendor=known <= 0.5 and amount > 9838 -> Escalate (2/2)",
+    "vendor=known > 0.5 and amount <= 4344 -> Approve (20/20)",
+    "vendor=known > 0.5 and amount > 4344 and delta_amount <= 2290 -> none (12/14)",
+    "vendor=known > 0.5 and amount > 4344 and delta_amount > 2290 -> Escalate (8/8)"
+   ],
+   "lookahead_agreement": 0.7916666666666666,
+   "lookahead_without_context": 0.75,
+   "lookahead_without_none": 0.625,
+   "lookahead_recovery": 1.0,
+   "lookahead_rule": [
+    "amount <= 5220.5 and amount <= 481.5 -> none (2/2)",
+    "amount <= 5220.5 and amount > 481.5 and vendor=known <= 0.5 -> none (23/23)",
+    "amount <= 5220.5 and amount > 481.5 and vendor=known > 0.5 -> Approve (20/20)",
+    "amount > 5220.5 and days_overdue <= 29.5 -> none (9/9)",
+    "amount > 5220.5 and days_overdue > 29.5 and changed_amount <= 0.5 -> none (10/10)",
+    "amount > 5220.5 and days_overdue > 29.5 and changed_amount > 0.5 -> Escalate (16/16)"
+   ],
+   "h4": {
+    "questions": 17,
+    "answers": 1,
+    "test_before": 0.5833333333333334,
+    "test_after": 0.5833333333333334,
+    "unexplained_before": 17,
+    "unexplained_after": 17
+   }
+  },
+  {
+   "domain": "triage",
+   "n": 80,
+   "seed": 5,
+   "test_size": 24,
+   "majority": 0.7916666666666666,
+   "greedy_agreement": 0.9583333333333334,
+   "greedy_without_context": 0.9166666666666666,
+   "greedy_without_none": 0.20833333333333334,
+   "greedy_recovery": 0.9625,
+   "greedy_rule": [
+    "vendor=known <= 0.5 and delta_amount <= 4375 and delta_days_overdue <= 22.5 -> none (33/34)",
+    "vendor=known <= 0.5 and delta_amount <= 4375 and delta_days_overdue > 22.5 -> Escalate (3/5)",
+    "vendor=known <= 0.5 and delta_amount > 4375 -> Escalate (5/5)",
+    "vendor=known > 0.5 and amount <= 4343 -> Approve (23/23)",
+    "vendor=known > 0.5 and amount > 4343 and delta_days_overdue <= 11 -> none (10/10)",
+    "vendor=known > 0.5 and amount > 4343 and delta_days_overdue > 11 -> Escalate (3/3)"
+   ],
+   "lookahead_agreement": 0.9583333333333334,
+   "lookahead_without_context": 0.9166666666666666,
+   "lookahead_without_none": 0.20833333333333334,
+   "lookahead_recovery": 0.9625,
+   "lookahead_rule": [
+    "vendor=known <= 0.5 and delta_amount <= 4375 and delta_days_overdue <= 22.5 -> none (33/34)",
+    "vendor=known <= 0.5 and delta_amount <= 4375 and delta_days_overdue > 22.5 -> Escalate (3/5)",
+    "vendor=known <= 0.5 and delta_amount > 4375 -> Escalate (5/5)",
+    "vendor=known > 0.5 and amount <= 4343 -> Approve (23/23)",
+    "vendor=known > 0.5 and amount > 4343 and delta_days_overdue <= 11 -> none (10/10)",
+    "vendor=known > 0.5 and amount > 4343 and delta_days_overdue > 11 -> Escalate (3/3)"
+   ],
+   "h4": {
+    "questions": 14,
+    "answers": 3,
+    "test_before": 0.8333333333333334,
+    "test_after": 0.9166666666666666,
+    "unexplained_before": 14,
+    "unexplained_after": 15
+   }
+  }
+ ]
+}
