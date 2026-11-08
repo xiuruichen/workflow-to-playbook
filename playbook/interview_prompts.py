@@ -86,3 +86,7 @@ FOLLOW_UP = ("You said '{fact}'. Did it also hold in any of these other cases? G
 
 # Used when the model fails or breaks a rule above.
 FALLBACK_QUESTION = "In this case you chose '{did}', while in similar situations you chose '{expected}'. What did you know that the screen does not show?"
+
+# One question about several similar misfits at once (amendment 8). v0 wording: a placeholder for the question design.
+GROUP_QUESTION = ("In these {n} cases you chose '{did}', while in similar situations you chose '{expected}':\n{cases}\n"
+                  "What do they have in common that the screen does not show? Say which of them it applies to.")

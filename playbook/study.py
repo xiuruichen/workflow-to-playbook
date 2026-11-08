@@ -233,8 +233,10 @@ class FreeTextExpert:
     warmup (a vague one with probability `vague_rate`), an irrelevant one otherwise; to a follow-up listing other cases
     by number, the numbers that were truly made during warmup. `log` records the kind of each answer."""
 
-    def __init__(self, hidden: set[str], seed: int, vague_rate: float = 0.25):
+    def __init__(self, hidden: set[str], seed: int, vague_rate: float = 0.25, clear=CLEAR_ANSWERS, vague=VAGUE_ANSWERS,
+                 irrelevant=IRRELEVANT_ANSWERS):
         self.hidden, self.vague_rate = hidden, vague_rate
+        self.clear, self.vague, self.irrelevant = tuple(clear), tuple(vague), tuple(irrelevant)
         self.rng = random.Random(f"free-text-{seed}")
         self.log: list[dict] = []
 
@@ -242,18 +244,28 @@ class FreeTextExpert:
         if ctx.get("followup"):
             nums = [i for i, k in enumerate(ctx["candidate_keys"], 1) if k in self.hidden]
             return "Cases " + ", ".join(map(str, nums)) if nums else "None of them."
+        if ctx.get("group_keys"):  # a question about several misfits at once: say which of them share the hidden fact
+            nums = [i for i, k in enumerate(ctx["group_keys"], 1) if k in self.hidden]
+            if nums and self.rng.random() >= self.vague_rate:
+                answer = "Cases " + ", ".join(map(str, nums)) + ": " + self.rng.choice(self.clear)
+                self.log.append({"key": ctx["key"], "kind": "clear", "answer": answer})
+                return answer
+            kind, pool = ("vague", self.vague) if nums else ("irrelevant", self.irrelevant)
+            answer = self.rng.choice(pool)
+            self.log.append({"key": ctx["key"], "kind": kind, "answer": answer})
+            return answer
         if ctx["key"] in self.hidden:
             vague = self.rng.random() < self.vague_rate
-            kind, pool = ("vague", VAGUE_ANSWERS) if vague else ("clear", CLEAR_ANSWERS)
+            kind, pool = ("vague", self.vague) if vague else ("clear", self.clear)
         else:
-            kind, pool = "irrelevant", IRRELEVANT_ANSWERS
+            kind, pool = "irrelevant", self.irrelevant
         answer = self.rng.choice(pool)
         self.log.append({"key": ctx["key"], "kind": kind, "answer": answer})
         return answer
 
 
 def interview_experiment(domain: Domain, seed: int, chat, strategy: str = "v0_open", expert=None, n: int = 80,
-                         max_questions: int = 8, patience: int = 4) -> dict:
+                         max_questions: int = 8, patience: int = 4, extraction: str = "gated", order: str = "time", group_first: bool = False) -> dict:
     """Amendment 7: one interview on the training decisions, then held-out agreement before and after.
 
     As in `elicitation`, the value of each named condition for held-out decisions is supplied as if the person had
@@ -268,7 +280,7 @@ def interview_experiment(domain: Domain, seed: int, chat, strategy: str = "v0_op
     test = [Decision(**{**d.__dict__, "features": dict(d.features)}) for d in built.decisions[cut:]]
     before = induce.accuracy(induce.fit(train), test)
     expert = expert or FreeTextExpert(built.hidden, seed)
-    iv = interview.run_interview(train, expert, chat, strategy, max_questions=max_questions, patience=patience)
+    iv = interview.run_interview(train, expert, chat, strategy, max_questions=max_questions, patience=patience, extraction=extraction, order=order, group_first=group_first)
     interview.apply_union(train, iv.answers)
     facts = {slug(a.fact) for a in iv.answers if a.fact}
     for d in test:

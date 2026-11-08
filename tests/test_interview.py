@@ -254,3 +254,54 @@ def test_cli_pilot_elicit_with_llm_uses_the_local_model(tmp_path, monkeypatch, c
     out = capsys.readouterr().out
     assert "Rule before your answers" in out and "Rule after your answers" in out
     assert (tmp_path / "pilot_answers.jsonl").is_file()
+
+
+def test_misfit_orders_are_permutations_and_time_is_the_original_order():
+    import pytest
+
+    built, train, qs = misfit(seed=102)
+    assert len(qs) >= 4
+    assert [elicit.key(q.decision) for q in interview.rank_misfits(train, qs, "time")] == [elicit.key(q.decision) for q in qs]
+    for order in ("surprise", "burst", "cluster"):
+        ranked = interview.rank_misfits(train, qs, order)
+        assert sorted(elicit.key(q.decision) for q in ranked) == sorted(elicit.key(q.decision) for q in qs)
+        assert [elicit.key(q.decision) for q in ranked] == [elicit.key(q.decision) for q in interview.rank_misfits(train, qs, order)], "deterministic"
+    with pytest.raises(ValueError):
+        interview.rank_misfits(train, qs, "random")
+
+
+def test_burst_order_puts_misfits_with_misfit_neighbours_first():
+    built, train, qs = misfit(seed=102)
+    index = {elicit.key(d): i for i, d in enumerate(train)}
+    at = {index[elicit.key(q.decision)] for q in qs}
+    near = lambda q: sum((index[elicit.key(q.decision)] + k) in at for k in (-1, 1))  # noqa: E731
+    ranked = interview.rank_misfits(train, qs, "burst")
+    counts = [near(q) for q in ranked]
+    assert counts == sorted(counts, reverse=True)
+
+
+def test_group_question_tags_the_cases_the_person_names_and_only_those():
+    built, train, qs = misfit(seed=100)
+    expert = study.FreeTextExpert(built.hidden, 100, vague_rate=0.0)
+    iv = interview.run_interview(train, expert, FakeChat(), group_first=True, max_questions=2)
+    first = iv.turns[0]
+    assert first.key == "group" and first.condition and "warm" in first.condition
+    assert first.held_for and all(k in built.hidden for k in first.held_for), "only the cases the expert numbered are tagged"
+    assert first.delta > 0
+    assert iv.answers[0].fact == first.condition
+    for a in iv.answers[:1]:
+        assert a.key in first.held_for, "the answer is anchored on a tagged case"
+
+
+def test_group_question_is_skipped_when_there_is_no_group_of_three():
+    built, train, qs = misfit(seed=109)
+    few = qs[:2]
+    out = interview.group_turn(train, few, lambda t, c: "x", FakeChat(), "gated")
+    assert out is None
+
+
+def test_a_vague_group_answer_tags_nothing():
+    built, train, qs = misfit(seed=100)
+    expert = study.FreeTextExpert(built.hidden, 100, vague_rate=1.0)
+    iv = interview.run_interview(train, expert, FakeChat(), group_first=True, max_questions=1)
+    assert iv.turns[0].condition is None and iv.turns[0].held_for == []

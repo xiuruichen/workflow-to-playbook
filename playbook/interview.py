@@ -28,8 +28,8 @@ from typing import Callable
 
 from . import elicit, induce
 from .decisions import Decision, slug
-from .interview_prompts import (CLASSIFY_SYSTEM, CRITIQUE_SYSTEM, DEFAULT_STRATEGY, FALLBACK_QUESTION, FOLLOW_UP, INTERPRET_SYSTEM,
-                                PHRASE_VARIANTS, QUESTION_SYSTEM, STRATEGIES)
+from .interview_prompts import (CLASSIFY_SYSTEM, CRITIQUE_SYSTEM, DEFAULT_STRATEGY, FALLBACK_QUESTION, FOLLOW_UP, GROUP_QUESTION,
+                                INTERPRET_SYSTEM, PHRASE_VARIANTS, QUESTION_SYSTEM, STRATEGIES)
 
 Chat = Callable[[list[dict], dict], str]
 Ask = Callable[[str, dict], str]
@@ -264,16 +264,97 @@ def load_rubric(path) -> dict[str, dict]:
     return out
 
 
+def _leaf_for(tree: induce.Node, d: Decision) -> induce.Node:
+    node = tree
+    while not node.leaf:
+        node = node.low if d.features.get(node.feature, float("-inf")) <= node.threshold else node.high
+    return node
+
+
+def _leaf_path(tree: induce.Node, d: Decision) -> tuple:
+    node, path = tree, []
+    while not node.leaf:
+        low = d.features.get(node.feature, float("-inf")) <= node.threshold
+        path.append((node.feature, low))
+        node = node.low if low else node.high
+    return tuple(path)
+
+
+def rank_misfits(decisions: list[Decision], questions: list[elicit.Question], order: str = "time") -> list[elicit.Question]:
+    """The misfits in the order to ask about them. "time" is the order they happened (the first version). The others are
+    guesses at which misfits share a cause, tried in amendment 8: "surprise" puts first the ones the rule was surest
+    about (the purity of the leaf, weighted by its size); "burst" those with misfits right next to them in time; "cluster"
+    those whose (what was done, what the rule expected, where in the tree) matches the most other misfits."""
+    if order not in ("time", "surprise", "burst", "cluster"):
+        raise ValueError("order must be time, surprise, burst or cluster")
+    if order == "time" or len(questions) < 2:
+        return list(questions)
+    index = {elicit.key(d): i for i, d in enumerate(decisions)}
+    misfit_at = {index[elicit.key(q.decision)] for q in questions}
+    full = induce.fit(decisions)
+    sig = Counter((q.decision.outcome, q.expected, _leaf_path(full, q.decision)) for q in questions)
+    keyed = []
+    for pos, q in enumerate(questions):
+        d = q.decision
+        leaf = _leaf_for(induce.fit([x for x in decisions if x is not d]), d)  # the rule that was wrong about it
+        purity = (leaf.correct / leaf.n if leaf.n else 0.0) * leaf.n / (leaf.n + 3)
+        i = index[elicit.key(d)]
+        near = sum((i + k) in misfit_at for k in (-1, 1))
+        score = {"surprise": (-purity,), "burst": (-near, -purity), "cluster": (-sig[(d.outcome, q.expected, _leaf_path(full, d))], -purity)}[order]
+        keyed.append((score, pos, q))
+    return [q for _, _, q in sorted(keyed, key=lambda t: (t[0], t[1]))]
+
+
+def group_turn(decisions: list[Decision], questions: list[elicit.Question], ask: Ask, chat: Chat | None, extraction: str,
+               size: int = 8, say: Callable[[str], None] = lambda s: None) -> tuple[Turn, elicit.Answer] | None:
+    """One question about the largest group of misfits that share what was done and what the rule expected. The person says
+    what they have in common and which of them it applies to; the numbers are read by code, and if they name none the
+    condition is taken to apply to the whole group. Returns None if there is no group of at least three."""
+    groups: dict[tuple, list[elicit.Question]] = {}
+    for q in questions:
+        groups.setdefault((q.decision.outcome, q.expected), []).append(q)
+    biggest = max(groups.values(), key=len, default=[])
+    if len(biggest) < 3:
+        return None
+    members = biggest[:size]
+    listing = "\n".join(f"{i}. {m.decision.session} at {m.decision.t1:.0f}s: on screen "
+                        + ", ".join([f"{k} {v:g}" for k, v in m.decision.readouts.items()] + [f"{k} {v}" for k, v in m.decision.cats.items()])
+                        for i, m in enumerate(members, 1))
+    text = GROUP_QUESTION.format(n=len(members), did=members[0].decision.outcome, expected=members[0].expected, cases=listing)
+    say(text)
+    keys = [elicit.key(m.decision) for m in members]
+    answer = ask(text, {"key": "group", "group_keys": keys, "followup": False})
+    interp = interpret(answer, [], chat, extraction)
+    named = parse_held_for(answer, len(members))
+    held = [keys[i - 1] for i in named] if named else (keys if interp["condition"] else [])
+    anchor = next((m.decision for m in members if elicit.key(m.decision) in set(held)), members[0].decision)  # an Answer always tags its own decision
+    ans = elicit.Answer(anchor.session, anchor.t1, answer, interp["condition"], [k for k in held if k != elicit.key(anchor)])
+    before = len(questions)
+    after = unexplained(decisions, [ans])
+    turn = Turn("group", text, False, answer, interp["condition"], interp["kind"], held, critique(text, answer, chat), before, after, None)
+    return turn, ans
+
+
 def run_interview(decisions: list[Decision], ask: Ask, chat: Chat | None, strategy: str = DEFAULT_STRATEGY,
                   max_questions: int = 8, patience: int = 4, follow_up: bool = True, say: Callable[[str], None] = lambda s: None,
-                  extraction: str = "gated", on_turn: Callable[[Turn, elicit.Answer], None] | None = None) -> Interview:
+                  extraction: str = "gated", order: str = "time", group_first: bool = False,
+                  on_turn: Callable[[Turn, elicit.Answer], None] | None = None) -> Interview:
     """Question the person about the decisions the rule cannot explain; stop when nothing is left, the budget is spent,
     or `patience` answers in a row changed nothing. `decisions` should be the ones the rule was fitted on."""
     result = Interview()
     questions = elicit.build_questions(decisions)
     before = len(questions)
     quiet = 0
-    for q in questions:
+    if group_first:  # one question about the biggest group of similar misfits, then the usual one-by-one questions
+        got = group_turn(decisions, questions, ask, chat, extraction, say=say)
+        if got:
+            turn, ans = got
+            result.turns.append(turn)
+            result.answers.append(ans)
+            if on_turn:
+                on_turn(turn, ans)
+            quiet = 0 if turn.delta > 0 else 1
+    for q in rank_misfits(decisions, questions, order):
         if len(result.turns) >= max_questions:
             result.stopped = "question budget spent"
             break
