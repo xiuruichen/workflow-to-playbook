@@ -112,3 +112,62 @@ def test_ocr_dropping_a_space_does_not_split_a_readout():
     add_context(rows)
     assert all("batch_size" in d.readouts and "batchsize" not in d.readouts for d in rows)
     assert rows[1].features["changed_batch_size"] == 0.0 and rows[2].features["changed_batch_size"] == 1.0
+
+
+def test_categories_become_features_only_when_they_vary_and_recur():
+    from playbook.decisions import Decision, add_context, parse_categories
+
+    assert parse_categories(["Vendor: New", "Amount: 5,000", "Window: Chrome"]) == {"vendor": "new", "window": "chrome"}
+    rows = [Decision(str(i), i, i + 1, "w", {"amount": 1.0}, "none", cats=c)
+            for i, c in enumerate([{"vendor": "new", "window": "chrome"}, {"vendor": "known", "window": "chrome"},
+                                   {"vendor": "new", "window": "chrome"}, {"vendor": "known", "window": "chrome"},
+                                   {"vendor": "odd", "window": "chrome"}])]
+    add_context(rows)
+    assert rows[0].features["vendor=new"] == 1.0 and rows[0].features["vendor=known"] == 0.0
+    assert "vendor=odd" not in rows[4].features, "a word seen once is noise"
+    assert not any(k.startswith("window=") for r in rows for k in r.features), "a label that never varies is no feature"
+
+
+def test_triage_rule_and_a_learnable_rule():
+    from playbook import triage
+
+    visits = triage.make_visits(200, seed=100)
+    assert {v.outcome for v in visits} == {"Escalate", "Approve", "none"}
+    assert sum(v.outcome == "Escalate" for v in visits) > 20, "every branch of the rule must be learnable from a short run"
+    assert not visits[0].amount_changed
+    same = [b for a, b in zip(visits, visits[1:]) if not b.amount_changed]
+    assert same and all(b.vendor for b in same)
+    T = study.domains()["triage"]
+    big = study.build(T, 160, 100)
+    assert induce.holdout(big.decisions, lookahead=True)["test_accuracy"] >= 0.85
+
+
+def test_lookahead_recovers_more_of_a_compound_rule_than_the_greedy_tree():
+    T = study.domains()["triage"]
+    greedy, deep = [], []
+    for seed in range(100, 110):
+        ds = study.build(T, 80, seed).decisions
+        greedy.append(induce.holdout(ds, lookahead=False)["test_accuracy"])
+        deep.append(induce.holdout(ds, lookahead=True)["test_accuracy"])
+    assert sum(deep) / 10 >= sum(greedy) / 10 + 0.03
+
+
+def test_lookahead_does_not_change_a_rule_the_greedy_tree_already_fits():
+    D2 = study.domains()["dashboard"]
+    ds = study.build(D2, 40, 100).decisions
+    assert induce.rules(induce.fit(ds, lookahead=True)) == induce.rules(induce.fit(ds, lookahead=False))
+
+
+@pytest.mark.skipif(not ocr.available(), reason="needs the local OCR engine")
+def test_triage_capture_reads_numbers_words_and_the_button_clicked(settings, tmp_path):
+    from playbook import triage
+
+    visits = triage.make_visits(10, 100)
+    sessions = triage.build_sessions(settings.model_copy(update={"use_ocr": True}), tmp_path, visits)
+    got = pool(sessions)
+    assert len(got) == 10
+    direct = study.build(study.domains()["triage"], 10, 100).decisions
+    for c, d, v in zip(got, direct, visits):
+        assert c.readouts.get("amount") == d.readouts["amount"]
+        assert c.cats.get("vendor") == d.cats["vendor"]
+        assert (c.outcome.lower().replace(" ", "") if c.outcome != NONE else NONE) == v.outcome.lower()

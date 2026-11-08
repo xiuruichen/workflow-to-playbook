@@ -24,6 +24,10 @@ MIN_LEAF = 2
 # Context features (changed_x, delta_x) are derived from neighbouring decisions and there are
 # many of them, so they can fit noise. They must beat a plain on-screen number by this margin.
 DERIVED_PENALTY = 0.05
+# Opt-in (fit(lookahead=True)): choose each split by how well its children fit after one more split (see
+# _with_lookahead). On compound rules it recovers more from few visits; on noisy labels it memorises more.
+LOOKAHEAD = False
+LOOKAHEAD_MARGIN = 0.05  # training accuracy the lookahead tree must add to be preferred
 
 
 @dataclass
@@ -46,46 +50,104 @@ def _gini(labels: list[str]) -> float:
     return 1.0 - sum((c / n) ** 2 for c in Counter(labels).values()) if n else 0.0
 
 
-def _build(rows: list[Decision], depth: int, max_depth: int, min_leaf: int) -> Node:
+def _penalty(f: str) -> float:
+    return DERIVED_PENALTY if f.startswith(("changed_", "delta_")) else 0.0
+
+
+def _best_split(rows: list[Decision], min_leaf: int) -> tuple[float, str, float, int] | None:
+    """The best single split of `rows` that gets more training decisions right than no split:
+    (score, feature, threshold, decisions right). Counts are accumulated while sweeping the sorted values."""
+    labels = [d.outcome for d in rows]
+    base, n = _gini(labels), len(rows)
+    total = Counter(labels)
+    top = total.most_common(1)[0][1]
+    best: tuple[float, str, float, int] | None = None
+    for f in sorted({k for d in rows for k in d.features}):
+        vals = sorted((d.features.get(f, float("-inf")), d.outcome) for d in rows)
+        lo: Counter = Counter()
+        for i in range(n - 1):
+            lo[vals[i][1]] += 1
+            if vals[i][0] == vals[i + 1][0] or i + 1 < min_leaf or n - i - 1 < min_leaf or vals[i][0] == float("-inf") and vals[i + 1][0] == float("-inf"):
+                continue
+            hi = total - lo
+            right = max(lo.values()) + max(hi.values())
+            if right <= top:
+                continue  # the split must get more training decisions right, not just look purer
+            g_lo = 1.0 - sum((c / (i + 1)) ** 2 for c in lo.values())
+            g_hi = 1.0 - sum((c / (n - i - 1)) ** 2 for c in hi.values())
+            score = base - ((i + 1) * g_lo + (n - i - 1) * g_hi) / n - _penalty(f)
+            thr = (vals[i][0] + vals[i + 1][0]) / 2 if vals[i][0] != float("-inf") else vals[i + 1][0] - 1.0
+            if score > 1e-9 and (best is None or score > best[0] + 1e-12):
+                best = (score, f, thr, right)
+    return best
+
+
+def _with_lookahead(rows: list[Decision], min_leaf: int) -> tuple[float, str, float] | None:
+    """Pick the split whose children, each split once more, fit best. A rule made of two regimes
+    ("under 5,000: decide by vendor; otherwise by days overdue") has a first split that looks poor on
+    its own and is only recognisable by what it makes possible; greedy choice misses it."""
+    labels = [d.outcome for d in rows]
+    n, top = len(rows), Counter(labels).most_common(1)[0][1]
+    base = _gini(labels)
+    best: tuple[float, str, float] | None = None
+    for f in sorted({k for d in rows for k in d.features}):
+        values = sorted({d.features.get(f, float("-inf")) for d in rows})
+        for a, b in zip(values, values[1:]):
+            thr = (a + b) / 2 if a != float("-inf") else b - 1.0
+            lo = [d for d in rows if d.features.get(f, float("-inf")) <= thr]
+            hi = [d for d in rows if d.features.get(f, float("-inf")) > thr]
+            if len(lo) < min_leaf or len(hi) < min_leaf:
+                continue
+            right, impurity = 0, 0.0
+            for child in (lo, hi):
+                lab = [d.outcome for d in child]
+                keep = Counter(lab).most_common(1)[0][1]
+                nxt = _best_split(child, min_leaf) if len(child) >= 2 * min_leaf and len(set(lab)) > 1 else None
+                right += nxt[3] if nxt else keep
+                impurity += len(child) * (_gini(lab) - (nxt[0] if nxt else 0.0))
+            if right <= top:
+                continue
+            score = base - impurity / n - _penalty(f)
+            if score > 1e-9 and (best is None or score > best[0] + 1e-12):
+                best = (score, f, thr)
+    return best
+
+
+def _build(rows: list[Decision], depth: int, max_depth: int, min_leaf: int, lookahead: bool) -> Node:
     labels = [d.outcome for d in rows]
     label, count = Counter(labels).most_common(1)[0]
     node = Node(label, len(rows), count)
     if depth >= max_depth or len(set(labels)) == 1 or len(rows) < 2 * min_leaf:
         return node
-    best: tuple[float, str, float] | None = None
-    base = _gini(labels)
-    for f in sorted({k for d in rows for k in d.features}):
-        vals = sorted({d.features[f] for d in rows if f in d.features})
-        for a, b in zip(vals, vals[1:]):
-            thr = (a + b) / 2
-            lo = [d.outcome for d in rows if d.features.get(f, float("-inf")) <= thr]
-            hi = [d.outcome for d in rows if d.features.get(f, float("-inf")) > thr]
-            if len(lo) < min_leaf or len(hi) < min_leaf:
-                continue
-            # A split must get more training decisions right, not just look purer: otherwise it only
-            # memorises a stray case (and a readout that drifts with time, like loss, can do that).
-            right = Counter(lo).most_common(1)[0][1] + Counter(hi).most_common(1)[0][1]
-            if right <= count:
-                continue
-            gain = base - (len(lo) * _gini(lo) + len(hi) * _gini(hi)) / len(rows)
-            score = gain - (DERIVED_PENALTY if f.startswith(("changed_", "delta_")) else 0.0)
-            if gain > 1e-9 and score > 0 and (best is None or score > best[0] + 1e-12):
-                best = (score, f, thr)
-    if best is None:
+    if lookahead and depth + 1 < max_depth:
+        found = _with_lookahead(rows, min_leaf)
+    else:
+        one = _best_split(rows, min_leaf)
+        found = (one[0], one[1], one[2]) if one else None
+    if found is None:
         return node
-    _, f, thr = best
+    _, f, thr = found
     lo_rows = [d for d in rows if d.features.get(f, float("-inf")) <= thr]
     hi_rows = [d for d in rows if d.features.get(f, float("-inf")) > thr]
     node.feature, node.threshold = f, thr
-    node.low = _build(lo_rows, depth + 1, max_depth, min_leaf)
-    node.high = _build(hi_rows, depth + 1, max_depth, min_leaf)
+    node.low = _build(lo_rows, depth + 1, max_depth, min_leaf, lookahead)
+    node.high = _build(hi_rows, depth + 1, max_depth, min_leaf, lookahead)
     return node
 
 
-def fit(decisions: list[Decision], max_depth: int = MAX_DEPTH, min_leaf: int = MIN_LEAF) -> Node:
+def fit(decisions: list[Decision], max_depth: int = MAX_DEPTH, min_leaf: int = MIN_LEAF, lookahead: bool | None = None) -> Node:
+    """The greedy tree, unless a tree built with lookahead fits the training decisions clearly better.
+
+    The margin matters: searching more widely always fits training data at least as well, and on a
+    readout that merely drifts with time (loss) or on noisy labels that is memorising, not finding a rule.
+    """
     if not decisions:
         raise ValueError("no decisions to fit")
-    return _build(decisions, 0, max_depth, min_leaf)
+    greedy = _build(decisions, 0, max_depth, min_leaf, False)
+    if not (LOOKAHEAD if lookahead is None else lookahead) or accuracy(greedy, decisions) >= 1.0:
+        return greedy
+    deep = _build(decisions, 0, max_depth, min_leaf, True)
+    return deep if accuracy(deep, decisions) - accuracy(greedy, decisions) >= LOOKAHEAD_MARGIN else greedy
 
 
 def leaves(tree: Node, conds: tuple[str, ...] = ()) -> list[tuple[tuple[str, ...], Node]]:

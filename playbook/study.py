@@ -37,6 +37,7 @@ class Domain:
     outcome: Callable[[object, bool], str]  # (visit, rule_has_drifted) -> label of what the planted rule does
     actions: tuple[str, ...]  # every label other than NONE the rule can produce
     drift_note: str = ""
+    cats: Callable[[object], dict[str, str]] | None = None  # words on screen, e.g. {"vendor": "known"}
 
 
 def _dashboard() -> Domain:
@@ -103,7 +104,8 @@ def build(domain: Domain, n: int, seed: int, *, label_noise: float = 0.0, misrea
                 reads[name] = _misread(reads[name], rng)
         for k in range(distractors):
             reads[f"aux{k + 1}"] = round(rng.uniform(0, 10), 1)
-        d = Decision(f"visit{i:03d}", i * 30.0, i * 30.0 + 12.0, "study", reads, shown)
+        d = Decision(f"visit{i:03d}", i * 30.0, i * 30.0 + 12.0, "study", reads, shown,
+                     cats=dict(domain.cats(v)) if domain.cats else {})
         rows.append(d)
         key = elicit.key(d)
         clean[key] = planted

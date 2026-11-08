@@ -70,7 +70,8 @@ def rules_decider(judgment: dict) -> Decider:
 
 
 def _screen(d: Decision, facts: list[str], context: list[str] = ()) -> str:
-    seen = ", ".join(f"{k.replace('_', ' ')} = {v:g}" for k, v in d.readouts.items())
+    seen = ", ".join([f"{k.replace('_', ' ')} = {v:g}" for k, v in d.readouts.items()]
+                     + [f"{k.replace('_', ' ')} = {v}" for k, v in d.cats.items()])
     known = [f"{f.replace('_', ' ')}: {'yes' if d.features.get(f) else 'no'}" for f in facts]
     # What the rules call changed_x is not on this screen: it compares with the previous check.
     prior = [f"{c.removeprefix('changed_').replace('_', ' ')} changed since the previous check: "

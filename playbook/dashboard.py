@@ -141,6 +141,17 @@ def evaluate(n: int = 40, seed: int = 0, settings: Settings | None = None, root:
 
 
 if __name__ == "__main__":
+    import argparse
     import json
 
-    print(json.dumps(evaluate(), indent=2))
+    ap = argparse.ArgumentParser(description="Capture a planted-rule benchmark, fit a rule, score it on later visits.")
+    ap.add_argument("--domain", choices=["dashboard", "triage"], default="dashboard")
+    ap.add_argument("--visits", type=int, default=40)
+    ap.add_argument("--seed", type=int, default=0)
+    a = ap.parse_args()
+    if a.domain == "triage":
+        from . import triage
+
+        print(json.dumps(triage.evaluate(a.visits, a.seed), indent=2))
+    else:
+        print(json.dumps(evaluate(a.visits, a.seed), indent=2))
