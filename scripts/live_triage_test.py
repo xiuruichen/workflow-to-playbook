@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from live_dashboard_test import Abort, stop_while_pumping  # noqa: E402
+from live_dashboard_test import Abort, bring_to_front, stop_while_pumping  # noqa: E402
 
 from playbook import induce, replay  # noqa: E402
 from playbook.config import get_settings  # noqa: E402
@@ -72,6 +72,7 @@ class App:
             self.labels[name].config(text=f"{name}: {value}")
         self.root.lift()
         self.root.focus_force()
+        bring_to_front(self.root)
         self.pump(0.8)
 
     def pump(self, seconds: float) -> None:
@@ -100,6 +101,8 @@ class App:
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # window titles can hold any character
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 24
     seed = int(sys.argv[2]) if len(sys.argv) > 2 else 0
     root = Path(tempfile.mkdtemp(prefix="live_triage_"))

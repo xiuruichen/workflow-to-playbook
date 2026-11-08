@@ -34,6 +34,20 @@ class Abort(Exception):
     pass
 
 
+def bring_to_front(root: tk.Tk) -> None:
+    """Windows refuses to let a background process take the foreground (our window stayed behind the terminal
+    that started this script, and the guard in `click` then, rightly, stopped the run). A synthetic Alt key
+    press first makes the process eligible, which is the usual workaround."""
+    import ctypes
+
+    u = ctypes.windll.user32
+    u.keybd_event(0x12, 0, 0, 0)
+    u.keybd_event(0x12, 0, 2, 0)
+    hwnd = u.GetParent(root.winfo_id()) or root.winfo_id()
+    u.ShowWindow(hwnd, 9)
+    u.SetForegroundWindow(hwnd)
+
+
 class App:
     def __init__(self) -> None:
         _enable_dpi_awareness()  # same physical-pixel coordinates as the recorder and the mouse
@@ -75,6 +89,7 @@ class App:
             self.labels[name].config(text=f"{name}: {value}")
         self.root.lift()
         self.root.focus_force()
+        bring_to_front(self.root)
         self.pump(0.8)
 
     def pump(self, seconds: float) -> None:
@@ -115,6 +130,8 @@ def stop_while_pumping(app: App, rec: Recorder) -> None:
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # window titles can hold any character
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 24
     seed = int(sys.argv[2]) if len(sys.argv) > 2 else 0
     root = Path(tempfile.mkdtemp(prefix="live_dashboard_"))
