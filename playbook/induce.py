@@ -173,6 +173,16 @@ def features_used(tree: Node) -> set[str]:
     return set() if tree.leaf else {tree.feature} | features_used(tree.low) | features_used(tree.high)
 
 
+def path_features(tree: Node, d: Decision) -> set[str]:
+    """The features tested on the way from the root to the leaf that decides `d`."""
+    out: set[str] = set()
+    node = tree
+    while not node.leaf:
+        out.add(node.feature)
+        node = node.low if d.features.get(node.feature, float("-inf")) <= node.threshold else node.high
+    return out
+
+
 def rules(tree: Node, prefix: str = "") -> list[str]:
     """One readable line per leaf, e.g. 'spikes > 1.5 and changed_batch_size <= 0.5 -> stop (7/7)'."""
     if tree.leaf:

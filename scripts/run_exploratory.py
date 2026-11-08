@@ -109,10 +109,12 @@ def e6(doms):
             domain = doms[dn]
             visits = domain.make_visits(40, seed)
             built = study.build(domain, 40, seed)
-            used = induce.features_used(induce.fit(built.decisions))
+            tree = induce.fit(built.decisions)
+            used = induce.features_used(tree)
             for v, d in zip(visits, built.decisions):
                 truth = "O5" if domain.depends_on_history(v) else ("O4" if built.clean[key(d)] == "none" else "O3")
                 conf[(truth, classify_decision(d, used).observability)] += 1
+                conf[(truth, "path:" + classify_decision(d, induce.path_features(tree, d)).observability)] += 1
         out.append({"study": "E6 classifier vs ground truth", "domain": dn, "confusion": {f"{t}->{p}": n for (t, p), n in sorted(conf.items())}})
     return out
 

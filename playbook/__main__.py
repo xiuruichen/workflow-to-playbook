@@ -278,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
         print()
         print(f"{len(odd)} decision(s) the rule can't explain. Ask the person why:")
         for d, guess in odd:
-            c = classify_decision(d, induce.features_used(tree), rule_gets_it_right=False)
+            c = classify_decision(d, induce.path_features(tree, d), rule_gets_it_right=False)
             print(f"  {d.session} @ {d.t1:.0f}s  did: {d.outcome}; rule expected: {guess}; saw {d.readouts}  [{c.observability}, tacit {c.tacit_score}/4]")
         return 0
     if args.cmd == "elicit":

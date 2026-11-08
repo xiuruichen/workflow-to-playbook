@@ -171,3 +171,15 @@ def test_triage_capture_reads_numbers_words_and_the_button_clicked(settings, tmp
         assert c.readouts.get("amount") == d.readouts["amount"]
         assert c.cats.get("vendor") == d.cats["vendor"]
         assert (c.outcome.lower().replace(" ", "") if c.outcome != NONE else NONE) == v.outcome.lower()
+
+
+def test_cross_session_class_follows_the_decisions_own_path():
+    from playbook.knowledge import classify_decision
+
+    ds = study.build(D, 60, 100).decisions
+    tree = induce.fit(ds)
+    calm = next(d for d in ds if d.readouts["spikes"] < 2)
+    assert "changed_batch_size" not in induce.path_features(tree, calm)
+    assert classify_decision(calm, induce.path_features(tree, calm)).observability == "O4"
+    busy = next(d for d in ds if d.readouts["spikes"] >= 2)
+    assert classify_decision(busy, induce.path_features(tree, busy)).observability == "O5"

@@ -1,0 +1,885 @@
+{
+  "summary": {
+    "visits_recorded": 40,
+    "decisions": 40,
+    "decisions_per_recording": [
+      1
+    ],
+    "readouts_correct": "40/40",
+    "outcomes_correct": "40/40",
+    "rule_greedy_fitted_on_earliest_70pct": [
+      "amount <= 4339.5 and vendor=known <= 0.5 -> none (8/8)",
+      "amount <= 4339.5 and vendor=known > 0.5 -> Approve (8/8)",
+      "amount > 4339.5 and days_overdue <= 29.5 -> none (2/2)",
+      "amount > 4339.5 and days_overdue > 29.5 -> Escalate (10/10)"
+    ],
+    "test_accuracy_greedy": 0.6666666666666666,
+    "rule_lookahead_fitted_on_earliest_70pct": [
+      "amount <= 4339.5 and vendor=known <= 0.5 -> none (8/8)",
+      "amount <= 4339.5 and vendor=known > 0.5 -> Approve (8/8)",
+      "amount > 4339.5 and days_overdue <= 29.5 -> none (2/2)",
+      "amount > 4339.5 and days_overdue > 29.5 -> Escalate (10/10)"
+    ],
+    "test_accuracy_lookahead": 0.6666666666666666,
+    "replay": {
+      "majority": {
+        "n": 12,
+        "agreement": 0.083,
+        "ask_human": 0,
+        "agreement_when_answered": 0.083,
+        "wrong_actions": 11,
+        "missed_actions": 0
+      },
+      "rules": {
+        "n": 12,
+        "agreement": 0.667,
+        "ask_human": 0,
+        "agreement_when_answered": 0.667,
+        "wrong_actions": 4,
+        "missed_actions": 0
+      }
+    }
+  },
+  "rows": [
+    {
+      "visit": 0,
+      "truth": {
+        "amount": 2372,
+        "days_overdue": 58,
+        "vendor": "Known",
+        "amount_changed": false,
+        "outcome": "Approve"
+      },
+      "readouts": {
+        "amount": 2372.0,
+        "days_overdue": 58.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Approve",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 1,
+      "truth": {
+        "amount": 2372,
+        "days_overdue": 59,
+        "vendor": "Known",
+        "amount_changed": false,
+        "outcome": "Approve"
+      },
+      "readouts": {
+        "amount": 2372.0,
+        "days_overdue": 59.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Approve",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 2,
+      "truth": {
+        "amount": 9860,
+        "days_overdue": 51,
+        "vendor": "New",
+        "amount_changed": true,
+        "outcome": "Escalate"
+      },
+      "readouts": {
+        "amount": 9860.0,
+        "days_overdue": 51.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "Escalate",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 3,
+      "truth": {
+        "amount": 1262,
+        "days_overdue": 11,
+        "vendor": "New",
+        "amount_changed": true,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 1262.0,
+        "days_overdue": 11.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 4,
+      "truth": {
+        "amount": 539,
+        "days_overdue": 38,
+        "vendor": "New",
+        "amount_changed": true,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 539.0,
+        "days_overdue": 38.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 5,
+      "truth": {
+        "amount": 3475,
+        "days_overdue": 16,
+        "vendor": "New",
+        "amount_changed": true,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 3475.0,
+        "days_overdue": 16.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 6,
+      "truth": {
+        "amount": 3475,
+        "days_overdue": 17,
+        "vendor": "New",
+        "amount_changed": false,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 3475.0,
+        "days_overdue": 17.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 7,
+      "truth": {
+        "amount": 3475,
+        "days_overdue": 18,
+        "vendor": "New",
+        "amount_changed": false,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 3475.0,
+        "days_overdue": 18.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 8,
+      "truth": {
+        "amount": 7487,
+        "days_overdue": 23,
+        "vendor": "New",
+        "amount_changed": true,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 7487.0,
+        "days_overdue": 23.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "none",
+      "dwell_s": 14.6,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 9,
+      "truth": {
+        "amount": 3456,
+        "days_overdue": 41,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Approve"
+      },
+      "readouts": {
+        "amount": 3456.0,
+        "days_overdue": 41.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Approve",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 10,
+      "truth": {
+        "amount": 3458,
+        "days_overdue": 28,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Approve"
+      },
+      "readouts": {
+        "amount": 3458.0,
+        "days_overdue": 28.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Approve",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 11,
+      "truth": {
+        "amount": 1223,
+        "days_overdue": 50,
+        "vendor": "New",
+        "amount_changed": true,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 1223.0,
+        "days_overdue": 50.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 12,
+      "truth": {
+        "amount": 1223,
+        "days_overdue": 51,
+        "vendor": "New",
+        "amount_changed": false,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 1223.0,
+        "days_overdue": 51.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 13,
+      "truth": {
+        "amount": 7464,
+        "days_overdue": 52,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Escalate"
+      },
+      "readouts": {
+        "amount": 7464.0,
+        "days_overdue": 52.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Escalate",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 14,
+      "truth": {
+        "amount": 9864,
+        "days_overdue": 35,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Escalate"
+      },
+      "readouts": {
+        "amount": 9864.0,
+        "days_overdue": 35.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Escalate",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 15,
+      "truth": {
+        "amount": 7453,
+        "days_overdue": 52,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Escalate"
+      },
+      "readouts": {
+        "amount": 7453.0,
+        "days_overdue": 52.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Escalate",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 16,
+      "truth": {
+        "amount": 6111,
+        "days_overdue": 38,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Escalate"
+      },
+      "readouts": {
+        "amount": 6111.0,
+        "days_overdue": 38.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Escalate",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 17,
+      "truth": {
+        "amount": 7447,
+        "days_overdue": 41,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Escalate"
+      },
+      "readouts": {
+        "amount": 7447.0,
+        "days_overdue": 41.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Escalate",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 18,
+      "truth": {
+        "amount": 5278,
+        "days_overdue": 47,
+        "vendor": "New",
+        "amount_changed": true,
+        "outcome": "Escalate"
+      },
+      "readouts": {
+        "amount": 5278.0,
+        "days_overdue": 47.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "Escalate",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 19,
+      "truth": {
+        "amount": 2364,
+        "days_overdue": 24,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Approve"
+      },
+      "readouts": {
+        "amount": 2364.0,
+        "days_overdue": 24.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Approve",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 20,
+      "truth": {
+        "amount": 3451,
+        "days_overdue": 42,
+        "vendor": "New",
+        "amount_changed": true,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 3451.0,
+        "days_overdue": 42.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 21,
+      "truth": {
+        "amount": 6158,
+        "days_overdue": 27,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 6158.0,
+        "days_overdue": 27.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 22,
+      "truth": {
+        "amount": 2366,
+        "days_overdue": 59,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Approve"
+      },
+      "readouts": {
+        "amount": 2366.0,
+        "days_overdue": 59.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Approve",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 23,
+      "truth": {
+        "amount": 511,
+        "days_overdue": 33,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Approve"
+      },
+      "readouts": {
+        "amount": 511.0,
+        "days_overdue": 33.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Approve",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 24,
+      "truth": {
+        "amount": 7462,
+        "days_overdue": 32,
+        "vendor": "New",
+        "amount_changed": true,
+        "outcome": "Escalate"
+      },
+      "readouts": {
+        "amount": 7462.0,
+        "days_overdue": 32.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "Escalate",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 25,
+      "truth": {
+        "amount": 6158,
+        "days_overdue": 48,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Escalate"
+      },
+      "readouts": {
+        "amount": 6158.0,
+        "days_overdue": 48.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Escalate",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 26,
+      "truth": {
+        "amount": 2370,
+        "days_overdue": 47,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Approve"
+      },
+      "readouts": {
+        "amount": 2370.0,
+        "days_overdue": 47.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Approve",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 27,
+      "truth": {
+        "amount": 5204,
+        "days_overdue": 53,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Escalate"
+      },
+      "readouts": {
+        "amount": 5204.0,
+        "days_overdue": 53.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Escalate",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 28,
+      "truth": {
+        "amount": 5204,
+        "days_overdue": 54,
+        "vendor": "Known",
+        "amount_changed": false,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 5204.0,
+        "days_overdue": 54.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 29,
+      "truth": {
+        "amount": 5204,
+        "days_overdue": 55,
+        "vendor": "Known",
+        "amount_changed": false,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 5204.0,
+        "days_overdue": 55.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 30,
+      "truth": {
+        "amount": 5204,
+        "days_overdue": 56,
+        "vendor": "Known",
+        "amount_changed": false,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 5204.0,
+        "days_overdue": 56.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 31,
+      "truth": {
+        "amount": 3434,
+        "days_overdue": 17,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Approve"
+      },
+      "readouts": {
+        "amount": 3434.0,
+        "days_overdue": 17.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Approve",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 32,
+      "truth": {
+        "amount": 1221,
+        "days_overdue": 20,
+        "vendor": "New",
+        "amount_changed": true,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 1221.0,
+        "days_overdue": 20.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 33,
+      "truth": {
+        "amount": 2384,
+        "days_overdue": 27,
+        "vendor": "New",
+        "amount_changed": true,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 2384.0,
+        "days_overdue": 27.0
+      },
+      "cats": {
+        "vendor": "new"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 34,
+      "truth": {
+        "amount": 6163,
+        "days_overdue": 40,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Escalate"
+      },
+      "readouts": {
+        "amount": 6163.0,
+        "days_overdue": 40.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Escalate",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 35,
+      "truth": {
+        "amount": 6163,
+        "days_overdue": 41,
+        "vendor": "Known",
+        "amount_changed": false,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 6163.0,
+        "days_overdue": 41.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "none",
+      "dwell_s": 14.6,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 36,
+      "truth": {
+        "amount": 7424,
+        "days_overdue": 26,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 7424.0,
+        "days_overdue": 26.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 37,
+      "truth": {
+        "amount": 7424,
+        "days_overdue": 27,
+        "vendor": "Known",
+        "amount_changed": false,
+        "outcome": "none"
+      },
+      "readouts": {
+        "amount": 7424.0,
+        "days_overdue": 27.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 38,
+      "truth": {
+        "amount": 3477,
+        "days_overdue": 37,
+        "vendor": "Known",
+        "amount_changed": true,
+        "outcome": "Approve"
+      },
+      "readouts": {
+        "amount": 3477.0,
+        "days_overdue": 37.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Approve",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 39,
+      "truth": {
+        "amount": 3477,
+        "days_overdue": 38,
+        "vendor": "Known",
+        "amount_changed": false,
+        "outcome": "Approve"
+      },
+      "readouts": {
+        "amount": 3477.0,
+        "days_overdue": 38.0
+      },
+      "cats": {
+        "vendor": "known"
+      },
+      "outcome": "Approve",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    }
+  ]
+}

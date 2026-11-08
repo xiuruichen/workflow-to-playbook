@@ -91,5 +91,7 @@ H6 (real capture): triage seed 1 and dashboard seed 1, 40 visits each, on the re
 
 Hardware/time limits: all runs are on one Windows laptop (15 GB RAM); H5 uses a 4B Qwen3-VL (Q4_K_M, publisher checksums in `llama_runtime.py`) in place of the 2B used before, text only.
 
-#### Deviations
-(none yet)
+#### Deviations (code or scripts changed after tag `freeze-1`)
+- `scripts/live_dashboard_test.py`, `scripts/live_triage_test.py`: added a foreground workaround (synthetic Alt key + SetForegroundWindow) and UTF-8 output. The first H6 attempt aborted immediately because our window was behind the terminal; the click guard stopped it, nothing was clicked elsewhere. Capture and analysis code unchanged.
+- `induce.path_features` and the use of it in `python -m playbook induce` and in the pilot report, so a decision is called cross-session (O5) only if its own path through the rule uses a cross-session feature. Made after E6 showed the frozen classifier calls almost everything O5. E6 reports both versions; H1-H4 and E1-E5 are unaffected (no change to fitting).
+- New scripts only: `run_confirmatory.py`, `run_exploratory.py`, `run_h5.py`.

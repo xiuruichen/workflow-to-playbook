@@ -177,7 +177,7 @@ def report(decisions: list[Decision], raw: dict | None = None) -> str:
         out += ["For each: what the rule expected, what you did, and what was on screen. These are the places to explain why.", ""]
         used = induce.features_used(tree)
         for d, guess in odd:
-            c = classify_decision(d, used, rule_gets_it_right=False)
+            c = classify_decision(d, induce.path_features(tree, d), rule_gets_it_right=False)
             shown = ", ".join([f"{k} = {v:g}" for k, v in d.readouts.items()] + [f"{k} = {v}" for k, v in d.cats.items()])
             out.append(f"- {d.session}: you chose {d.outcome}; the rule expected {guess}. Saw: {shown}. [{c.observability}, tacit {c.tacit_score}/4]")
     else:
