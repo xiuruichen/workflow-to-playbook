@@ -1,0 +1,12 @@
+  Qwen3VL-4B-Instruct-Q4_K_M.gguf: already downloaded
+  mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf: already downloaded
+dashboard seed 6 v0_open/free: gain +0.167 (structured +0.167), 2 questions, stopped: nothing left to explain, facts ['still_warming_up']
+dashboard seed 7 v0_open/free: gain +0.000 (structured +0.125), 4 questions, stopped: 4 answers in a row changed nothing, facts []
+dashboard seed 8 v0_open/free: gain +0.125 (structured +0.125), 4 questions, stopped: nothing left to explain, facts ['i_d_just_restarted_that_run']
+dashboard seed 9 v0_open/free: gain +0.000 (structured +0.083), 2 questions, stopped: no more questions, facts []
+dashboard seed 10 v0_open/free: gain +0.000 (structured +0.083), 2 questions, stopped: no more questions, facts []
+triage seed 6 v0_open/free: gain +0.042 (structured +0.042), 6 questions, stopped: 4 answers in a row changed nothing, facts ['still_warming_up']
+triage seed 7 v0_open/free: gain +0.000 (structured +0.000), 4 questions, stopped: 4 answers in a row changed nothing, facts []
+triage seed 8 v0_open/free: gain +0.000 (structured +0.083), 4 questions, stopped: 4 answers in a row changed nothing, facts []
+triage seed 9 v0_open/free: gain +0.000 (structured +0.000), 4 questions, stopped: 4 answers in a row changed nothing, facts []
+triage seed 10 v0_open/free: gain +0.000 (structured +0.000), 4 questions, stopped: 4 answers in a row changed nothing, facts []
