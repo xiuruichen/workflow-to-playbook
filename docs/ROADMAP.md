@@ -57,7 +57,7 @@ Cited as related work only (they train models or run agents, out of scope): Vide
 | `dashboard.py`, `triage.py`, `service.py` | The three planted-rule benchmarks (training run; invoice triage; service health with a rate rule), each with a screen renderer for the real recorder. |
 | `study.py` | A fast, model-free harness for the protocol's experiments (noise, misreads, distractors, drift, an off-screen fact). A test compares it with real OCR on rendered screens. |
 | `pilot.py` | Offline case page for a real person, a report on their log, and an interview. |
-| `scripts/` | `live_dashboard_test.py`, `live_triage_test.py` (real window, real mouse); `run_*.py` experiment runners. |
+| `scripts/` | `live_dashboard_test.py`, `live_triage_test.py` (scripted person, real window and mouse); `live_hidden_rule_test.py` + `analyze_hidden_rule_test.py` (an interactive person judges cases on a real window; one long recording); `run_*.py` experiment runners. |
 
 ## Results
 
