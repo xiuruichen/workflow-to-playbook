@@ -1,0 +1,17 @@
+  Qwen3VL-4B-Instruct-Q4_K_M.gguf: already downloaded
+  mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf: already downloaded
+dashboard seed 101 v0_open/free: gain +0.000 (structured +0.000), 4 questions, stopped: 4 answers in a row changed nothing, facts ['still_warming_up']
+dashboard seed 102 v0_open/free: gain +0.000 (structured +0.042), 4 questions, stopped: 4 answers in a row changed nothing, facts []
+dashboard seed 103 v0_open/free: gain +0.000 (structured +0.000), 4 questions, stopped: 4 answers in a row changed nothing, facts []
+dashboard seed 104 v0_open/free: gain +0.125 (structured +0.125), 1 questions, stopped: nothing left to explain, facts ['early_days_after_a_restart']
+dashboard seed 105 v0_open/free: gain +0.125 (structured +0.125), 1 questions, stopped: nothing left to explain, facts ['still_warming_up']
+dashboard seed 106 v0_open/free: gain +0.000 (structured +0.000), 4 questions, stopped: 4 answers in a row changed nothing, facts []
+dashboard seed 107 v0_open/free: gain +0.083 (structured +0.083), 2 questions, stopped: nothing left to explain, facts ['early_days_after_a_restart']
+dashboard seed 108 v0_open/free: gain +0.000 (structured +0.000), 4 questions, stopped: 4 answers in a row changed nothing, facts ['early_days_after_a_restart']
+dashboard seed 109 v0_open/free: gain +0.083 (structured +0.083), 2 questions, stopped: nothing left to explain, facts ['i_d_just_restarted_that_run']
+triage seed 100 v0_open/free: gain +0.000 (structured +0.083), 4 questions, stopped: 4 answers in a row changed nothing, facts []
+triage seed 101 v0_open/free: gain +0.000 (structured +0.000), 4 questions, stopped: 4 answers in a row changed nothing, facts []
+triage seed 102 v0_open/free: gain +0.000 (structured +0.000), 4 questions, stopped: 4 answers in a row changed nothing, facts []
+ row changed nothing, facts []
+triage seed 102 v0_open/free: gain +0.000 (structured +0.000), 4 questions, stopped: 4 answers in a row changed nothing, facts []
+triage seed 103 v0_open/free: gain +0.000 (structured +0.000), 4 questions, stopped: 4 answers in a row changed nothing, facts []
