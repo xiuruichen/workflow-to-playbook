@@ -1,6 +1,6 @@
 # Results
 
-Everything below was produced with a scripted person, an AI acting as the person, or synthetic recordings. **No real expert has been tested.** Hypotheses H1–H7, criteria and seeds were written before the runs ([evaluation-protocol.md](evaluation-protocol.md), with six dated amendments); every number links to a file in [`results/`](results/README.md), which also gives the command that reproduces it. Predictions that turned out wrong are said so.
+Everything below was produced with a scripted person, an AI acting as the person, or synthetic recordings. **No real expert has been tested.** Hypotheses H1–H7, criteria and seeds were written before the runs ([evaluation-protocol.md](evaluation-protocol.md), with seven dated amendments); every number links to a file in [`results/`](results/README.md), which also gives the command that reproduces it. Predictions that turned out wrong are said so.
 
 ## The decision work at a glance
 
@@ -47,6 +47,33 @@ Agreement with the person's later decisions:
 ### H6: real capture (seed 1, 40 visits each, real recorder and mouse, scripted person; [`results/h6/`](results/h6/))
 
 Triage: 40/40 readouts (numbers and the vendor word) and 40/40 outcomes; the rule fitted on 28 scored 0.67 on the last 12, baseline 0.08. Dashboard: 40/40 and 40/40; rules 12/12, baseline 0.67. H6 (≥ 0.95 correct) holds for both.
+
+### The LLM-driven interview
+
+Amendment 7; Qwen3-VL 4B as the interviewer; tables in [`results/interview.md`](results/interview.md). A local model writes the question for each choice the fitted rule cannot explain, reads the person's free-text answer into a short condition, and decides when to stop ([tacit-knowledge.md](tacit-knowledge.md#the-same-interview-driven-by-a-local-model)). Scenario as in H4 (80 visits, hidden off-screen warmup fact), a scripted expert who answers in words (clear, vague and irrelevant phrasings), test seeds 6–10, both domains, 10 interviews. Bars fixed beforehand:
+
+| Bar | Measured | Verdict |
+|---|---|---|
+| H8: the condition is extracted from at least 80% of clear answers | 3 of 6 (50%) | **fails** |
+| H8: no condition for at least 80% of vague and irrelevant answers | 30 of 30 | holds |
+| H9: interview gain at least 70% of the structured-expert gain | +0.033 against +0.071 (47%) | **fails** |
+| No question contains the hidden terms | 0 of 22 model-written questions | holds |
+| H10 (exploratory): Spearman, the model's rating against the measured effect, at least 0.3 | 0.79 over 22 answers | holds |
+
+- **What happened.** The model was conservative: it never read an irrelevant remark as a condition (30 of 30) but missed clear reasons half the time, and the same sentence ("It was still warming up, so I gave it time.") was read in one interview and missed in another. When a condition *was* extracted, the effect was large (4, 5 and 10 more choices explained). Only 3 of 10 interviews named a fact at all; 22 of the 36 answers were about choices the hidden fact did not cause, so the questions often went to the wrong misfits first. Dashboard: +0.058 against +0.117 structured; triage: +0.008 against +0.025.
+- **Small samples.** Six clear answers, 22 rated answers, ten interviews. The H10 correlation is probably mostly the difference between clear and vague answers rather than a calibrated self-critique.
+- **Development runs (seeds 100–109, the only place prompts were tuned).** Stopping after two answers that explained nothing was too impatient: a condition was named in 3 of 20 interviews, against 12 of 20 with four (gain 78% of the structured gain there), so four became the default. The first prompt leaked the hidden fact through its own example ("run just restarted") and was too quick to answer "no condition"; both were fixed using development phrasings that differ from the test phrasings, and verbatim test strings were removed from the prompt (the generic categories "vague" and "distractions" still overlap the test answers in meaning, which flatters the 30-of-30).
+- **Exploratory: question wording** (the 4B as an LLM persona that was told the hidden rule, so its answers depend on the question; 10 interviews per strategy):
+
+  | strategy | gain | questions | a matching condition found in |
+  |---|---|---|---|
+  | fixed template | +0.067 | 3.1 | 2 of 10 |
+  | `v0_open` | +0.071 | 3.6 | 5 of 10 |
+  | `v0_context` | +0.071 | 3.7 | 4 of 10 |
+  | `v0_counterfactual` | +0.029 | 4.1 | 5 of 10 |
+
+  Open and context questions got a matching condition named more often than the fixed template at a similar gain; the counterfactual question gained least. With ten interviews each these are leads, not findings, and the v0 wordings are placeholders for the team's question design ([interview-guide.md](interview-guide.md)).
+- **Reading.** The plumbing works (guards, tagging, stopping, measured effect, no leakage) and the downstream effect is large when a condition is extracted. The 4B model is the bottleneck, in reading answers and in choosing what to ask first. The fixed template with a typed condition stays the default; `--llm` is opt-in.
 
 ### Later amendments (seeds 6–10, criteria fixed before each run)
 
