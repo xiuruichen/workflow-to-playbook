@@ -46,6 +46,11 @@ ERROR_TEXT = re.compile(
     r"does\s?n[o']t\s+exist|no\s+such|no\s+(?:results|matches)|did\s+not\s+match)\b",
     re.I,
 )
+# OCR drops spaces ("isnotrecognized"), which defeats : multi-word phrases are also tried on text with spaces removed.
+ERROR_PHRASES_COMPACT = re.compile(
+    r"(?:is|was|are|were)?not(?:an?)?(?:recogni[sz]ed|found|defined|valid|allowed|supported|available|exist)|"
+    r"does?n'?texist|nosuch|no(?:results|matches)|didnotmatch|could(?:n'?t|not)|cannot|can'?t(?:find|open|be)"
+)
 TYPED_WORD = re.compile(r"[\w.@/\\+-]{3,}")
 ERROR_WINDOW_S = 15.0  # how long after an entry an error message is attributed to it
 
@@ -126,6 +131,16 @@ def _tokens(value: str) -> set[str]:
     return {t for t in out if t}
 
 
+def cites_discrepancy(note: str) -> bool:
+    """The note quotes two values that are near-misses of each other ("typed 315,613, page shows 315,663").
+
+    Small local models fill free-text remarks on every step ("the action is confirmed by the red ring").
+    A remark that names two conflicting values is something code can check; the others are prose.
+    """
+    toks = sorted(_tokens(note))
+    return any(is_near_miss(a, b) or is_misread_number(a, b) for i, a in enumerate(toks) for b in toks[i + 1:])
+
+
 def find_near_misses(
     events: list[Event],
     candidates: list[StepCandidate],
@@ -200,7 +215,8 @@ def find_rejected_input(events: list[Event], ocr: list[tuple[str, float]] = ()) 
             if not (ev.t < t <= until) or _norm(line) in before:
                 continue  # outside the entry's window, or already on screen before it
             # The error wording must come from the software, not from the typed text echoed back.
-            if not ERROR_TEXT.search(re.sub(re.escape(ev.text.strip()), " ", line, flags=re.I)):
+            software_part = re.sub(re.escape(ev.text.strip()), " ", line, flags=re.I)
+            if not (ERROR_TEXT.search(software_part) or ERROR_PHRASES_COMPACT.search(_norm(software_part))):
                 continue
             cited = next((w for w in words if _cites(line, w)), None)
             if cited:

@@ -32,7 +32,7 @@ from .hardware import be_gentle, cpu_threads
 from .ocr import SessionOCR
 from .ocr import set_threads as ocr_set_threads
 from .security import SecurityError
-from .consistency import annotate_steps, find_near_misses, find_rejected_input
+from .consistency import annotate_steps, cites_discrepancy, find_near_misses, find_rejected_input
 from .keyframes import annotate, crop_around, encode_jpeg, load_image, resize_max_width
 from .models import Event, InputVariable, Keyframe, Manifest, Playbook, Step, StepCandidate
 from .token_certainty import TOP_LOGPROBS, weakest_tokens
@@ -58,9 +58,10 @@ class AnalysisError(RuntimeError):
     """`recoverable` errors affect one request (e.g. unparseable output); others (auth, quota,
     network) would fail every request, so the whole analysis stops."""
 
-    def __init__(self, message: str, recoverable: bool = False):
+    def __init__(self, message: str, recoverable: bool = False, context_overflow: bool = False):
         super().__init__(message)
         self.recoverable = recoverable
+        self.context_overflow = context_overflow  # the prompt didn't fit the model's context window
 
 
 # ---------------------------------------------------------------------- response schemas
@@ -436,6 +437,8 @@ class VisionClient:
             except (openai.AuthenticationError, openai.PermissionDeniedError) as exc:
                 raise AnalysisError(f"The API key was rejected: {exc}") from exc
             except (openai.NotFoundError, openai.BadRequestError) as exc:
+                if isinstance(exc, openai.BadRequestError) and "exceeds the available context size" in str(exc).lower():
+                    raise AnalysisError(f"Request failed: {str(exc)[:500]}", recoverable=True, context_overflow=True) from exc
                 if isinstance(exc, openai.BadRequestError) and "model" not in str(exc).lower():
                     raise AnalysisError(f"Request failed: {str(exc)[:500]}") from exc
                 if self.backend.local:  # not pulled yet; never remember (the user may pull it any time)
@@ -832,24 +835,34 @@ class Analyzer:
             # Low-power local model: text only, compact JSON and the lean (no-merge) reply; prompt reading
             # and long replies are what take minutes on a laptop CPU.
             lean = self.s.low_power and self.vc.backend.local
-            steps_json = json.dumps(payload, separators=(",", ":")) if lean else json.dumps(payload, indent=1)
-            user = [
-                {"type": "text", "text": f"Recording length {fmt_ts(manifest.duration)}. Segment summaries:\n{contexts}\n\nCandidate steps:\n{steps_json}"},
-            ]
-            if not lean:  # two more images cost a low-power CPU minutes; the steps already carry the content
-                user += [
-                    {"type": "text", "text": "First screenshot of the recording:"},
-                    _image_part(encode_jpeg(resize_max_width(load_image(session_dir / first.path), self.vc.backend.image_width), 70)),
-                    {"type": "text", "text": "Last screenshot of the recording:"},
-                    _image_part(encode_jpeg(resize_max_width(load_image(session_dir / last.path), self.vc.backend.image_width), 70)),
+
+            def ask(lean: bool) -> _Pass2Resp:
+                steps_json = json.dumps(payload, separators=(",", ":")) if lean else json.dumps(payload, indent=1)
+                user = [
+                    {"type": "text", "text": f"Recording length {fmt_ts(manifest.duration)}. Segment summaries:\n{contexts}\n\nCandidate steps:\n{steps_json}"},
                 ]
-            try:
-                resp, repaired = self.vc.complete_json(
+                if not lean:  # two more images cost a low-power CPU minutes; the steps already carry the content
+                    user += [
+                        {"type": "text", "text": "First screenshot of the recording:"},
+                        _image_part(encode_jpeg(resize_max_width(load_image(session_dir / first.path), self.vc.backend.image_width), 70)),
+                        {"type": "text", "text": "Last screenshot of the recording:"},
+                        _image_part(encode_jpeg(resize_max_width(load_image(session_dir / last.path), self.vc.backend.image_width), 70)),
+                    ]
+                r, _ = self.vc.complete_json(
                     [{"role": "system", "content": prompts.pass2_system(self._compact_prompts, lean)}, {"role": "user", "content": user}],
                     _Pass2RespLean if lean else _Pass2Resp,
                 )
-                if lean:
-                    resp = resp.full()
+                return r.full() if lean else r
+
+            try:
+                try:
+                    resp = ask(lean)
+                except AnalysisError as exc:
+                    if not (exc.context_overflow and self.vc.backend.local and not lean):
+                        raise
+                    # The steps plus two screenshots overflow a small context window: retry text-only and compact.
+                    self.vc.status("The consolidation prompt didn't fit the model's context; retrying without the two screenshots...")
+                    resp = ask(True)
                 if "lite" in self.vc.model:
                     pb_notes.append(
                         f"Steps were consolidated by a Lite model ({self.vc.model}) because stronger models were out of "
@@ -883,6 +896,13 @@ class Analyzer:
                 reason = f"{doubt}. {reason}" if reason else doubt
             first, last = min(srcs, key=lambda c: c.t_start), max(srcs, key=lambda c: c.t_end)
             base = srcs[0]
+            # A flag has to rest on evidence. Small local models write a remark on nearly every step
+            # ("the action is confirmed by the red ring"), so there a remark flags the step only when it
+            # quotes two conflicting values that code can check; otherwise it is kept as a plain remark.
+            model_note = (p2.review_note or None) if p2 else None
+            if model_note and self.vc.backend.local and not cites_discrepancy(model_note):
+                notes.append(f"Model remark (not a flag, nothing checkable): {model_note}")
+                model_note = None
 
             def pick(field: str) -> Any:  # pass-2 value, else what the sources agree on
                 v = getattr(p2, field, None) if p2 else None
@@ -908,7 +928,7 @@ class Analyzer:
                 confidence=conf,
                 evidence=" | ".join(_dedupe([c.evidence for c in srcs]))[:800],
                 uncertainty_reason=reason,
-                review_note=(p2.review_note or None) if p2 else None,
+                review_note=model_note,
                 calibration_notes=notes,
                 token_certainty=token["certainty"] if token else None,
                 source_ids=[c.id for c in srcs],

@@ -165,3 +165,10 @@ def test_error_is_attributed_to_the_latest_entry_only():
                   t_start=6.3, t_end=6.3, model_confidence=0.9, confidence=0.9)]
     assert annotate_steps(steps, [m], fmt_ts) == 1
     assert steps[0].review_note.startswith('After typing "pyhton" the screen showed')
+
+
+def test_error_text_is_found_when_ocr_drops_the_spaces():
+    """Live finding: OCR read "pyhton:The term'pyhton'isnotrecognized asthe name", which the \b-based pattern missed."""
+    events = [Event(t=5, kind="type", text="pyhton app.py")]
+    (m,) = find_rejected_input(events, ocr=[("pyhton:The term'pyhton'isnotrecognized asthe name", 7.0)])
+    assert m.typed == "pyhton" and m.kind == "rejected"

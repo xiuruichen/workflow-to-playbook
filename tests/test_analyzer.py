@@ -194,3 +194,27 @@ def test_low_power_keeps_full_consolidation_for_cloud_models(settings, make_sess
     req = client.requests[-1]
     assert sum(p["type"] == "image_url" for p in req["messages"][1]["content"]) == 2
     assert pb.title == PASS2["title"] and [s.source_ids for s in pb.steps] == [["c2"], ["c1"], ["c3"]]
+
+
+def test_consolidation_that_overflows_the_context_retries_text_only(settings, make_session):
+    """Live finding: on a small context window the steps plus two screenshots were 58 tokens too many."""
+    from types import SimpleNamespace
+
+    import openai
+
+    lean = {"title": "Look up a city population", "steps": [
+        {"id": "c1", "title": "Click Search"}, {"id": "c2", "title": "Focus the address bar"}, {"id": "c3", "title": "Read it"}]}
+    client = FakeClient((PASS1,), (lean,))
+    real = client.chat.completions.create
+
+    def create(**kw):
+        content = kw["messages"][-1]["content"]
+        if isinstance(content, list) and content[0]["text"].startswith("Recording length") and len(content) > 1:
+            resp = SimpleNamespace(status_code=400, headers={}, request=None)
+            raise openai.BadRequestError("request (8250 tokens) exceeds the available context size (8192 tokens)", response=resp, body=None)
+        return real(**kw)
+
+    client.chat.completions.create = create
+    pb = Analyzer(settings, client=client).analyze(make_session())
+    assert not any("Consolidation pass failed" in n for n in pb.notes)
+    assert [s.title for s in pb.steps] == ["Focus the address bar", "Click Search", "Read it"]
