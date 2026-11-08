@@ -102,6 +102,7 @@ python -m playbook decisions [session]      # log what was on screen at each pau
 python -m playbook induce [sessions...]     # fit a readable rule to pooled decisions; list what it can't explain (--without context|none: ablation)
 python -m playbook elicit [sessions...]     # answer questions about those; named facts become features, rule is refitted
 python -m playbook replay [sessions...]     # fit on the earliest 70% of decisions, replay the rest (--model adds a local model)
+python -m playbook pilot make|report|elicit # a pilot with a real person: offline case page, report on their log, interview (docs/pilot-guide.md)
 python -m playbook export --judgment [...]  # agent skill that also says when to act
 python -m playbook.evaluate                 # score the pipeline on 4 scripted scenarios: step recall, flag precision/recall/F1 (see Evaluation)
 ```

@@ -145,6 +145,13 @@ def main(argv: list[str] | None = None) -> int:
     rp = sub.add_parser("replay", help="test whether the judgment calls reproduce your later decisions (fit on the earliest 70%%)")
     rp.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
     rp.add_argument("--model", action="store_true", help="also ask the local model to decide with and without the judgment section (slow on a laptop)")
+    pl = sub.add_parser("pilot", help="a pilot with a real person: make the case page, then turn their log into a report")
+    pl.add_argument("action", choices=["make", "report", "elicit"], help="make: write the offline page; report: read the downloaded log; elicit: answer the questions about the choices the rule cannot explain")
+    pl.add_argument("path", nargs="?", type=Path, help="report: the pilot_log.json the page downloaded")
+    pl.add_argument("--theme", choices=["run", "invoice", "ticket"], default="run")
+    pl.add_argument("--cases", type=int, default=40)
+    pl.add_argument("--seed", type=int, default=7)
+    pl.add_argument("--out", type=Path, help="make: page path (default pilot.html); report: report path (default pilot_report.md)")
     args = p.parse_args(argv)
 
     from .recorder import import_video, is_archived, list_sessions, record_session, resolve_session
@@ -220,6 +227,30 @@ def main(argv: list[str] | None = None) -> int:
         for d in found:
             print(f"{d.t0:7.1f}s  paused {d.dwell_s:5.1f}s  saw {d.readouts or 'no labelled numbers'}  then: {d.outcome}")
         print(f"{len(found)} decision(s) written to {session / 'decisions.jsonl'}")
+        return 0
+    if args.cmd == "pilot":
+        from . import pilot
+
+        if args.action == "make":
+            out = args.out or Path("pilot.html")
+            out.write_text(pilot.render_html(pilot.make_cases(args.theme, args.cases, args.seed), args.theme, args.seed), encoding="utf-8")
+            print(f"Wrote {out}. Open it in a browser (full screen is nice), do the {args.cases} cases, then download the log.")
+            return 0
+        if args.path is None or not args.path.is_file():
+            print("Give the pilot_log.json the page downloaded.", file=sys.stderr)
+            return 1
+        decisions, raw = pilot.load_log(args.path)
+        if args.action == "elicit":
+            result = pilot.ask_loop(decisions, args.path.with_name("pilot_answers.jsonl"))
+            for label in ("before", "after"):
+                r = result[label]
+                print(f"\nRule {label} your answers ({r['accuracy']:.0%} of cases, {r['unexplained']} unexplained):")
+                for line in r["rule"]:
+                    print(f"  {line}")
+            return 0
+        out = args.out or Path("pilot_report.md")
+        out.write_text(pilot.report(decisions, raw), encoding="utf-8")
+        print(f"Wrote {out}")
         return 0
     if args.cmd == "induce":
         from . import induce
