@@ -185,7 +185,8 @@ def report(decisions: list[Decision], raw: dict | None = None) -> str:
         for d, guess in odd:
             c = classify_decision(d, induce.path_features(tree, d), rule_gets_it_right=False)
             shown = ", ".join([f"{k} = {v:g}" for k, v in d.readouts.items()] + [f"{k} = {v}" for k, v in d.cats.items()])
-            out.append(f"- {d.session}: you chose {d.outcome}; the rule expected {guess}. Saw: {shown}. [{c.observability}, tacit {c.tacit_score}/4]")
+            where = d.session if len({x.session for x in decisions}) > 1 else f"at {d.t1:.0f}s"  # one long recording: say when
+            out.append(f"- {where}: you chose {d.outcome}; the rule expected {guess}. Saw: {shown}. [{c.observability}, tacit {c.tacit_score}/4]")
     else:
         out.append("None: the rule explains every choice.")
     out += ["", "## Your own words against the fitted rule", ""]
