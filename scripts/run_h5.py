@@ -31,7 +31,8 @@ from playbook.skill import build_judgment  # noqa: E402
 
 OUT = Path(__file__).resolve().parent.parent / "docs" / "results" / "h5"
 SEEDS = (1, 2, 3, 4, 5)
-PROCEDURE = {"dashboard": "Check a training run and decide whether to stop it.",
+PROCEDURE = {"service": "Check the service after deploys and decide whether to roll back, page on-call or leave it.",
+             "dashboard": "Check a training run and decide whether to stop it.",
              "triage": "Review the top overdue invoice and decide what to do."}
 TEMPERATURE = 0.3
 
@@ -41,6 +42,9 @@ def main() -> int:
     ap.add_argument("--smoke", action="store_true")
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--visits", type=int, default=40)
+    ap.add_argument("--domains", default="dashboard,triage")
+    ap.add_argument("--ratios", action="store_true", help="add ratio features (amendment 3) so rules may use errors/requests")
+    ap.add_argument("--results", default=None, help="results file name inside docs/results/h5 (default results.jsonl)")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     s = get_settings()
@@ -50,7 +54,7 @@ def main() -> int:
     meta = {"model": model_file.name, "sha256_first16MB": digest, "temperature": TEMPERATURE, "visits": a.visits,
             "repeats": 1 if a.smoke else a.repeats, "num_ctx": info["num_ctx"], "strict_sentence": replay.STRICT}
     (OUT / "meta.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
-    done_path = OUT / ("smoke.jsonl" if a.smoke else "results.jsonl")
+    done_path = OUT / ("smoke.jsonl" if a.smoke else (a.results or "results.jsonl"))
     done = set()
     if done_path.exists():
         for line in done_path.read_text(encoding="utf-8").splitlines():
@@ -61,13 +65,13 @@ def main() -> int:
     client = OpenAI(base_url=info["base_url"], api_key=lr.api_key(s), timeout=900, max_retries=0)
 
     with lr.serving(s, info, status=print):
-        for dn in ("dashboard", "triage"):
+        for dn in a.domains.split(","):
             for seed in seeds:
-                decisions = study.build(doms[dn], a.visits, seed).decisions
+                decisions = study.build(doms[dn], a.visits, seed, ratios=a.ratios).decisions
                 train, test = replay.split(decisions)
                 judgment = build_judgment(train, None)
                 options = sorted({d.outcome for d in train if d.outcome != NONE} | {NONE})
-                context = sorted({c.split()[0] for r in judgment["rules"] for c in r["when"] if c.startswith(("changed_", "delta_"))})
+                context = sorted({c.split()[0] for r in judgment["rules"] for c in r["when"] if c.startswith(("changed_", "delta_")) or "/" in c.split()[0]})
                 with_j = PROCEDURE[dn] + "\n\n" + replay._judgment_text(judgment)
                 for rep in range(meta["repeats"]):
                     def chat(messages, fmt, _rep=rep, _seed=seed):

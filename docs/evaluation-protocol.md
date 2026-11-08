@@ -122,3 +122,7 @@ E5 showed that a wrongly tagged answer can lower held-out agreement (triage 0.68
 **The guard is adopted into the interview (`pilot elicit`) if** the mean over both domains in (a) is no more than 0.01 below the unguarded value **and** the mean over (b) and (c) is at least 0.01 above it. Otherwise it stays an unused option and the result is reported as negative.
 
 Also in this amendment (code changes from a review of the branch, not experiments): the pilot report fits with the default tree, matching `pilot elicit`; the pilot page ignores modified keys and key repeat; repeated cases keep the item's settings and the batch size cycles instead of growing; judgment lists the readouts behind a ratio rule and the model prompt shows the quotient.
+
+### Amendment 5 (2026-11-08, before the run): H5 on the service domain with ratio features
+
+Question: when the exported rules contain a quotient (`errors/requests`) and the prompt shows the model that quotient, does the judgment section help a small model on a rate rule? Same setup as H5 (Qwen3-VL 4B text only, seeds 1-5, 40 visits, 3 repeats, temperature 0.3, prompt variants A and B as before, arms skill / skill+judgment / skill+judgment strict plus the mechanical rules and the majority baseline), service domain only, ratio features on. Exploratory: no pass/fail bar. The seeds are 1-5 because the domain is new to H5; the H1-H4 runs never touched it.
