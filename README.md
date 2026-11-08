@@ -8,6 +8,7 @@ Record someone doing a task on their computer, then automatically turn the recor
 - before/after **screenshots** for each step,
 - a **confidence score (0–1)** per step. Steps are **flagged for human review** when confidence is below **0.70** *or* when the action is clear but something looks off (e.g. a value typed that differs from its source, caught by the model or by a deterministic consistency check), always with the reason and the evidence,
 - the **inputs** that would change next time (search terms, file names, values), and **open questions** the system couldn't answer.
+- optionally, for the research direction: a log of **decisions** (what was on screen at each pause and what the person did next, including nothing), a readable **rule** fitted to them, an **interview** about what the rule can't explain, and a **pilot** to try it on a real person (see [When to act](#when-to-act-decisions-rules-and-the-expert-loop)). Checked so far only on synthetic benchmarks.
 - an optional **agent-ready skill** (`SKILL.md` + `skill.json`): the same procedure for an AI agent, with inputs as placeholders and every unconfirmed step marked *ask a human first* (see [Export for AI agents](#export-for-ai-agents)).
 
 **Fully on-prem by default.** Analysis runs on a local vision model ([Qwen3-VL](https://ollama.com/library/qwen3-vl) through [Ollama](https://ollama.com)), sized automatically to the computer, so recordings never leave the machine. Sessions you aren't using are kept as **compressed, encrypted archives** (`.pbx`, about 4× smaller) and are decrypted only when you open, re-analyze or extract a playbook from them. A cloud model (Gemini) is still available as an explicit opt-in.
@@ -154,7 +155,53 @@ The first command reproduces the [example](examples/city-population-lookup/playb
 
 A playbook says *what* to do. Much expertise is *when*: looking at a chart for twenty seconds and leaving a run alone leaves no click. For that, the tool can also log **decision points**: every pause of 8 seconds or more (`playbook/frames.py`) together with the labelled numbers on screen at that moment (local OCR) and the action that followed, or `none` (`playbook/decisions.py`). Decisions from many sessions are pooled, with cross-session context such as "this value changed since the last check". `induce` fits a short, readable decision tree (`playbook/induce.py`) and lists the decisions it can't explain; `elicit` asks you about each of those, compared with the most similar decisions, and turns a condition you name into a feature (`playbook/elicit.py`); `replay` tests whether the rules reproduce your later decisions; `export --judgment` writes the rules, your reasons and an "ask a human first" boundary into the agent skill. Each decision, and each step of a playbook, is also classified by how observable it is (`playbook/knowledge.py`): the Markdown report gets a "What the recording could and could not explain" table, every step shows its class (`O1`–`O6`) and tacit score, the HTML viewer shows the counts, and the exported skill carries each step's class. A step counts as unobservable (`O6`) only on measured evidence (low calibrated confidence, or the model hesitating between targets), never because the model wrote a remark.
 
-This is a research direction and is checked only on two synthetic benchmarks (`python -m playbook.dashboard [--domain dashboard|triage]`): a training-run dashboard, where the planted rule was recovered exactly, and an invoice-triage queue with three outcomes, a word on screen (`Vendor: Known`) and a different cross-session exception, where the rule is recovered only partly (mean held-out agreement 0.87 at 40 visits and 0.89–0.93 at 80, worst seed 0.67; see [NOTES.md](NOTES.md) and [docs/results/confirmatory.md](docs/results/confirmatory.md)). A third benchmark (`playbook/service.py`) has a rule about a *rate* (errors divided by requests) that the screen shows only as two counts: a tree that splits on one readout at a time scores 0.57–0.72 there, and `--ratios` (quotients of readouts as extra features) lifts it to 0.78–0.93. The cross-session class (O5) is assigned to a decision only if its own path through the fitted rule uses a cross-session feature. On-screen words are read as 0/1 features only when they vary and recur across the pooled decisions; a small local model (Qwen3-VL 4B, text only) given the resulting skill did not apply the rules well: with the judgment section it agreed with the person's later decisions 0.77–0.80 (dashboard, same as without it) and 0.55–0.56 (triage, from 0.44), mostly by asking a human more often, while reading the same rules mechanically scores 1.00 and 0.82 ([docs/results/h5/h5.md](docs/results/h5/h5.md)). Readouts must be text on screen (charts are not read), and a pause is only a rough proxy for attention. See [docs/ROADMAP.md](docs/ROADMAP.md) for results and limits, and [docs/evaluation-protocol.md](docs/evaluation-protocol.md) for the hypotheses, metrics and seeds fixed before the next round of runs.
+**Status: a research direction, checked only on synthetic benchmarks with a scripted "person"; never yet with a real expert.** The sections below say what each part is, what it was checked against and what the results were. The hypotheses, criteria and seeds were written down before the runs (`docs/evaluation-protocol.md`, with six dated amendments); every number below links to a file in `docs/results/` and `docs/results/README.md` gives the command that reproduces it.
+
+#### The three benchmarks
+
+| Domain (module) | Hidden rule the "person" follows | What it tests |
+|---|---|---|
+| Training dashboard (`dashboard.py`) | stop the run if 2+ gradient spikes, unless the batch size just changed | cross-session context; non-actions |
+| Invoice triage (`triage.py`) | amount >= 5,000: escalate if 30+ days overdue and it is a new invoice; below: approve if the vendor is Known | three outcomes, a word on screen (`Vendor: Known`), a different cross-session exception |
+| Service health (`service.py`) | page on-call if errors/requests >= 5%; roll back if >= 1% and latency >= 400 ms unless the version just changed | a rule about a *rate* (a quotient the screen never shows) |
+
+Run one through the real recorder and pipeline with `python -m playbook.dashboard --domain dashboard|triage --visits 40 --seed N`; `scripts/live_dashboard_test.py` and `scripts/live_triage_test.py` do it in a real window with real mouse input.
+
+#### Results so far (scripted person; seeds and criteria in the protocol)
+
+| Question | Result |
+|---|---|
+| Is a planted rule recovered from 40 visits? (H1, held-out agreement >= 0.90) | dashboard yes (1.00 on all seeds); **triage no** (0.87 mean, worst seed 0.67; 0.89-0.93 at 80 visits); a compound rule needs about 100 visits |
+| Does cross-session context help? (H2) | yes, except one tie on triage at 40 visits |
+| Do non-actions have to be logged? (H3) | yes (without them the rule can only say "act"); descriptive only |
+| Does one round of questions to the expert help? (H4) | narrowly: +0.04 and +0.03 with a perfect scripted expert; 6 of 10 runs unchanged |
+| Does the exported judgment help a small model act? (H5, Qwen3-VL 4B, text only) | not on the dashboard (0.77 -> 0.77, 0.80 strict); triage 0.44 -> 0.56 mostly by asking a human more; service domain with ratio features 0.55 -> 0.68 (0.75 strict); reading the same rules mechanically scores 1.00 / 0.82 / 0.65 |
+| Does real capture read the screens correctly? (H6) | yes: 40/40 readouts and outcomes on two domains |
+| Does a rule about a rate need extra features? | yes: one-readout trees 0.57-0.72, with `--ratios` 0.78-0.93 (adopted as an option) |
+| Anything that did **not** help | lookahead tree as the default (+0.03 < the +0.05 bar); a guard against wrong answers in the interview (no effect) |
+| Where it breaks | label noise hurts the compound rules far more than the simple one; a one-recording-many-checks session finds only 38% of fast decisions with the default 8 s dwell |
+
+Details, caveats and the predictions that turned out wrong are in [NOTES.md](NOTES.md#evaluation-results) and [docs/ROADMAP.md](docs/ROADMAP.md).
+
+#### Tools for the decision work
+
+```bash
+python -m playbook decisions [session] [--dwell 3] [--navigation "Next,Next run"]
+python -m playbook induce [sessions...] [--without context|none] [--ratios]
+python -m playbook elicit [sessions...]       # interview about what the rule can't explain
+python -m playbook replay [sessions...] [--model]
+python -m playbook pilot make|report|elicit   # a pilot with a real person (below)
+python scripts/run_confirmatory.py            # also run_confirmatory2/3/4.py, run_exploratory.py, run_continuous.py, run_h5.py
+```
+
+- **Words on screen** (`Vendor: Known`) become 0/1 features when the label takes at least two words, each seen at least twice. **Ratios** of readouts (`errors/requests`) are tried only with `--ratios` and never silently.
+- **One long recording of many checks.** The defaults (8 s dwell, every click is an action) suit one check per recording. For continuous work use `--dwell 3` and name the controls that only move to the next item with `--navigation`; otherwise a "Next" click is read as the person acting (experiment E7).
+- **The cross-session class (O5)** is assigned to a decision only if its own path through the fitted rule uses a cross-session feature.
+- **A pilot with one real person** (`playbook/pilot.py`, [docs/pilot-guide.md](docs/pilot-guide.md)): `pilot make` writes an offline page where the person judges 60 cases of a theme they pick by their own rule and then states the rule in words; `pilot report` gives the fitted rule, held-out accuracy, the choices it can't explain and their words set against the rule; `pilot elicit` interviews them and refits. Tested with a scripted person and under node; **not yet run with a human**.
+- **Experiment harness** (`playbook/study.py`): builds the decision log directly from visit sequences with knobs for label noise, OCR misreads, distractor readouts, rule drift and an off-screen fact, in milliseconds; a test compares it with what real OCR reads from rendered screens.
+
+#### Known limits of this part
+Readouts must be text on screen (`Label: value`; charts and unlabelled numbers are not read). Local OCR can read `9,871` as `9.871` and drop the space in a label (`Batchsize`, merged only when names differ by underscores). A pause is a rough proxy for attention. Rules are depth-3 trees: they find one condition per regime and need many observations for several. Everything above used a scripted person who follows a clean rule.
 
 ## 3. How it works
 
@@ -293,6 +340,8 @@ It prints, per scenario, how many expected steps were found, whether the mistake
 ```bash
 pytest            # no model or API key needed: the vision client is mocked; archives use throwaway keys
 ```
+
+About 230 tests. A few need the local OCR engine and are skipped without it; the pilot page test needs `node`. Research code lives in `playbook/` (`study.py`, `triage.py`, `service.py`, `pilot.py`, `induce.py`, `elicit.py`, `decisions.py`, `replay.py`, `knowledge.py`) and experiment runners in `scripts/`; see [docs/results/README.md](docs/results/README.md) for which command produces which result, [docs/evaluation-protocol.md](docs/evaluation-protocol.md) for the pre-registered criteria, and [docs/open-questions.md](docs/open-questions.md) for what still needs a human decision. Git tags `freeze-1` to `freeze-4` mark the code at each frozen point.
 
 The same tests run on GitHub Actions (Ubuntu and Windows) for every push and pull request.
 
