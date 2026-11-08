@@ -99,6 +99,7 @@ python -m playbook key --export             # back up the archive encryption key
 python -m playbook check                    # is the model installed and reachable?
 python -m playbook labels                   # export your Correct/Wrong reviews to labels.csv
 python -m playbook decisions [session]      # log what was on screen at each pause and what you did next
+python -m playbook decisions [session] [--navigation 'Next' --dwell 3]  # for one long recording of many checks: ignore 'Next' clicks, count pauses of 3 s or more
 python -m playbook induce [sessions...]     # fit a readable rule to pooled decisions; list what it can't explain (--without context|none: ablation; --ratios: also try quotients of readouts, for rules about rates)
 python -m playbook elicit [sessions...]     # answer questions about those; named facts become features, rule is refitted
 python -m playbook replay [sessions...]     # fit on the earliest 70% of decisions, replay the rest (--model adds a local model)

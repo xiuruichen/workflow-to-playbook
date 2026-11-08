@@ -12,6 +12,7 @@ All commands run from the project root with the project's `.venv`. Seeds and com
 | Amendment 3 (ratio features, service domain) | `confirmatory3.md/.json` | `python scripts/run_confirmatory3.py` | 6-10 | tag `freeze-3` |
 | Amendment 4 (elicitation guard) | `confirmatory4.md/.json` | `python scripts/run_confirmatory4.py` | 6-10 | tag `freeze-4` |
 | H5 on the service domain (amendment 5) | `h5/h5_service.md`, `h5/results_service.jsonl` | `python scripts/run_h5.py --domains service --ratios --results results_service.jsonl` | 1-5, 3 repeats | tag `freeze-4` + `scripts/run_h5.py` options |
+| E7 continuous recording | `e7_continuous.md/.json` | `python scripts/run_continuous.py` | 1-3 | tag `freeze-4` + navigation/dwell options |
 | Triage capture on a development seed | `dev/triage_capture_seed100.json` | `python -m playbook.dashboard --domain triage --visits 40 --seed 100` | 100 | development only |
 
 Development seeds (0 and 100-119) were used to build and tune; no claim rests on them. `docs/evaluation-protocol.md` holds the hypotheses, criteria, amendments and the list of deviations.

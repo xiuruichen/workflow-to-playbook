@@ -274,3 +274,21 @@ def test_service_capture_reads_the_counts_and_the_button_clicked(settings, tmp_p
     for c, d, v in zip(got, direct, visits):
         assert {k: c.readouts.get(k) for k in ("requests", "errors", "latency")} == {k: d.readouts[k] for k in ("requests", "errors", "latency")}
         assert (norm(c.outcome) if c.outcome != NONE else NONE) == (norm(v.outcome) if v.outcome != "none" else NONE)
+
+
+@pytest.mark.skipif(not ocr.available(), reason="needs the local OCR engine")
+def test_continuous_recording_needs_the_navigation_word_and_a_short_dwell(settings, tmp_path):
+    """E7: with many checks in one recording, a 'Next run' click must not count as an action."""
+    from playbook import dashboard
+    from playbook.decisions import build_decisions
+    from playbook.scenarios import simulate
+
+    visits = dashboard.make_visits(6, 3)
+    sess = simulate(dashboard.continuous_scenario(visits, [6.0] * 6, "c"), settings.model_copy(update={"use_ocr": True}), tmp_path / "s")
+    counted = build_decisions(sess, dwell_min_s=3.0)
+    ignored = build_decisions(sess, dwell_min_s=3.0, navigation=("Next run",))
+    assert len(build_decisions(sess)) == 0, "six-second looks are below the default 8 s dwell"
+    assert len(ignored) >= 5
+    assert any(d.outcome != NONE for d in counted) and all(d.outcome != NONE for d in counted if "next" in d.outcome.lower())
+    acted = sum(d.outcome != NONE for d in ignored)
+    assert acted <= sum(v.stop for v in visits) and acted < sum(d.outcome != NONE for d in counted)
