@@ -18,3 +18,4 @@ Times are local. Plan: `docs/evaluation-protocol.md` + the 8-hour plan agreed 20
 - 08:2x (second work session, user returned and asked me to continue): amendment 2 run on seeds 6-10: variant C better in every cell but +0.03 < +0.05 bar, not adopted.
 - amendment 3 (service domain, ratio features) run on seeds 6-10: adopted as an option (+0.21), one prediction wrong. Third domain + --ratios wired into induce and pilot.
 - amendment 4 (elicitation guard): no effect, not adopted. Code-review fixes applied (pilot keys/repeats, consistent trees, ratio guards).
+- H5 on service domain with ratio features: judgment helps (0.55 -> 0.68/0.75). Service capture check passes.
