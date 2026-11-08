@@ -226,3 +226,19 @@ def test_ratio_features_let_the_tree_learn_a_rate_rule():
     assert sum(ratio) / 6 > sum(plain) / 6 + 0.1
     rules = induce.rules(induce.fit(study.build(S, 80, 100, ratios=True).decisions))
     assert any("errors/requests" in r for r in rules)
+
+
+def test_cli_ratios_flag_finds_the_rate_rule(tmp_path, monkeypatch, capsys, settings):
+    from playbook import __main__ as cli
+    from playbook.decisions import save_decisions
+
+    S = study.domains()["service"]
+    dirs = []
+    for i, d in enumerate(study.build(S, 80, 100).decisions):
+        folder = tmp_path / f"v{i:03d}"
+        folder.mkdir()
+        save_decisions([d], folder / "decisions.jsonl")
+        dirs.append(str(folder))
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+    assert cli.main(["induce", "--ratios", *dirs]) == 0
+    assert "errors/requests" in capsys.readouterr().out

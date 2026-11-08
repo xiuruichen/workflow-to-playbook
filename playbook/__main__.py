@@ -139,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     dc.add_argument("session", nargs="?", default="latest", help="session id, path, or 'latest'")
     ind = sub.add_parser("induce", help="fit a readable rule to the decisions of several sessions and list the ones it can't explain")
     ind.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
+    ind.add_argument("--ratios", action="store_true", help="also try ratios of readouts (errors/requests) as features; helps when the rule is about a rate")
     ind.add_argument("--without", choices=["context", "none"], help="ablation: fit without cross-session context, or without the non-action decisions")
     el = sub.add_parser("elicit", help="answer questions about the decisions the fitted rule can't explain, then refit")
     el.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
@@ -151,6 +152,7 @@ def main(argv: list[str] | None = None) -> int:
     pl.add_argument("--theme", choices=["run", "invoice", "ticket"], default="run")
     pl.add_argument("--cases", type=int, default=40)
     pl.add_argument("--seed", type=int, default=7)
+    pl.add_argument("--ratios", action="store_true", help="report/elicit: also try ratios of readouts as features")
     pl.add_argument("--out", type=Path, help="make: page path (default pilot.html); report: report path (default pilot_report.md)")
     args = p.parse_args(argv)
 
@@ -240,6 +242,10 @@ def main(argv: list[str] | None = None) -> int:
             print("Give the pilot_log.json the page downloaded.", file=sys.stderr)
             return 1
         decisions, raw = pilot.load_log(args.path)
+        if args.ratios:
+            from .decisions import add_ratios
+
+            add_ratios(decisions)
         if args.action == "elicit":
             result = pilot.ask_loop(decisions, args.path.with_name("pilot_answers.jsonl"))
             for label in ("before", "after"):
@@ -260,6 +266,10 @@ def main(argv: list[str] | None = None) -> int:
         dirs = [resolve_session(x, settings) for x in args.sessions] if args.sessions else list_sessions(settings)
         dirs = [d for d in dirs if args.sessions or has_saved(d)]
         decisions = pool(dirs)
+        if args.ratios:
+            from .decisions import add_ratios
+
+            add_ratios(decisions)
         if len(decisions) < 6:
             print(f"Only {len(decisions)} decision(s); need about 6 or more to fit a rule (20-40 is better).", file=sys.stderr)
             return 1

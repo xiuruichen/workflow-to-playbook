@@ -278,6 +278,8 @@ def _judgment_md(j: dict) -> list[str]:
     if words:
         out += [f"`label=word > 0.5` means the screen shows that word for that label (here: {', '.join(f'`{w}`' for w in words)}); "
                 "`label=word <= 0.5` means it shows a different word or none.", ""]
+    if any("/" in c.split()[0] for r in j["rules"] for c in r["when"]):
+        out += ["`a/b` in a condition is the on-screen value of a divided by the on-screen value of b (a rate), not a label on the screen.", ""]
     stated = {slug(s["fact"]) for s in j["stated_by_person"] if s["fact"]}
     for r in j["rules"]:
         thin = " (few examples: treat as a hint)" if r["thin_evidence"] else ""

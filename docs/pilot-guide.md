@@ -19,7 +19,7 @@ python -m playbook pilot make --theme run --cases 40 --seed 7      # writes pilo
 3. They download the log (`pilot_log.json`). Then:
 
 ```bash
-python -m playbook pilot report pilot_log.json     # pilot_report.md: the fitted rule, held-out accuracy, unexplained choices, their words against the rule
+python -m playbook pilot report pilot_log.json [--ratios]     # pilot_report.md (--ratios also tries quotients of readouts, useful if the person judges by a rate): the fitted rule, held-out accuracy, unexplained choices, their words against the rule
 python -m playbook pilot elicit pilot_log.json     # interview about the unexplained choices; refits the rule from what they say
 ```
 
