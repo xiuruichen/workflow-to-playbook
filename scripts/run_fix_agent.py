@@ -36,7 +36,7 @@ TEST_SEEDS = (11, 12, 13, 14, 15)
 PROCEDURE = {"service": "Check the service after deploys and decide whether to roll back, page on-call or leave it.",
              "dashboard": "Check a training run and decide whether to stop it.",
              "triage": "Review the top overdue invoice and decide what to do."}
-ARMS = ["majority", "rules", "skill", "skill+judgment", "skill+evaluator"]
+ARMS = ["majority", "rules", "skill", "skill+judgment", "skill+evaluator", "skill+evaluator (code parses)"]
 
 
 def parse_names(judgment: dict) -> tuple[list[str], list[str]]:
@@ -57,7 +57,7 @@ def parse_names(judgment: dict) -> tuple[list[str], list[str]]:
     return sorted(nums), sorted(cats)
 
 
-def evaluator_decider(chat, skill_md: str, options: list[str], judgment: dict, previous: dict, stats: dict):
+def evaluator_decider(chat, skill_md: str, options: list[str], judgment: dict, previous: dict, stats: dict, parse: str = "model"):
     nums, cats = parse_names(judgment)
     props = {n: {"type": "number"} for n in nums} | {c: {"type": "string"} for c in cats}
     parse_fmt = {"type": "json_schema", "json_schema": {"name": "readouts", "schema": {"type": "object", "properties": props, "required": []}}}
@@ -66,11 +66,20 @@ def evaluator_decider(chat, skill_md: str, options: list[str], judgment: dict, p
 
     def decide(d):
         screen = replay._screen(d, [], [])
-        try:
-            got = json.loads(chat([{"role": "system", "content": "Copy the values from the screen text into JSON, using exactly these names: "
-                                    + ", ".join(nums + cats) + ". Numbers as numbers, words in lower case."}, {"role": "user", "content": screen}], parse_fmt))
-        except Exception:
+        if parse == "code":  # post hoc: the screen text is read by the decision log's own OCR parser, not by the model
+            from playbook.decisions import parse_categories, parse_readouts
+
+            pieces = [p.strip() for p in screen.split("shows:", 1)[-1].split(".")[0].split(",")] if "shows:" in screen else []
             got = {}
+            for piece in pieces:
+                got.update({k: v for k, v in parse_readouts([piece]).items() if k in nums})
+                got.update({k: v for k, v in parse_categories([piece]).items() if k in cats})
+        else:
+            try:
+                got = json.loads(chat([{"role": "system", "content": "Copy the values from the screen text into JSON, using exactly these names: "
+                                        + ", ".join(nums + cats) + ". Numbers as numbers, words in lower case."}, {"role": "user", "content": screen}], parse_fmt))
+            except Exception:
+                got = {}
         readouts = {k: float(v) for k, v in got.items() if k in nums and isinstance(v, (int, float))}
         words = {k: str(v).lower() for k, v in got.items() if k in cats}
         stats["readouts_total"] += len(d.readouts)
@@ -101,9 +110,10 @@ def summarize(rows: list[dict]) -> str:
             per = [st.fmean(r["agreement"] for r in sel if r["seed"] == s) for s in sorted({r["seed"] for r in sel})]
             mean[(dn, arm)] = st.fmean(per)
             lines.append(f"| {dn} | {arm} | {st.fmean(per):.2f} ({min(per):.2f}-{max(per):.2f}) | {sum(r['ask_human'] for r in sel)} | {sum(r['wrong_actions'] for r in sel)} | {sum(r['missed_actions'] for r in sel)} |")
-    ev = [r for r in rows if r["arm"] == "skill+evaluator" and r.get("readouts_total")]
-    if ev:
-        lines += ["", f"Readouts the model copied correctly from the screen text: {sum(r['readouts_right'] for r in ev)}/{sum(r['readouts_total'] for r in ev)}."]
+    for arm, what in (("skill+evaluator", "the model copied"), ("skill+evaluator (code parses)", "the parser read")):
+        ev = [r for r in rows if r["arm"] == arm and r.get("readouts_total")]
+        if ev:
+            lines += ["", f"Readouts {what} correctly from the screen text ({arm}): {sum(r['readouts_right'] for r in ev)}/{sum(r['readouts_total'] for r in ev)}."]
     lines += ["", "## Verdict against the bar (evaluator arm within 0.05 of the mechanical reader and at least 0.10 above procedure only)", ""]
     for dn in ("dashboard", "triage", "service"):
         if all(k in mean for k in ((dn, "skill+evaluator"), (dn, "rules"), (dn, "skill"))):
@@ -150,18 +160,20 @@ def main() -> int:
                         return r.choices[0].message.content or ""
 
                     stats = {"readouts_total": 0, "readouts_right": 0}
+                    stats_code = {"readouts_total": 0, "readouts_right": 0}
                     deciders = {"majority": replay.majority_decider(train), "rules": replay.rules_decider(judgment),
                                 "skill": replay.model_decider(chat, PROCEDURE[dn], options),
                                 "skill+judgment": replay.model_decider(chat, with_j, options, [], context),
-                                "skill+evaluator": evaluator_decider(chat, with_j, options, judgment, previous, stats)}
+                                "skill+evaluator": evaluator_decider(chat, with_j, options, judgment, previous, stats),
+                                "skill+evaluator (code parses)": evaluator_decider(chat, with_j, options, judgment, previous, stats_code, "code")}
                     for arm, decide in deciders.items():
                         if (dn, seed, rep, arm) in done:
                             continue
                         t0 = time.time()
                         res = replay.score(decide, test)
                         row = {"domain": dn, "seed": seed, "repeat": rep, "arm": arm, "seconds": round(time.time() - t0, 1), **res}
-                        if arm == "skill+evaluator":
-                            row.update(stats)
+                        if arm.startswith("skill+evaluator"):
+                            row.update(stats if arm == "skill+evaluator" else stats_code)
                         with path.open("a", encoding="utf-8") as f:
                             f.write(json.dumps(row) + "\n")
                         print(f"{dn} seed {seed} rep {rep} {arm:16} agree {res['agreement']:.2f} ask {res['ask_human']} wrong {res['wrong_actions']} missed {res['missed_actions']} ({row['seconds']}s)", flush=True)
