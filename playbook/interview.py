@@ -22,19 +22,21 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Callable
 
 from . import elicit, induce
 from .decisions import Decision, slug
-from .interview_prompts import (CRITIQUE_SYSTEM, DEFAULT_STRATEGY, FALLBACK_QUESTION, FOLLOW_UP, INTERPRET_SYSTEM,
-                                QUESTION_SYSTEM, STRATEGIES)
+from .interview_prompts import (CLASSIFY_SYSTEM, CRITIQUE_SYSTEM, DEFAULT_STRATEGY, FALLBACK_QUESTION, FOLLOW_UP, INTERPRET_SYSTEM,
+                                PHRASE_VARIANTS, QUESTION_SYSTEM, STRATEGIES)
 
 Chat = Callable[[list[dict], dict], str]
 Ask = Callable[[str, dict], str]
 
 MAX_QUESTION_WORDS = 30
-MAX_CONDITION_WORDS = 5
+MAX_CONDITION_WORDS = 5  # the first version
+MAX_PHRASE_WORDS = 8  # gated extraction: a quoted phrase
 
 
 def _schema(name: str, props: dict, required: list[str]) -> dict:
@@ -44,6 +46,8 @@ def _schema(name: str, props: dict, required: list[str]) -> dict:
 QUESTION_FORMAT = _schema("question", {"question": {"type": "string"}}, ["question"])
 INTERPRET_FORMAT = _schema("interpretation", {"condition": {"type": ["string", "null"]},
                                               "kind": {"type": "string", "enum": ["on_screen", "off_screen", "none"]}}, ["condition", "kind"])
+CLASSIFY_FORMAT = _schema("category", {"category": {"type": "string", "enum": ["ITEM", "SELF", "NONE"]}}, ["category"])
+PHRASE_FORMAT = _schema("phrase", {"phrase": {"type": "string"}}, ["phrase"])
 CRITIQUE_FORMAT = _schema("critique", {"rating": {"type": "number"}}, ["rating"])
 
 
@@ -87,8 +91,49 @@ def make_question(q: elicit.Question, chat: Chat | None, strategy: str = DEFAULT
     return (text, True) if _valid_question(text) else (fallback_question(q), False)
 
 
-def interpret(answer: str, known: list[str], chat: Chat | None) -> dict:
-    """{"condition": short name or None, "kind": ...}. Vague answers, long conditions and model failures give none."""
+def _words(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9']+", text.lower())
+
+
+def grounded(phrase: str, answer: str) -> bool:
+    """The phrase really comes from the answer: its words appear there in order, or at least 75% of them (by their first
+    five letters, so 'restarted' matches 'restart') do. A model cannot invent a condition the person did not say."""
+    pw, aw = _words(phrase), _words(answer)
+    if not pw:
+        return False
+    if " ".join(pw) in " ".join(aw):
+        return True
+    stems = {w[:5] for w in aw}
+    return sum(w[:5] in stems for w in pw) / len(pw) >= 0.75
+
+
+def interpret(answer: str, known: list[str], chat: Chat | None, method: str = "gated") -> dict:
+    """The condition the person gave, as {"condition": short phrase or None, "kind": ...}. `method` is "gated" (a
+    three-way ITEM / SELF / NONE classification, then a phrase of at most eight words that must come from the answer,
+    chosen by a majority of three wordings) or "v0" (one free extraction, the first version)."""
+    return interpret_v0(answer, known, chat) if method == "v0" else interpret_gated(answer, known, chat)
+
+
+def interpret_gated(answer: str, known: list[str], chat: Chat | None) -> dict:
+    none = {"condition": None, "kind": "none"}
+    if chat is None or len(answer.strip()) < 3:
+        return none
+    verdict = (_call(chat, CLASSIFY_SYSTEM, f"Answer: {answer}", CLASSIFY_FORMAT) or {}).get("category")
+    if verdict != "ITEM":  # a reason about the item itself; the person's own day and shrugs go no further
+        return none
+    phrases = []
+    for p in PHRASE_VARIANTS:
+        out = _call(chat, p, f"KNOWN conditions: {known or 'none yet'}\nAnswer: {answer}", PHRASE_FORMAT)
+        ph = str((out or {}).get("phrase") or "").strip().strip(".").lower()
+        if ph and len(ph.split()) <= MAX_PHRASE_WORDS and (ph in known or grounded(ph, answer)):
+            phrases.append(ph)
+    if not phrases:
+        return none
+    return {"condition": Counter(phrases).most_common(1)[0][0], "kind": "stated"}  # ties go to the earliest prompt's phrase
+
+
+def interpret_v0(answer: str, known: list[str], chat: Chat | None) -> dict:
+    """The first version: one free extraction. Kept as the baseline for the amendment-8 comparison."""
     none = {"condition": None, "kind": "none"}
     if chat is None or len(answer.strip()) < 3:
         return none
@@ -221,7 +266,7 @@ def load_rubric(path) -> dict[str, dict]:
 
 def run_interview(decisions: list[Decision], ask: Ask, chat: Chat | None, strategy: str = DEFAULT_STRATEGY,
                   max_questions: int = 8, patience: int = 4, follow_up: bool = True, say: Callable[[str], None] = lambda s: None,
-                  on_turn: Callable[[Turn, elicit.Answer], None] | None = None) -> Interview:
+                  extraction: str = "gated", on_turn: Callable[[Turn, elicit.Answer], None] | None = None) -> Interview:
     """Question the person about the decisions the rule cannot explain; stop when nothing is left, the budget is spent,
     or `patience` answers in a row changed nothing. `decisions` should be the ones the rule was fitted on."""
     result = Interview()
@@ -239,7 +284,7 @@ def run_interview(decisions: list[Decision], ask: Ask, chat: Chat | None, strate
         say(text)
         answer = ask(text, {"key": key, "followup": False})
         known = sorted({a.fact for a in result.answers if a.fact})
-        interp = interpret(answer, known, chat)
+        interp = interpret(answer, known, chat, extraction)
         cands = elicit.tag_candidates(q, questions)
         others = [c for c in cands if elicit.key(c) != key]
         held: list[str] = []

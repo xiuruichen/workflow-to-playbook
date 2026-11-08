@@ -47,6 +47,35 @@ INTERPRET_SYSTEM = (
     "'on_screen' if it was visible, 'none' if there is no condition. Reply as JSON."
 )
 
+# --- Gated extraction (amendment 8) --------------------------------------------------------------------------
+# Step 1 classifies the answer three ways; only ITEM goes on. A yes/no "does this give a reason?" gate was tried first
+# and rejected many clear answers (the 4B model read first-person answers about the item as being about the person);
+# the three-way choice, with first-person examples about the item, did much better on the development paraphrases.
+# Step 2 (below) quotes the phrase, by a majority of three wordings. The worked examples are unrelated to any domain
+# used in testing.
+CLASSIFY_SYSTEM = (
+    "A person was asked why they made a choice about an item they were checking (a job, an invoice, a ticket, an "
+    "account). Classify their answer. Reply as JSON {\"category\": \"ITEM\" or \"SELF\" or \"NONE\"}.\n"
+    "ITEM = the reason is about the item itself or what happened to it (its state, history, age, type), even if the "
+    "answer is written in the first person.\n"
+    "SELF = the reason is about the person or their surroundings (hunger, time of day, meetings, noise, weather).\n"
+    "NONE = no reason is given (a shrug, instinct, 'not sure').\n"
+    "Examples:\n'I was waiting for the invoice to clear approval.' -> ITEM\n'The account was brand new, so I gave it room.' -> ITEM\n"
+    "'I always wait a week on these.' -> ITEM\n'It was almost lunchtime.' -> SELF\n'My train was delayed.' -> SELF\n"
+    "'I was tired that afternoon.' -> SELF\n'Can't say, just felt right.' -> NONE\n'No particular reason.' -> NONE"
+)
+
+PHRASE_VARIANTS = (
+    ("Copy, from the person's answer, the shortest phrase (at most five words) that names the circumstance they say "
+     "mattered. Use their own words; the phrase must appear in the answer. If the condition is the same idea as one of "
+     "the KNOWN conditions, reply with that exact KNOWN wording instead. Reply as JSON: {\"phrase\": \"...\"}."),
+    ("Which words in the answer name the circumstance that explains the choice? Give at most five consecutive words "
+     "taken from the answer. If it matches a KNOWN condition, give that KNOWN condition exactly. "
+     "Reply as JSON: {\"phrase\": \"...\"}."),
+    ("From the answer, quote the part that says what was going on (at most five words, copied from the answer). "
+     "Reuse a KNOWN condition's wording if it is the same thing. Reply as JSON: {\"phrase\": \"...\"}."),
+)
+
 CRITIQUE_SYSTEM = (
     "A person answered a question about a choice they made. Rate from 0 to 1 how specifically the answer explains "
     "that choice: 0 means vague or off topic, 1 means it names a concrete condition that would let someone predict "

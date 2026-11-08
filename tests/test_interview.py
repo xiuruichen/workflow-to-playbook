@@ -23,6 +23,11 @@ class FakeChat:
         if name == "critique":
             return json.dumps({"rating": self.rating})
         answer = user.split("Answer:", 1)[1].lower()
+        if name == "category":
+            return json.dumps({"category": "ITEM" if "warm" in answer or "restart" in answer else "NONE"})
+        if name == "phrase":
+            word = next((w for w in answer.replace(",", " ").replace(".", " ").split() if "warm" in w or "restart" in w), "")
+            return json.dumps({"phrase": word})
         if "warm" in answer or "restart" in answer:
             return json.dumps({"condition": "run just restarted", "kind": "off_screen"})
         return json.dumps({"condition": None, "kind": "none"})
@@ -64,17 +69,59 @@ def test_what_the_model_is_told_never_includes_the_rule_or_the_hidden_fact():
 
 def test_interpret_guard_rails():
     chat = FakeChat()
-    assert interview.interpret("It was still warming up.", [], chat) == {"condition": "run just restarted", "kind": "off_screen"}
-    assert interview.interpret("Hard to say.", [], chat)["condition"] is None
-    assert interview.interpret("ok", [], chat)["condition"] is None, "too short to read"
-    assert interview.interpret("warmup", [], None)["condition"] is None
+    v0 = lambda a, c: interview.interpret(a, [], c, method="v0")  # noqa: E731
+    assert v0("It was still warming up.", chat) == {"condition": "run just restarted", "kind": "off_screen"}
+    assert v0("Hard to say.", chat)["condition"] is None
+    assert v0("ok", chat)["condition"] is None, "too short to read"
+    assert v0("warmup", None)["condition"] is None
 
     def long_condition(messages, fmt):
         return json.dumps({"condition": "the run had only just been brought back after a restart", "kind": "off_screen"})
 
-    assert interview.interpret("warmup", [], long_condition)["condition"] is None, "a condition is at most five words"
-    assert interview.interpret("warmup", [], lambda m, f: "not json")["condition"] is None
-    assert interview.interpret("warmup", [], lambda m, f: json.dumps({"condition": "x y", "kind": "none"}))["condition"] is None
+    assert v0("warmup", long_condition)["condition"] is None, "a condition is at most five words"
+    assert v0("warmup", lambda m, f: "not json")["condition"] is None
+    assert v0("warmup", lambda m, f: json.dumps({"condition": "x y", "kind": "none"}))["condition"] is None
+
+
+def test_gated_extraction_needs_an_item_reason_and_a_phrase_taken_from_the_answer():
+    chat = FakeChat()
+    assert interview.interpret("It was still warming up, so I gave it time.", [], chat) == {"condition": "warming", "kind": "stated"}
+    assert interview.interpret("Hard to say.", [], chat)["condition"] is None
+    assert interview.interpret("ok", [], chat)["condition"] is None
+    assert interview.interpret("warmup", [], None)["condition"] is None
+
+    def classify(verdict, phrase):
+        def chat_(messages, fmt):
+            name = fmt["json_schema"]["name"]
+            return json.dumps({"category": verdict} if name == "category" else {"phrase": phrase})
+        return chat_
+
+    assert interview.interpret("still warming up", [], classify("SELF", "warming up"))["condition"] is None, "only ITEM goes on"
+    assert interview.interpret("still warming up", [], classify("NONE", "warming up"))["condition"] is None
+    assert interview.interpret("still warming up", [], classify("ITEM", "warming up"))["condition"] == "warming up"
+    assert interview.interpret("it was still warming up", [], classify("ITEM", "customer on trial"))["condition"] is None, "a phrase not in the answer is dropped"
+    too_long = "it was still warming up so I gave it a whole lot of time"
+    assert interview.interpret(too_long, [], classify("ITEM", too_long))["condition"] is None, "at most eight words"
+    n_phrase = sum(1 for s_, u in chat.calls if "phrase" in s_.lower())
+    assert n_phrase >= 3, "three differently worded phrase prompts are used"
+
+    def mixed(messages, fmt):  # the majority of the three phrase prompts wins; a tie goes to the earliest
+        name = fmt["json_schema"]["name"]
+        if name == "category":
+            return json.dumps({"category": "ITEM"})
+        mixed.n += 1
+        return json.dumps({"phrase": ["still warming", "warming up", "warming up"][mixed.n - 1]})
+
+    mixed.n = 0
+    assert interview.interpret("it was still warming up", [], mixed)["condition"] == "warming up"
+
+
+def test_grounded_matches_stems_and_rejects_invention():
+    assert interview.grounded("restarted", "I'd just restarted that run")
+    assert interview.grounded("just restarted run", "I'd just restarted that run, so I waited")
+    assert interview.grounded("restart", "right after the restarted job")
+    assert not interview.grounded("customer on trial", "it was still warming up")
+    assert not interview.grounded("", "anything")
 
 
 def test_case_numbers_are_read_by_code_and_only_offered_cases_count():
@@ -191,7 +238,7 @@ def test_pilot_interview_with_a_model_saves_answers_and_reports_the_effect(tmp_p
                             chat=FakeChat(), strategy="v0_open")
     saved = elicit.load_answers(tmp_path / "answers.jsonl")
     assert saved and all(a.reason == "it was still warming up" for a in saved)
-    assert any(a.fact == "run just restarted" for a in saved)
+    assert any(a.fact and "warm" in a.fact for a in saved)
     assert {"before", "after", "facts"} <= set(result) and result["after"]["unexplained"] <= result["before"]["unexplained"]
     assert any("?" in s for s in said), "the questions were shown"
 
