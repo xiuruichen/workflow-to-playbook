@@ -1,6 +1,6 @@
 # Evaluation protocol
 
-Status: **written before the next round of runs**; the criteria below must not be changed after seeing results (add a dated amendment instead). Companion to [ROADMAP.md](ROADMAP.md).
+Status (2026-11-08): **the original protocol was written before any run; six dated amendments follow it, each written before the runs it governs.** The criteria must not be changed after seeing results (add a dated amendment instead). Where each result comes from: [results/README.md](results/README.md); what is still open: [open-questions.md](open-questions.md). The amendments are at the end of this file, with a list of deviations. Companion to [ROADMAP.md](ROADMAP.md).
 
 ## What has already been seen (so it cannot count as confirmation)
 
