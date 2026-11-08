@@ -128,3 +128,26 @@ def test_judgment_explains_word_conditions():
          "stated_by_person": [], "unexplained": []}
     text = "\n".join(_judgment_md(j))
     assert "`label=word > 0.5` means the screen shows that word" in text and "`vendor=known`" in text
+
+
+def test_dependencies_and_completion_checks():
+    pb = playbook([step(1, "Read the population", "read", "Population: 168,412"),
+                   step(2, "Open the sheet", "click", target="Sheet"),
+                   step(3, "Type the population", "type", "186,412", "Cell B2")])
+    pb.steps[2].expected_result = "Cell B2 shows the population"
+    sk = build_skill(pb)
+    assert [s["depends_on"] for s in sk["steps"]] == [[], [], ["step-1"]]
+    kinds = [c["kind"] for c in sk["completion_checks"]]
+    assert kinds == ["value_matches", "end_state"]
+    assert sk["completion_checks"][0]["equals_value_read_in"] == "step-1"
+    assert sk["completion_checks"][1]["check"] == "Cell B2 shows the population"
+    md = render_skill_md(pb, sk)
+    assert "## Done when" in md and "equals the value read in step-1" in md
+
+
+def test_end_state_falls_back_to_the_goal_and_is_not_invented():
+    sk = build_skill(playbook([step(1, "Open Outlook")]))
+    assert sk["completion_checks"] == [{"kind": "end_state", "step": "step-1", "check": "Email the Q3 report to a colleague."}]
+    nogoal = playbook([step(1, "Open Outlook")])
+    nogoal.goal = ""
+    assert build_skill(nogoal)["completion_checks"] == []

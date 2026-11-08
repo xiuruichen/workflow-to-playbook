@@ -185,6 +185,8 @@ def build_skill(pb: Playbook, judgment: dict | None = None) -> dict:
             "source": {"playbook_step": s.index, "t_start": round(s.t_start, 2), "t_end": round(s.t_end, 2)},
         })
     gated = sum(st["requires_confirmation"] for st in steps)
+    for st in steps:  # a step needs the step whose value it types
+        st["depends_on"] = [st["value_from"]["step"]] if st["value_from"] else []
     return {
         "name": skill_name(pb.title),
         "title": pb.title,
@@ -199,6 +201,7 @@ def build_skill(pb: Playbook, judgment: dict | None = None) -> dict:
             "required": [i.name for i in inputs],
         },
         "steps": steps,
+        "completion_checks": _completion_checks(steps, pb.goal),
         "excluded_steps": [{"playbook_step": s.index, "title": s.title, "reason": "Marked wrong in review"}
                            for s in pb.steps if s.review == "wrong"],
         "open_questions": pb.open_questions,
@@ -213,6 +216,23 @@ def build_skill(pb: Playbook, judgment: dict | None = None) -> dict:
             "steps_needing_confirmation": gated,
         },
     }
+
+
+def _completion_checks(steps: list[dict], goal: str | None) -> list[dict]:
+    """How an agent (or a replay) can tell the task was done, from what the recording already holds.
+
+    value_matches: a value typed from an earlier read must equal what was read this time (not what was
+    read in the recording). end_state: the last step's expected result, else the goal. Nothing is invented:
+    a skill whose steps carry no expected result and no goal has no end-state check.
+    """
+    checks = [{"kind": "value_matches", "step": st["id"], "equals_value_read_in": st["value_from"]["step"],
+               "check": f"The value typed in {st['id']} equals the value read in {st['value_from']['step']} on this run."}
+              for st in steps if st["value_from"]]
+    last = steps[-1] if steps else None
+    text = (last["expect"] if last and last["expect"] else None) or goal
+    if text:
+        checks.append({"kind": "end_state", "step": last["id"] if last else None, "check": text})
+    return checks
 
 
 def _description(pb: Playbook, gated: int) -> str:
@@ -309,6 +329,8 @@ def render_skill_md(pb: Playbook, skill: dict | None = None) -> str:
         if st["requires_confirmation"]:
             out.append(f"   - **Ask a human first.** {st['confirmation_reason']}")
     out.append("")
+    if sk.get("completion_checks"):
+        out += ["## Done when", ""] + [f"- {c['check']}" for c in sk["completion_checks"]] + [""]
     if sk.get("judgment"):
         out += _judgment_md(sk["judgment"])
     if sk["excluded_steps"]:
