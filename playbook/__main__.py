@@ -144,6 +144,8 @@ def main(argv: list[str] | None = None) -> int:
     ind.add_argument("--ratios", action="store_true", help="also try ratios of readouts (errors/requests) as features; helps when the rule is about a rate")
     ind.add_argument("--without", choices=["context", "none"], help="ablation: fit without cross-session context, or without the non-action decisions")
     el = sub.add_parser("elicit", help="answer questions about the decisions the fitted rule can't explain, then refit")
+    el.add_argument("--llm", action="store_true", help="a local model writes the questions and reads your answers (needs the local model)")
+    el.add_argument("--questions", default="v0_open", help="question strategy for --llm (see playbook/interview_prompts.py), or 'template'")
     el.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
     rp = sub.add_parser("replay", help="test whether the judgment calls reproduce your later decisions (fit on the earliest 70%%)")
     rp.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
@@ -154,6 +156,8 @@ def main(argv: list[str] | None = None) -> int:
     pl.add_argument("--theme", choices=["run", "invoice", "ticket"], default="run")
     pl.add_argument("--cases", type=int, default=60)
     pl.add_argument("--seed", type=int, default=7)
+    pl.add_argument("--llm", action="store_true", help="elicit: a local model writes the questions and reads your answers")
+    pl.add_argument("--questions", default="v0_open", help="elicit --llm: question strategy (see playbook/interview_prompts.py), or 'template'")
     pl.add_argument("--ratios", action="store_true", help="report/elicit: also try ratios of readouts as features")
     pl.add_argument("--out", type=Path, help="make: page path (default pilot.html); report: report path (default pilot_report.md)")
     args = p.parse_args(argv)
@@ -252,7 +256,15 @@ def main(argv: list[str] | None = None) -> int:
 
             add_ratios(decisions)
         if args.action == "elicit":
-            result = pilot.ask_loop(decisions, args.path.with_name("pilot_answers.jsonl"))
+            from contextlib import ExitStack
+
+            with ExitStack() as stack:
+                chat = None
+                if args.llm:
+                    from .interview import local_chat
+
+                    chat = local_chat(stack, settings)
+                result = pilot.ask_loop(decisions, args.path.with_name("pilot_answers.jsonl"), chat=chat, strategy=args.questions)
             for label in ("before", "after"):
                 r = result[label]
                 print(f"\nRule {label} your answers ({r['accuracy']:.0%} of cases, {r['unexplained']} unexplained):")
@@ -309,6 +321,31 @@ def main(argv: list[str] | None = None) -> int:
         store = settings.data_dir / "elicited.jsonl"
         answers = elicit.load_answers(store)
         elicit.apply_answers(decisions, answers)
+        if args.llm:
+            from contextlib import ExitStack
+
+            from . import interview
+
+            saved = list(answers)
+            print(f"{len(decisions)} decisions; a model will ask about the ones the rule can't explain. Press Enter to skip a question.\n")
+
+            def keep(turn, ans):
+                saved.append(ans)
+                elicit.save_answers(saved, store)
+
+            try:
+                with ExitStack() as stack:
+                    interview.run_interview(decisions, lambda text, ctx: input("> "), interview.local_chat(stack, settings), args.questions, say=print, on_turn=keep)
+            except (EOFError, KeyboardInterrupt):
+                print("\nStopped; answers so far are saved.")
+            result = interview.effect(pool(dirs), saved)
+            for label in ("before", "after"):
+                r = result[label]
+                print(f"\nRule {label} your answers ({r['accuracy']:.0%} of decisions, {r['unexplained']} unexplained):")
+                for line in r["rule"]:
+                    print(f"  {line}")
+            print(f"\nAnswers are in {store}")
+            return 0
         questions = elicit.build_questions(decisions)
         print(f"{len(decisions)} decisions; the rule can't explain {len(questions)}. Press Enter to skip a question.\n")
         try:

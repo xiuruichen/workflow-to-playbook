@@ -209,14 +209,30 @@ def report(decisions: list[Decision], raw: dict | None = None) -> str:
     return "\n".join(out) + "\n"
 
 
-def ask_loop(decisions: list[Decision], store: Path, ask=input, say=print) -> dict:
+def ask_loop(decisions: list[Decision], store: Path, ask=None, say=print, chat=None, strategy: str = "v0_open") -> dict:
     """The interview: one question per unexplained choice (as `python -m playbook elicit`, on the pilot log).
 
     The answers (verbatim, with an optional named condition and the other cases it held for) are saved to
     `store`; the named condition becomes a 0/1 feature and the rule is refitted. Returns elicit.effect().
     """
+    ask = ask or input  # looked up when called, so a replaced `input` is honoured
     answers = elicit.load_answers(store)
     elicit.apply_answers(decisions, answers)
+    if chat is not None:  # a model writes the questions and reads the answers (playbook/interview.py)
+        from . import interview
+
+        saved = list(answers)
+        say(f"{len(decisions)} cases; a model will ask about the choices the rule cannot explain. Press Enter to skip.\n")
+
+        def keep(turn, ans):
+            saved.append(ans)
+            elicit.save_answers(saved, store)
+
+        try:
+            interview.run_interview(decisions, lambda text, ctx: ask("> "), chat, strategy, say=say, on_turn=keep)
+        except (EOFError, KeyboardInterrupt):
+            say("\nStopped; answers so far are saved.")
+        return interview.effect(decisions, saved)
     questions = elicit.build_questions(decisions)
     say(f"{len(decisions)} cases; the rule cannot explain {len(questions)}. Press Enter to skip a question.\n")
     try:
