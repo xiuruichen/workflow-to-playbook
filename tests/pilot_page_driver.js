@@ -22,6 +22,8 @@ const origCreate = document.createElement;
 document.createElement = () => { const a = { click() { saved = document.lastBlob.text; } }; return a; };
 eval(script);
 el("start").onclick();
+listeners.keydown({ key: "a", ctrlKey: true, target: { tagName: "BODY" } });
+listeners.keydown({ key: "l", repeat: true, target: { tagName: "BODY" } });
 for (const c of choices) listeners.keydown({ key: c, target: { tagName: "BODY" } });
 if (!el("end").hidden === false) { console.error("end screen not shown"); process.exit(2); }
 el("rule").value = "I act when the first number is high.";

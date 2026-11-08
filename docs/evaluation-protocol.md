@@ -113,3 +113,12 @@ Option R: `decisions.add_ratios` adds one feature `a/b` for every pair of readou
 **Test (seeds 6-10; cells: service at 40 and 80 visits and 60 visits with 10% label noise; dashboard and triage at 40 and 80 visits as a cost check):**
 - R is **adopted as an option to switch on** (it is never silently on) if on service it is at least A in every cell with a mean gain of at least 0.10, **and** on dashboard and triage its mean over the four cost cells is no more than 0.03 below A's.
 - Otherwise ratios stay out and the result is reported as negative.
+
+### Amendment 4 (2026-11-08, before any run on seeds 6-10 of the guard)
+
+E5 showed that a wrongly tagged answer can lower held-out agreement (triage 0.68 to 0.64 in the worst case). `elicit.vet` is the guard written in response: answers are grouped by the condition they name, and a group is kept only if the refitted rule gets more training decisions right or leaves fewer unexplained under leave-one-out; otherwise the person's words stay on record but the condition does not become a feature. Development seeds 100-114 (80 visits, hidden warmup fact) showed the guard roughly neutral with a perfect expert and slightly helpful with wrong tags; no threshold was tuned.
+
+**Test (seeds 6-10, both domains, 80 visits, hidden warmup, greedy tree; held-out agreement after one elicitation round, with and without the guard):** cells (a) perfect expert, (b) expert right 60% of the time and otherwise tagging the wrong decisions, (c) expert always tagging wrong decisions.
+**The guard is adopted into the interview (`pilot elicit`) if** the mean over both domains in (a) is no more than 0.01 below the unguarded value **and** the mean over (b) and (c) is at least 0.01 above it. Otherwise it stays an unused option and the result is reported as negative.
+
+Also in this amendment (code changes from a review of the branch, not experiments): the pilot report fits with the default tree, matching `pilot elicit`; the pilot page ignores modified keys and key repeat; repeated cases keep the item's settings and the batch size cycles instead of growing; judgment lists the readouts behind a ratio rule and the model prompt shows the quotient.

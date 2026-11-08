@@ -137,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
     planted = sum(s.mistake_planted for s in scores)
     found, total = sum(s.expected_found for s in scores), sum(s.expected_total for s in scores)
     prec, rec = (tp / (tp + fp) if tp + fp else 1.0), (tp / planted if planted else 1.0)
-    print(f"\nStep recall {found}/{total} ({found / total:.0%}); flags: precision {prec:.2f}, recall {rec:.2f}, "
+    print(f"\nStep recall {found}/{total} ({found / total if total else 1.0:.0%}); flags: precision {prec:.2f}, recall {rec:.2f}, "
           f"F1 {2 * prec * rec / (prec + rec) if prec + rec else 0.0:.2f} ({tp} of {planted} planted mistakes caught, {fp} false flags)")
     out = eval_dir / "eval_results.json"
     out.write_text(json.dumps([asdict(s) | {"recall": s.recall, "flag_precision": s.flag_precision, "flag_recall": s.flag_recall,

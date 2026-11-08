@@ -242,3 +242,18 @@ def test_cli_ratios_flag_finds_the_rate_rule(tmp_path, monkeypatch, capsys, sett
     monkeypatch.setattr(cli, "get_settings", lambda: settings)
     assert cli.main(["induce", "--ratios", *dirs]) == 0
     assert "errors/requests" in capsys.readouterr().out
+
+
+def test_vet_keeps_a_fact_that_explains_and_drops_one_that_does_not():
+    import random
+
+    built = study.build(D, 80, 100, hidden_fact=True)
+    train = built.decisions[:56]
+    questions = elicit.build_questions(train)
+    good = study.simulated_expert(questions, built.hidden, random.Random(0), accuracy=1.0)
+    kept, dropped = elicit.vet(train, good)
+    assert kept and not dropped
+    bad = [elicit.Answer(good[0].session, good[0].t1, "felt wrong", "gut feeling", [elicit.key(train[i]) for i in (0, 1, 2)])]
+    kept2, dropped2 = elicit.vet(train, bad)
+    assert not kept2 and dropped2, "a condition tagged on unrelated decisions explains nothing"
+    assert all(a.fact is None for a in elicit.vet(train, [elicit.Answer("s", 0.0, "no idea", None)])[0])

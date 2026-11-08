@@ -59,12 +59,18 @@ def make_cases(theme: str, n: int, seed: int) -> list[dict]:
         again = prev is not None and rng.random() < REPEAT
         reads: dict[str, float] = {}
         for name, kind, a, b in spec["fields"]:
+            if again and kind in ("double", "falling"):
+                reads[name] = prev["readouts"][name]  # the same item: its settings have not moved on
+                continue
             if kind == "choice":
                 reads[name] = rng.choices(a, weights=b)[0] if b else rng.choice(a)
             elif kind == "range":
                 reads[name] = rng.randrange(a, b + 1)
             elif kind == "double":  # a setting that is raised now and then and otherwise stays
-                state[name] = state.get(name, a) * (2 if i and rng.random() < b else 1)
+                cur = state.get(name, a)
+                if i and rng.random() < b:  # raised now and then; after four doublings it is reset, so changes keep happening
+                    cur = a if cur >= a * 16 else cur * 2
+                state[name] = cur
                 reads[name] = state[name]
             else:  # "falling": drifts down
                 state[name] = round(max(0.5, state.get(name, a) - rng.random() * b), 2)
@@ -116,7 +122,7 @@ function choose(a){if($("case").hidden)return;const c=CASES[i];
  i++;if(i>=CASES.length){$("case").hidden=true;$("end").hidden=false;}else show();}
 $("start").onclick=()=>{$("intro").hidden=true;$("case").hidden=false;show();};
 $("act").onclick=()=>choose(true);$("leave").onclick=()=>choose(false);
-document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;if(e.key==="a"||e.key==="A")choose(true);if(e.key==="l"||e.key==="L")choose(false);});
+document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT"||e.ctrlKey||e.metaKey||e.altKey||e.repeat)return;if(e.key==="a"||e.key==="A")choose(true);if(e.key==="l"||e.key==="L")choose(false);});
 $("save").onclick=()=>{const out={meta:META,stated_rule:$("rule").value,cases:log};
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,1)],{type:"application/json"}));
  a.download="pilot_log.json";a.click();};
@@ -149,7 +155,7 @@ def load_log(path: Path) -> tuple[list[Decision], dict]:
 
 def _mentioned(feature: str, text: str) -> bool:
     """Does the person's own statement mention this feature (any word of its name)?"""
-    words = [w for w in re.split(r"[=_]", re.sub(r"^(changed|delta)_", "", feature)) if len(w) > 2]
+    words = [w for w in re.split(r"[=_/]", re.sub(r"^(changed|delta)_", "", feature)) if len(w) > 2]
     return any(w in text.lower() for w in words)
 
 
@@ -161,9 +167,9 @@ def report(decisions: list[Decision], raw: dict | None = None) -> str:
            f"{n} cases; you acted on {acted} and left {n - acted} alone.", ""]
     if n < 12:
         return "\n".join(out + ["Too few cases to fit a rule (about 30-40 are needed)."])
-    tree = induce.fit(decisions, lookahead=True)
+    tree = induce.fit(decisions)
     cut = max(1, int(n * 0.7))
-    held = induce.holdout(decisions, lookahead=True)
+    held = induce.holdout(decisions)
     major = Counter(d.outcome for d in decisions[:cut]).most_common(1)[0][0]
     base = sum(d.outcome == major for d in decisions[cut:]) / max(1, n - cut)
     out += ["## The rule we found", "",
@@ -171,7 +177,7 @@ def report(decisions: list[Decision], raw: dict | None = None) -> str:
     out += [f"- {line}" for line in induce.rules(tree)]
     out += ["", f"It fits {induce.accuracy(tree, decisions):.0%} of your {n} choices. Fitted on your first {cut}, it predicts "
             f"{held['test_accuracy']:.0%} of your last {n - cut} (always doing the most common thing would get {base:.0%}).", ""]
-    odd = induce.disagreements(decisions, lookahead=True)
+    odd = induce.disagreements(decisions)
     out += [f"## The {len(odd)} choice(s) it cannot explain", ""]
     if odd:
         out += ["For each: what the rule expected, what you did, and what was on screen. These are the places to explain why.", ""]

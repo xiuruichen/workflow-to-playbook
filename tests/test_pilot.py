@@ -70,8 +70,8 @@ def test_interview_turns_a_named_condition_into_a_feature(tmp_path):
     from playbook import elicit
 
     log = person_log(n=60)
-    for c in log["cases"][:60]:  # the person also waits when the dataset is new, which nothing else explains
-        if c["cats"]["Dataset"] == "new":
+    for c in log["cases"]:  # the person also waits during a "warmup" that is never on screen
+        if c["index"] % 9 in (3, 4):
             c["choice"] = "leave"
     path = tmp_path / "l.json"
     path.write_text(json.dumps(log), encoding="utf-8")
@@ -81,14 +81,14 @@ def test_interview_turns_a_named_condition_into_a_feature(tmp_path):
     def ask(prompt):
         asked.append(prompt)
         if prompt.startswith(">"):
-            return "the data was new"
+            return "the run was still warming up"
         if prompt.startswith("Name"):
-            return "new data"
+            return "warmup"
         return ""
 
     result = pilot.ask_loop(decisions, tmp_path / "answers.jsonl", ask=ask, say=lambda *_: None)
     saved = elicit.load_answers(tmp_path / "answers.jsonl")
-    assert saved and saved[0].fact == "new data" and saved[0].reason == "the data was new"
+    assert saved and saved[0].fact == "warmup" and saved[0].reason == "the run was still warming up"
     assert result["after"]["accuracy"] >= result["before"]["accuracy"]
 
 
@@ -127,3 +127,45 @@ def test_the_page_really_logs_choices_in_a_browser_like_runtime(tmp_path):
     path.write_text(out.stdout, encoding="utf-8")
     decisions, _ = pilot.load_log(path)
     assert [d.outcome == "none" for d in decisions] == [p == "L" for p in picks]
+
+
+def test_review_fixes():
+    import random
+
+    # keys: modified keys and auto-repeat are ignored by the page
+    page = pilot.render_html(pilot.make_cases("run", 3, 1), "run", 1)
+    assert "e.ctrlKey||e.metaKey||e.altKey||e.repeat" in page
+    # a ratio feature counts as mentioned when the person names either readout
+    assert pilot._mentioned("errors/requests", "when errors are a large share of requests")
+    # repeats keep the item's settings; the batch size cannot grow without bound
+    cases = pilot.make_cases("run", 60, 4)
+    assert max(c["readouts"]["Batch size"] for c in cases) <= 256 * 16
+    assert len({c["readouts"]["Batch size"] for c in cases}) > 1, "it is still raised now and then"
+    old = pilot.REPEAT
+    pilot.REPEAT = 1.0
+    try:
+        same = pilot.make_cases("run", 8, 4)
+    finally:
+        pilot.REPEAT = old
+    assert all(c["readouts"]["Batch size"] == same[0]["readouts"]["Batch size"] and c["readouts"]["Loss"] == same[0]["readouts"]["Loss"] for c in same)
+    assert random.random() >= 0
+
+
+def test_judgment_guards_the_readouts_behind_a_ratio_and_the_model_sees_the_quotient():
+    from playbook import replay, study as st
+    from playbook.skill import build_judgment
+
+    S = st.domains()["service"]
+    ds = st.build(S, 80, 100, ratios=True).decisions
+    j = build_judgment(ds[:56], None)
+    assert any("/" in c for r in j["rules"] for c in r["when"])
+    assert {"errors", "requests"} <= set(j["basis"]["observed_ranges"])
+    assert "errors/requests = " in replay._screen(ds[0], [], ["errors/requests"])
+
+
+def test_evaluate_summary_with_nothing_expected_does_not_divide_by_zero():
+    from playbook.evaluate import Score
+
+    s = Score(scenario="x", steps=1, expected_found=0, expected_total=0, missing=[], mistake_planted=False,
+              mistake_flagged=False, false_flags=0, api_calls=0, model="m")
+    assert s.recall == 1.0

@@ -153,7 +153,8 @@ def simulated_expert(questions: list[elicit.Question], hidden: set[str], rng: ra
     return answers
 
 
-def elicitation(built: Built, seed: int, accuracy: float = 1.0, wrong_fact: bool = False, train_fraction: float = 0.7) -> dict:
+def elicitation(built: Built, seed: int, accuracy: float = 1.0, wrong_fact: bool = False, train_fraction: float = 0.7,
+                guard: bool = False) -> dict:
     """H4: ask about the training decisions the rule can't explain, apply the answers, compare held-out agreement.
 
     As in replay.py, the fact's value for held-out decisions is supplied as if a human had been asked.
@@ -164,6 +165,8 @@ def elicitation(built: Built, seed: int, accuracy: float = 1.0, wrong_fact: bool
     before = induce.accuracy(induce.fit(train), test)
     questions = elicit.build_questions(train)
     answers = simulated_expert(questions, built.hidden, random.Random(f"expert-{seed}"), accuracy, wrong_fact)
+    if guard:
+        answers, _ = elicit.vet(train, answers)
     elicit.apply_answers(train, answers)
     facts = {a.fact for a in answers if a.fact}
     for d in test:

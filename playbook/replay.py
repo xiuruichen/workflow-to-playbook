@@ -76,6 +76,7 @@ def _screen(d: Decision, facts: list[str], context: list[str] = ()) -> str:
     # What the rules call changed_x is not on this screen: it compares with the previous check.
     prior = [f"{c.removeprefix('changed_').replace('_', ' ')} changed since the previous check: "
              f"{'yes' if d.features.get(c) else 'no'}" for c in context if c.startswith("changed_")]
+    seen += "".join(f", {c} = {d.features[c]:.4g}" for c in context if "/" in c and c in d.features)  # a rule on a quotient: do the division for the model
     return (f"The screen shows: {seen}." + (f" From earlier checks: {'; '.join(prior)}." if prior else "")
             + (f" A human confirms - {'; '.join(known)}." if known else ""))
 
@@ -134,7 +135,7 @@ def run(decisions: list[Decision], answers=None, chat=None, procedure_md: str = 
         raise ValueError("need at least 6 training decisions")
     options = sorted({d.outcome for d in train if d.outcome != NONE} | {NONE})
     facts = [slug(s["fact"]) for s in judgment["stated_by_person"] if s["fact"]]
-    context = sorted({c.split()[0] for r in judgment["rules"] for c in r["when"] if c.startswith(("changed_", "delta_"))})
+    context = sorted({c.split()[0] for r in judgment["rules"] for c in r["when"] if c.startswith(("changed_", "delta_")) or "/" in c.split()[0]})
     arms: dict[str, Decider] = {"majority": majority_decider(train), "rules": rules_decider(judgment)}
     if chat is not None:
         with_judgment = procedure_md + "\n\n" + _judgment_text(judgment)
