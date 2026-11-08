@@ -150,4 +150,49 @@ All capture checks so far record one visit per session, so every decision is the
 
 A result below a bar is reported as negative; prompts are not retuned on seeds 6-10.
 
-**Disclosure and result (added after the run).** Tag `freeze-5`. Development used seeds 100-109 and a separate set of development phrasings (different from the test phrasings above); the interpretation prompt originally contained an example that leaked the hidden fact and was rewritten, its generic categories (a shrug, "I don't know", remarks about the person's own mood, schedule or distractions) overlap in meaning with the test's vague and irrelevant phrasings, and verbatim test strings were removed from it. The stop rule's patience (not fixed in this amendment) was tuned on development seeds from 2 to 4. Result on seeds 6-10: **H8 fails** (clear answers 3 of 6; vague and irrelevant 30 of 30), **H9 fails** (47% of the structured gain), leakage 0, H10 0.79; details in [results.md](results.md#the-llm-driven-interview) and [results/interview.md](results/interview.md). If the model cannot meet H8 the fallback (the fixed template and a typed condition) stays the default and the finding is the finding. Out of scope for the bars, and left open for the team member who is thinking through what to ask and how to judge answers: the final question wording, a rubric for answer quality, and what counts as success with a real expert.
+**Disclosure and result (added after the run).** Tag `freeze-5`. Development used seeds 100-109 and a separate set of development phrasings (different from the test phrasings above); the interpretation prompt originally contained an example that leaked the hidden fact and was rewritten, its generic categories (a shrug, "I don't know", remarks about the person's own mood, schedule or distractions) overlap in meaning with the test's vague and irrelevant phrasings, and verbatim test strings were removed from it. The stop rule's patience (not fixed in this amendment) was tuned on development seeds from 2 to 4. Result on seeds 6-10: **H8 fails** (clear answers 3 of 6; vague and irrelevant 30 of 30), **H9 fails** (47% of the structured gain), leakage 0, H10 0.79; details in [results.md](results.md#the-llm-driven-interview) and [results/interview.md](results/interview.md).
+
+## Round 2: fixing what failed (amendments 8-11)
+
+Amendments 8-11 were written together on 2026-11-08, before any code of the fixes and before any of their runs. They respond to failures in earlier tests ([results.md](results.md)) and are judged on **fresh test seeds 11-15** (seeds 6-10 were used by amendments 2-4 and 7) and on the **fresh paraphrases** in [`results/interview/paraphrases.json`](results/interview/paraphrases.json), written before the extraction code was touched. Development (where options and prompts may be tuned) uses seeds 100-119 and the `dev` paraphrases. Each amendment states the baseline, run on the same seeds as the fix, and what is reported if a bar is missed. The designs of the fixes were made after seeing the failures, so the bars are blind but the designs are not.
+
+### Amendment 8: the interview (extraction, which misfit to ask, stopping)
+
+**Baseline:** the code at tag `freeze-5` (one-shot extraction, misfits in time order, patience 4), run on the same data as the fix.
+
+**Changes under test.** (a) *Extraction* in three checked steps: a yes/no call "does this answer give a reason?"; if yes, a phrase that must be a near-substring of the answer; the majority of three samples (ties give none); plus a few domain-free examples. (b) *Order* of misfits: `time` (baseline), `surprise` (the purity of the leaf that predicted wrongly, times the number of other misfits with the same signature of what was done against what the rule expected, rare outcomes first), `cluster`. (c) *Group question*: one question about a cluster of similar misfits, all of them tagged unless the person removes some. (d) The stop rule: k non-answers and clusters exhausted or the budget spent.
+
+**Bars (each reported whether met or not).**
+- **H11, extraction:** on the 40 fresh test paraphrases (20 clear, 10 vague, 10 irrelevant), a condition is extracted (non-empty, a near-substring of the answer) for at least 16 of 20 clear answers, and none for at least 16 of 20 vague and irrelevant answers. The baseline pipeline is scored on the same 40.
+- **H12, order (no model):** on seeds 11-15, both domains, 80 visits, hidden warmup fact, the share of the first four asked misfits that were made during warmup is at least 0.15 higher (absolute) with `surprise` or `cluster` than with `time`.
+- **H13, end to end:** with the best ordering and extraction found on development seeds, the interview gain (as amendment 7: one interview on the earliest 70%, held-out agreement before and after) is at least 70% of the structured-expert gain, mean over both domains and seeds 11-15, with a scripted expert that answers in the fresh clear, vague and irrelevant test phrasings at the same rates as amendment 7 (clear for a warmup choice, vague with probability 0.25, irrelevant otherwise).
+- If a bar is missed the baseline stays the default and the result is reported as negative.
+
+### Amendment 9: induction (selection, rule list, stable misfits, windows, thin support)
+
+**Baseline:** the default tree at tag `freeze-5` and, where noted, the same tree with `--ratios`, on the same seeds.
+
+**Changes under test.** `induce.fit_auto` picks among plain and ratio features and among the greedy tree, the lookahead tree and a new rule list (sequential covering), keeping the simplest variant whose inner cross-validated accuracy beats the plain default by a margin fixed on development seeds; a misfit is *stable* only if it disagrees in at least 70% of 30 bootstrap fits; a window for drift is chosen by cross-validation on the latest decisions; the report lists thin-support patterns (fewer than 5 cases).
+
+**Bars.**
+- **H14, accuracy:** `fit_auto` on triage at 40 visits, seeds 11-15: mean held-out agreement at least 0.90 and worst seed at least 0.75. On the dashboard (40 and 80 visits) and on triage at 80 visits it is not below the baseline by more than 0.01 on average; on the service domain (40 and 80 visits) it is within 0.02 of the baseline with `--ratios`.
+- **H15, discoverability (untouched real-ish data):** run once on `docs/results/smoke_test/session/decisions.jsonl` with no flags, the fitted rule uses `train_loss/val_loss`.
+- **H16, stable misfits:** at 10% label noise on triage (80 visits, seeds 11-15), the precision of flagged misfits (the share that are the noisy visits) is at least 0.70 (baseline: one-shot leave-one-out; amendment 7's exploratory E2 measured 0.42-0.50).
+- **H17, drift:** on the E4b protocol (the rule changes at visit 40 of 80, tested on the last 20), the window chosen by cross-validation reaches at least the better of the two fixed windows minus 0.02, both domains, seeds 11-15.
+- **H18, thin support (smoke-test data):** the report's thin-support section lists a pattern involving `gpu_util`.
+
+### Amendment 10: an executable judgment for the agent
+
+**Baseline:** H5's arms (procedure only, with the judgment text, the rules read mechanically) at tag `freeze-5`, re-run on the same seeds.
+
+**Change under test.** `python -m playbook judge` evaluates the exported rules on given readouts and returns the outcome, the rule that fired and an out-of-range or no-rule flag; in the new arm "skill + evaluator" the 4B model reads the screen text into readouts, calls the evaluator, and asks a human when it says to.
+
+**Bar (H19).** On all three domains (dashboard, triage, service with ratio features), seeds 11-15, 40 visits, 3 repeats, temperature 0.3: agreement of the evaluator arm is within 0.05 of the mechanical reader, and at least 0.10 above procedure only. Wrong and missed actions and asks are reported.
+
+### Amendment 11: capture of numbers with separators
+
+**Baseline:** the parsing at tag `freeze-5` on screens drawn with thousands separators.
+
+**Change under test.** The raw token is kept with each readout and separators are repaired per label at pool level; label variants are merged more generally.
+
+**Bar (H20).** On triage screens drawn with the amount as `7,200` style, 40 visits (seed 11), through real OCR, 40 of 40 amounts are read exactly after the fix; the baseline count is reported. If the model cannot meet H8 the fallback (the fixed template and a typed condition) stays the default and the finding is the finding. Out of scope for the bars, and left open for the team member who is thinking through what to ask and how to judge answers: the final question wording, a rubric for answer quality, and what counts as success with a real expert.
