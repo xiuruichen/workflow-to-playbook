@@ -10,6 +10,7 @@ All commands run from the project root with the project's `.venv`. Seeds and com
 | H5 agent benefit | `h5/h5.md`, `h5/results.jsonl` | `python scripts/run_h5.py` then `python scripts/summarize_h5.py` (needs the Qwen3-VL 4B files: `python docs/results/fetch_model.py`) | 1-5, 3 repeats | `freeze-1` + strict-prompt fix |
 | Amendment 2 (lookahead, min_leaf 3) | `confirmatory2.md/.json` | `python scripts/run_confirmatory2.py` | 6-10 | tag `freeze-2` |
 | Amendment 3 (ratio features, service domain) | `confirmatory3.md/.json` | `python scripts/run_confirmatory3.py` | 6-10 | tag `freeze-3` |
+| Amendment 4 (elicitation guard) | `confirmatory4.md/.json` | `python scripts/run_confirmatory4.py` | 6-10 | tag `freeze-4` |
 | Triage capture on a development seed | `dev/triage_capture_seed100.json` | `python -m playbook.dashboard --domain triage --visits 40 --seed 100` | 100 | development only |
 
 Development seeds (0 and 100-119) were used to build and tune; no claim rests on them. `docs/evaluation-protocol.md` holds the hypotheses, criteria, amendments and the list of deviations.
