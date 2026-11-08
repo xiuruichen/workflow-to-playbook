@@ -1,0 +1,842 @@
+[
+ {
+  "kind": "clear",
+  "answer": "I'd bounced that job just that morning, so the curve hadn't settled.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 9.8
+  },
+  "gated": {
+   "condition": "i'd bounced that job just that morning",
+   "extracted": true,
+   "seconds": 19.5
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "Right after a relaunch the numbers are always jumpy, so I wait.",
+  "v0": {
+   "condition": "right after a relaunch",
+   "extracted": true,
+   "seconds": 2.6
+  },
+  "gated": {
+   "condition": "right after a relaunch",
+   "extracted": true,
+   "seconds": 6.7
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "It had been brought back from a checkpoint not long before.",
+  "v0": {
+   "condition": "brought back from checkpoint",
+   "extracted": true,
+   "seconds": 2.3
+  },
+  "gated": {
+   "condition": "brought back from checkpoint",
+   "extracted": true,
+   "seconds": 5.2
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "Too fresh after the redeploy to judge.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 2.0
+  },
+  "gated": {
+   "condition": "too fresh after the redeploy",
+   "extracted": true,
+   "seconds": 5.9
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "The run was only hours old after the restart.",
+  "v0": {
+   "condition": "run was only hours old",
+   "extracted": true,
+   "seconds": 2.4
+  },
+  "gated": {
+   "condition": "only hours old after the restart",
+   "extracted": true,
+   "seconds": 6.0
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "I give anything that just came back up a day or so.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 4.3
+  },
+  "gated": {
+   "condition": "anything that just came back up",
+   "extracted": true,
+   "seconds": 9.1
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "It was still finding its feet after being kicked off again.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 3.1
+  },
+  "gated": {
+   "condition": "finding its feet after being kicked off again",
+   "extracted": true,
+   "seconds": 6.3
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "That one had restarted overnight, so I gave it the benefit of the doubt.",
+  "v0": {
+   "condition": "restarted overnight",
+   "extracted": true,
+   "seconds": 3.0
+  },
+  "gated": {
+   "condition": "restarted overnight",
+   "extracted": true,
+   "seconds": 5.9
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "Newly restarted jobs get a grace window from me.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.8
+  },
+  "gated": {
+   "condition": "newly restarted jobs get a grace window",
+   "extracted": true,
+   "seconds": 5.5
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "It was mid warm-up, so there was nothing to read into yet.",
+  "v0": {
+   "condition": "mid warm-up",
+   "extracted": true,
+   "seconds": 2.3
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.1
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "We'd resumed it from the last save an hour earlier.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.7
+  },
+  "gated": {
+   "condition": "resumed it from the last save",
+   "extracted": true,
+   "seconds": 5.5
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "Early phase after the restart; I don't trust the first readings.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.8
+  },
+  "gated": {
+   "condition": "early phase after the restart",
+   "extracted": true,
+   "seconds": 5.3
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "Fresh restart, still ramping, so I left it be.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.8
+  },
+  "gated": {
+   "condition": "fresh restart, still ramping",
+   "extracted": true,
+   "seconds": 5.2
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "It had just been relaunched, the usual wobble.",
+  "v0": {
+   "condition": "just been relaunched",
+   "extracted": true,
+   "seconds": 2.2
+  },
+  "gated": {
+   "condition": "it had just been relaunched",
+   "extracted": true,
+   "seconds": 5.8
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "I always wait out the warm-up after a restart.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.8
+  },
+  "gated": {
+   "condition": "wait out the warm-up after a restart",
+   "extracted": true,
+   "seconds": 5.5
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "The restart was recent, and those first hours say little.",
+  "v0": {
+   "condition": "restart was recent",
+   "extracted": true,
+   "seconds": 2.1
+  },
+  "gated": {
+   "condition": "the restart was recent",
+   "extracted": true,
+   "seconds": 5.2
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "Only just resumed, so too soon to call it.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.8
+  },
+  "gated": {
+   "condition": "only just resumed",
+   "extracted": true,
+   "seconds": 5.4
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "After a relaunch I let it run in before I look.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 2.0
+  },
+  "gated": {
+   "condition": "after a relaunch i let it run in",
+   "extracted": true,
+   "seconds": 7.9
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "It was still in that settling period after coming back.",
+  "v0": {
+   "condition": "settling period after coming back",
+   "extracted": true,
+   "seconds": 3.2
+  },
+  "gated": {
+   "condition": "settling period after coming back",
+   "extracted": true,
+   "seconds": 5.6
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "That run had literally been restarted a moment ago.",
+  "v0": {
+   "condition": "run restarted moment ago",
+   "extracted": true,
+   "seconds": 2.5
+  },
+  "gated": {
+   "condition": "literally been restarted",
+   "extracted": true,
+   "seconds": 6.2
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "I'd restarted it that afternoon, so I held off judging.",
+  "v0": {
+   "condition": "i'd restarted it that afternoon",
+   "extracted": true,
+   "seconds": 2.7
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.3
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "Back up from a crash a short while ago, so I left it.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 2.9
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 7.3
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "Still warming up after the reboot, in my experience.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.8
+  },
+  "gated": {
+   "condition": "still warming up after the reboot",
+   "extracted": true,
+   "seconds": 5.2
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "It was newly resumed and hadn't stabilised.",
+  "v0": {
+   "condition": "newly resumed and hadn't stabilised",
+   "extracted": true,
+   "seconds": 2.5
+  },
+  "gated": {
+   "condition": "newly resumed and hadn't stabilised",
+   "extracted": true,
+   "seconds": 6.8
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "The job came back up recently, I don't act that soon.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 2.1
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.2
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "Right after it restarts I treat the numbers as provisional.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.9
+  },
+  "gated": {
+   "condition": "right after it restarts",
+   "extracted": true,
+   "seconds": 6.1
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "It had barely finished restarting.",
+  "v0": {
+   "condition": "had barely finished restarting",
+   "extracted": true,
+   "seconds": 2.3
+  },
+  "gated": {
+   "condition": "had barely finished restarting",
+   "extracted": true,
+   "seconds": 4.8
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "Recently restarted, so it needed time.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 2.1
+  },
+  "gated": {
+   "condition": "recently restarted, so it needed time",
+   "extracted": true,
+   "seconds": 5.6
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "I was waiting for the warm-up after the restart to pass.",
+  "v0": {
+   "condition": "waiting for warm-up after restart",
+   "extracted": true,
+   "seconds": 2.6
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.2
+  }
+ },
+ {
+  "kind": "clear",
+  "answer": "It was a new start of the same run, so I gave it room.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 2.5
+  },
+  "gated": {
+   "condition": "new start of the same run",
+   "extracted": true,
+   "seconds": 5.9
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "Meh, it seemed fine to me.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.6
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.9
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "I can't put my finger on it.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.6
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.0
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "No particular reason.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.6
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "Just went with my gut.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "Honestly not sure why.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "It looked okay, I suppose.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "Can't really say.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "Something told me to wait.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "I just felt like it.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "Hard to explain.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.4
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.7
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "It's one of those things.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "No idea, to be honest.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "It felt alright.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.4
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "I didn't think much about it.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.6
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.9
+  }
+ },
+ {
+  "kind": "vague",
+  "answer": "Not something I can articulate.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "Had a meeting at three.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "My coffee was getting cold.",
+  "v0": {
+   "condition": "coffee getting cold",
+   "extracted": true,
+   "seconds": 1.8
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "The office was loud that day.",
+  "v0": {
+   "condition": "office was loud that day",
+   "extracted": true,
+   "seconds": 2.1
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "I was thinking about the weekend.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.9
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "A colleague was talking to me.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "My screen was too bright.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.6
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.9
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "It was almost time for my break.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.9
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "I'd had a late night.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "Someone was waiting for me at the door.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 2.3
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.9
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "I was in a bit of a hurry.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.6
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.9
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "The weather was lovely.",
+  "v0": {
+   "condition": "weather was lovely",
+   "extracted": true,
+   "seconds": 2.1
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "My laptop fan was spinning up.",
+  "v0": {
+   "condition": "laptop fan spinning up",
+   "extracted": true,
+   "seconds": 2.1
+  },
+  "gated": {
+   "condition": "my laptop fan was spinning up",
+   "extracted": true,
+   "seconds": 4.5
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "I was running behind on emails.",
+  "v0": {
+   "condition": "running behind on emails",
+   "extracted": true,
+   "seconds": 1.9
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "It was a Tuesday.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.5
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 0.8
+  }
+ },
+ {
+  "kind": "irrelevant",
+  "answer": "I was about to leave for the day.",
+  "v0": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.6
+  },
+  "gated": {
+   "condition": null,
+   "extracted": false,
+   "seconds": 1.0
+  }
+ }
+]
