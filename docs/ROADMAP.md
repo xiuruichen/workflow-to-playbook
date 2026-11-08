@@ -58,7 +58,7 @@ Tacit rubric, 0–2 each: articulability, observability class, context dependenc
 **Phase A: foundations (weeks 1–3)**
 1. `frames.py`, dwell events and a per-session `decisions.jsonl` (`{t, screen values, action or "none"}`).
 2. `dashboard` scenario in `scenarios.py` with a planted rule (two grad-norm spikes within N steps means kill, unless batch size just changed), plus a second domain so the result isn't one trick.
-3. `docs/evaluation-protocol.md`, written *before* running: hypotheses, metrics, baselines, ablations, seeds, success criteria.
+3. ✅ [`evaluation-protocol.md`](evaluation-protocol.md), written *before* running: hypotheses H1–H7, metrics, baselines, ablations, seeds (1–5 for confirmatory runs; seed 0 is a development seed), success criteria. Not yet run against it.
 4. WONDERBREAD-style metrics in `evaluate.py`.
 5. `knowledge.py` classifier (rules first), shown in the playbook and in the skill export as "ask the expert" gates.
 
