@@ -169,3 +169,21 @@ def test_evaluate_summary_with_nothing_expected_does_not_divide_by_zero():
     s = Score(scenario="x", steps=1, expected_found=0, expected_total=0, missing=[], mistake_planted=False,
               mistake_flagged=False, false_flags=0, api_calls=0, model="m")
     assert s.recall == 1.0
+
+
+def test_report_says_what_the_automatic_choice_kept_and_hints_at_what_misfits_share():
+    from playbook import pilot
+
+    rows = []
+    for i in range(60):
+        low = i in (4, 12)  # two stops with no spikes but a low gpu: too few for a tree to learn
+        gpu = 12.0 if low else 60.0 + (i % 17)
+        spikes = float((i * 7) % 4)
+        out = "Stop the run" if (spikes >= 2 or low) else "none"
+        rows.append(pilot.Decision(f"case{i:03d}", i * 30.0, i * 30.0 + 6, "pilot", {"spikes": spikes, "gpu": gpu}, out))
+    pilot.add_context(rows)
+    text = pilot.report(rows, {"stated_rule": "", "cases": []})
+    assert "We also tried ratios of readouts, a lookahead tree and a rule list; kept:" in text
+    assert "## The 2 choice(s) it cannot explain" in text
+    hint = text.split("What these choices have in common")[1]
+    assert "`gpu <=" in hint and "holds for 2 of the 2" in hint
