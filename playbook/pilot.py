@@ -167,32 +167,40 @@ def report(decisions: list[Decision], raw: dict | None = None) -> str:
            f"{n} cases; you acted on {acted} and left {n - acted} alone.", ""]
     if n < 12:
         return "\n".join(out + ["Too few cases to fit a rule (about 30-40 are needed)."])
-    tree = induce.fit(decisions)
+    auto = induce.fit_auto(decisions)  # also tries ratios of readouts, a lookahead tree and a rule list, and says what it kept
+    tree, prepared = auto.model, auto.prepare(decisions)
     cut = max(1, int(n * 0.7))
-    held = induce.holdout(decisions)
+    held_acc = induce.fit_auto(decisions[:cut]).accuracy(decisions[cut:])
     major = Counter(d.outcome for d in decisions[:cut]).most_common(1)[0][0]
     base = sum(d.outcome == major for d in decisions[cut:]) / max(1, n - cut)
     out += ["## The rule we found", "",
             "Read it as a hypothesis about your habits, not as a fact. 'changed_x' means x differs from the previous case.", ""]
-    out += [f"- {line}" for line in induce.rules(tree)]
-    out += ["", f"It fits {induce.accuracy(tree, decisions):.0%} of your {n} choices. Fitted on your first {cut}, it predicts "
-            f"{held['test_accuracy']:.0%} of your last {n - cut} (always doing the most common thing would get {base:.0%}).", ""]
-    odd = induce.disagreements(decisions)
+    out += [f"- {line}" for line in auto.rules()]
+    plain_cv = auto.cv.get("plain/tree")
+    kept = f"{auto.cv.get(('ratios' if auto.ratios else 'plain') + '/' + auto.kind)}" if auto.cv else "n/a"
+    out += ["", f"It fits {auto.accuracy(decisions):.0%} of your {n} choices. Fitted on your first {cut}, it predicts "
+            f"{held_acc:.0%} of your last {n - cut} (always doing the most common thing would get {base:.0%}).",
+            f"We also tried ratios of readouts, a lookahead tree and a rule list; kept: {auto.choice} (cross-validated accuracy {kept}, "
+            f"against {plain_cv} for the plain tree).", ""]
+    odd = induce.disagreements(prepared)
     out += [f"## The {len(odd)} choice(s) it cannot explain", ""]
     if odd:
         out += ["For each: what the rule expected, what you did, and what was on screen. These are the places to explain why.", ""]
-        used = induce.features_used(tree)
         for d, guess in odd:
             c = classify_decision(d, induce.path_features(tree, d), rule_gets_it_right=False)
             shown = ", ".join([f"{k} = {v:g}" for k, v in d.readouts.items()] + [f"{k} = {v}" for k, v in d.cats.items()])
             where = d.session if len({x.session for x in decisions}) > 1 else f"at {d.t1:.0f}s"  # one long recording: say when
             out.append(f"- {where}: you chose {d.outcome}; the rule expected {guess}. Saw: {shown}. [{c.observability}, tacit {c.tacit_score}/4]")
+        common = induce.shared_conditions([d for d, _ in odd], prepared)
+        if common:
+            out += ["", "What these choices have in common (a hint at a factor too rare for the rule to learn; check it with the person):", ""]
+            out += [f"- `{c['condition']}` holds for {c['covers']} of the {c['of']}, and for {c['also_true_of']} other case(s) where the rule was right" for c in common]
     else:
         out.append("None: the rule explains every choice.")
     out += ["", "## Your own words against the fitted rule", ""]
     stated = (raw.get("stated_rule") or "").strip()
     if stated:
-        used = sorted(f for f in induce.features_used(tree))
+        used = sorted(induce.features_used(tree))
         out += [f"You wrote: \"{stated}\"", ""]
         out += [f"- The fit uses `{f}`: " + ("you mention it." if _mentioned(f, stated) else "**you did not mention it.**") for f in used]
         readouts = sorted({k for d in decisions for k in d.readouts} | {k for d in decisions for k in d.cats})
