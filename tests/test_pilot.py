@@ -99,3 +99,31 @@ def test_cli_elicit_runs_without_answers(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("sys.stdin", io.StringIO(""))
     assert cli.main(["pilot", "elicit", str(tmp_path / "pilot_log.json")]) == 0
     assert "Rule before your answers" in capsys.readouterr().out
+
+
+def test_the_page_really_logs_choices_in_a_browser_like_runtime(tmp_path):
+    """Drives the page's own JavaScript (node, with a small DOM stub): start, answer every case by key, save."""
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    import pytest
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("needs node")
+    cases = pilot.make_cases("ticket", 8, 2)
+    page = tmp_path / "p.html"
+    page.write_text(pilot.render_html(cases, "ticket", 2), encoding="utf-8")
+    picks = "ALLAALLA"
+    out = subprocess.run([node, str(Path(__file__).parent / "pilot_page_driver.js"), str(page), picks],
+                         capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    log = json.loads(out.stdout)
+    assert [c["choice"] for c in log["cases"]] == ["act" if p == "A" else "leave" for p in picks]
+    assert log["stated_rule"].startswith("I act") and log["meta"]["theme"] == "ticket"
+    assert [c["readouts"] for c in log["cases"]] == [c["readouts"] for c in cases]
+    path = tmp_path / "pilot_log.json"
+    path.write_text(out.stdout, encoding="utf-8")
+    decisions, _ = pilot.load_log(path)
+    assert [d.outcome == "none" for d in decisions] == [p == "L" for p in picks]
