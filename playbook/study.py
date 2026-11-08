@@ -207,3 +207,76 @@ def summarize(rows: list[dict], keys: tuple[str, ...]) -> dict[str, dict[str, fl
     """Mean, min and max of each numeric key over the rows (one row per seed)."""
     return {k: {"mean": round(statistics.fmean(r[k] for r in rows), 3), "min": round(min(r[k] for r in rows), 3),
                 "max": round(max(r[k] for r in rows), 3)} for k in keys}
+
+
+# --------------------------------------------------------------------------- free-text experts (amendment 7)
+
+CLEAR_ANSWERS = (
+    "It was still warming up, so I gave it time.",
+    "I'd just restarted that run, so I didn't want to judge it yet.",
+    "Early days after a restart, I wait a bit.",
+    "The run was only just back up after the restart, so I left it.",
+    "Still in warmup; I don't act then.",
+    "That was right after a restart, too soon to tell.",
+)
+VAGUE_ANSWERS = ("No idea, it just felt fine.", "Hard to say.", "I don't remember.", "Gut feeling.")
+IRRELEVANT_ANSWERS = ("Probably just habit.", "I was busy with something else.")
+HIDDEN_TERMS = ("warm", "restart")  # an extracted condition matches the hidden fact if it contains one of these
+
+
+def matches_hidden(condition: str | None) -> bool:
+    return bool(condition) and any(t in condition.lower() for t in HIDDEN_TERMS)
+
+
+class FreeTextExpert:
+    """A scripted person who answers in words (amendment 7): a clear phrasing of the hidden fact for a choice made during
+    warmup (a vague one with probability `vague_rate`), an irrelevant one otherwise; to a follow-up listing other cases
+    by number, the numbers that were truly made during warmup. `log` records the kind of each answer."""
+
+    def __init__(self, hidden: set[str], seed: int, vague_rate: float = 0.25):
+        self.hidden, self.vague_rate = hidden, vague_rate
+        self.rng = random.Random(f"free-text-{seed}")
+        self.log: list[dict] = []
+
+    def __call__(self, text: str, ctx: dict) -> str:
+        if ctx.get("followup"):
+            nums = [i for i, k in enumerate(ctx["candidate_keys"], 1) if k in self.hidden]
+            return "Cases " + ", ".join(map(str, nums)) if nums else "None of them."
+        if ctx["key"] in self.hidden:
+            vague = self.rng.random() < self.vague_rate
+            kind, pool = ("vague", VAGUE_ANSWERS) if vague else ("clear", CLEAR_ANSWERS)
+        else:
+            kind, pool = "irrelevant", IRRELEVANT_ANSWERS
+        answer = self.rng.choice(pool)
+        self.log.append({"key": ctx["key"], "kind": kind, "answer": answer})
+        return answer
+
+
+def interview_experiment(domain: Domain, seed: int, chat, strategy: str = "v0_open", expert=None, n: int = 80,
+                         max_questions: int = 8, patience: int = 4) -> dict:
+    """Amendment 7: one interview on the training decisions, then held-out agreement before and after.
+
+    As in `elicitation`, the value of each named condition for held-out decisions is supplied as if the person had
+    been asked. `expert` is a callable `(text, ctx) -> str`; default is `FreeTextExpert`.
+    """
+    from . import interview
+    from .decisions import slug
+
+    built = build(domain, n, seed, hidden_fact=True)
+    cut = max(1, int(len(built.decisions) * 0.7))
+    train = [Decision(**{**d.__dict__, "features": dict(d.features)}) for d in built.decisions[:cut]]
+    test = [Decision(**{**d.__dict__, "features": dict(d.features)}) for d in built.decisions[cut:]]
+    before = induce.accuracy(induce.fit(train), test)
+    expert = expert or FreeTextExpert(built.hidden, seed)
+    iv = interview.run_interview(train, expert, chat, strategy, max_questions=max_questions, patience=patience)
+    interview.apply_union(train, iv.answers)
+    facts = {slug(a.fact) for a in iv.answers if a.fact}
+    for d in test:
+        for f in facts:
+            d.features[f] = 1.0 if elicit.key(d) in built.hidden else 0.0
+    after = induce.accuracy(induce.fit(train), test)
+    structured = elicitation(built, seed)
+    return {"domain": domain.name, "seed": seed, "strategy": strategy, "before": before, "after": after, "gain": after - before,
+            "structured_gain": structured["test_after"] - structured["test_before"], "questions": len(iv.turns), "stopped": iv.stopped,
+            "facts": sorted(facts), "turns": [dict(t.__dict__, delta=t.delta) for t in iv.turns],
+            "expert_log": getattr(expert, "log", [])}
