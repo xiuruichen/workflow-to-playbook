@@ -1,0 +1,9 @@
+{
+ "model": "Qwen3VL-4B-Instruct-Q4_K_M.gguf",
+ "sha256_first16MB": "ad688f44e193f652",
+ "temperature": 0.3,
+ "visits": 40,
+ "repeats": 3,
+ "num_ctx": 8192,
+ "strict_sentence": "Apply the rules in the 'Judgment calls' section literally and in order, using only what the screen shows. Do not reason beyond them. If no rule applies, or a value is outside the observed range, choose the ask-a-human option."
+}

@@ -187,6 +187,17 @@ At 0.30 the two flags in coding are `line` over `code`, on a step that said `pyh
 - **H4 (one elicitation round with a simulated expert who always names the hidden fact): holds only narrowly.** Mean held-out agreement rose from 0.81 to 0.85 (dashboard) and 0.68 to 0.71 (triage), but in 6 of 10 runs nothing changed (in two the rule's disagreements happened not to include a warmup decision, so the expert had nothing to answer), and on triage the number of unexplained decisions did not shrink (19.6 before and after). A perfect, scripted expert is the best case.
 - The lookahead tree adds on triage and costs on noisy labels (see ROADMAP); the exploratory studies E1–E6 follow in `docs/results/exploratory.md`.
 
+**H5, does the judgment help an agent (2026-11-07/08, local Qwen3-VL 4B Q4_K_M, text only, seeds 1–5, 40 visits, 12 held-out each, 3 repeats at temperature 0.3; `docs/results/h5/h5.md`).** Agreement with the person's later decisions:
+
+| | procedure only | + judgment (A) | + judgment, strict (B) | rules read mechanically | most common outcome |
+|---|---|---|---|---|---|
+| dashboard | 0.77 | 0.77 | 0.80 | 1.00 | 0.40 |
+| triage | 0.44 | 0.56 | 0.55 | 0.82 | 0.40 |
+
+- On the dashboard the judgment section does not clearly help (tie for A, +0.03 for B, inside the seed spread of 0.58–1.00). Procedure-only already scores 0.77 because it answers "do nothing" and the person mostly did; it missed 42 actions. B acted far more (32 wrong actions against 9 for A) for a small agreement gain.
+- On triage it helps by 0.11–0.12, mostly because the model *asks a human* (45 asks in 180 answers) and acts wrongly less often (22–24 wrong actions against 100). It does not apply the thresholds: mechanically following the same rules gets 0.82.
+- So with a 4B model, after fixing the earlier setup problems, the judgment section is **a safer boundary rather than better decisions**. Compared with the 2B result in ROADMAP (judgment 1/12 vs 5/12), the direction changed on triage and not on the dashboard; both are small models, single runs per seed, and the scripted person follows a clean rule.
+
 **H6, real capture (2026-11-07, seed 1, 40 visits each, real recorder and real mouse, scripted person; `docs/results/h6/`).** Triage: 40/40 readouts (numbers and the vendor word) and 40/40 outcomes read correctly, one decision per recording; the rule fitted on the earliest 28 scored 0.67 on the last 12 (same as the fast harness would predict for a compound rule), majority baseline 0.08. Dashboard: 40/40 and 40/40; rules 12/12 on the last 12, majority 0.67. H6 (>= 0.95 correct) holds for both. Not a test of a human.
 
 **Exploratory studies E1–E6 (`docs/results/exploratory.md`, seeds 1–5, nothing pre-set to pass).**

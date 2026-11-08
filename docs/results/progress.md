@@ -13,3 +13,5 @@ Times are local. Plan: `docs/evaluation-protocol.md` + the 8-hour plan agreed 20
 - H6 done (23:24-23:48; mouse taken over in two windows, see `docs/results/h6/windows.log`): triage and dashboard seed 1, 40/40 readouts and outcomes each.
 - Exploratory E1-E6 done (`docs/results/exploratory.md`). E6 led to a documented deviation (`induce.path_features`).
 - Pilot kit, skill dependencies/completion checks, open-questions written. Next: H5 with the 4B model.
+- 23:57:27 H5 full run started (4B, 40 visits, 3 repeats, ~50 min)
+- H5 done (4B, 150 runs). Found and fixed a bug (strict prompt never applied), re-ran that arm. Result: judgment helps on triage (0.44 -> 0.56, by asking a human), not clearly on dashboard. `docs/results/h5/h5.md`.

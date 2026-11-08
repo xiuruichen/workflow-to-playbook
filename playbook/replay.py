@@ -95,7 +95,8 @@ def model_decider(chat: Callable[[list[dict], dict], str], skill_md: str, option
 
     def decide(d: Decision) -> str:
         messages = [
-            {"role": "system", "content": "You act for a person using the skill below. Choose what they would do now.\n\n" + skill_md},
+            {"role": "system", "content": "You act for a person using the skill below. Choose what they would do now."
+                                         + (f" {STRICT}" if strict else "") + "\n\n" + skill_md},
             {"role": "user", "content": f"{_screen(d, list(facts), list(context))}\nOptions: {', '.join(choices)}. "
                                         f"('{NONE}' means take no action.) Reply as JSON: {{\"choice\": ...}}"},
         ]

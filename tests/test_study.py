@@ -183,3 +183,18 @@ def test_cross_session_class_follows_the_decisions_own_path():
     assert classify_decision(calm, induce.path_features(tree, calm)).observability == "O4"
     busy = next(d for d in ds if d.readouts["spikes"] >= 2)
     assert classify_decision(busy, induce.path_features(tree, busy)).observability == "O5"
+
+
+def test_strict_prompt_variant_changes_the_system_message():
+    from playbook import replay
+
+    seen = []
+
+    def chat(messages, fmt):
+        seen.append(messages[0]["content"])
+        return '{"choice": "none"}'
+
+    d = study.build(D, 10, 100).decisions[0]
+    replay.model_decider(chat, "skill text", ["none"])(d)
+    replay.model_decider(chat, "skill text", ["none"], strict=True)(d)
+    assert replay.STRICT not in seen[0] and replay.STRICT in seen[1]
