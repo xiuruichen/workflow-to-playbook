@@ -30,7 +30,7 @@ from .config import Settings
 from .hardware import cpu_threads
 
 # PrismML's llama.cpp build (upstream llama.cpp plus ternary kernels), pinned. Bonsai 2 2B/4B were tried on a
-# low-power laptop: the 2B lost accuracy and the 4B was ~4x slower than Qwen3-VL 2B (see NOTES.md).
+# low-power laptop: the 2B lost accuracy and the 4B was ~4x slower than Qwen3-VL 2B (see docs/results.md).
 RELEASE = "prism-b10777-e3de715"
 _GH = f"https://github.com/PrismML-Eng/llama.cpp/releases/download/{RELEASE}/"
 RUNTIMES = {  # (sys.platform, machine) -> (zip url, sha256)

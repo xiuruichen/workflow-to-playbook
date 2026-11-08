@@ -63,7 +63,7 @@ No dwell frames; no cross-session context; no elicitation round; skill without t
 - Report negative results (as with the first replay).
 - State what was tuned and on which seed.
 - Simulated experts and scripted "people" are labelled as such everywhere.
-- Update README, NOTES.md and ROADMAP.md with each result.
+- Update the README, `docs/results.md` and `docs/ROADMAP.md` with each result.
 
 ## Amendments
 
