@@ -1,0 +1,803 @@
+{
+  "summary": {
+    "visits_recorded": 40,
+    "decisions": 40,
+    "decisions_per_recording": [
+      1
+    ],
+    "readouts_correct": "40/40",
+    "outcomes_correct": "40/40",
+    "events_per_session": [
+      2,
+      2,
+      2,
+      1,
+      1
+    ],
+    "rule_fitted_on_earliest_70pct": [
+      "spikes <= 1.5 -> none (10/10)",
+      "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (11/12)",
+      "spikes > 1.5 and changed_batch_size > 0.5 -> none (6/6)"
+    ],
+    "replay": {
+      "majority": {
+        "n": 12,
+        "agreement": 0.667,
+        "ask_human": 0,
+        "agreement_when_answered": 0.667,
+        "wrong_actions": 0,
+        "missed_actions": 4
+      },
+      "rules": {
+        "n": 12,
+        "agreement": 1.0,
+        "ask_human": 0,
+        "agreement_when_answered": 1.0,
+        "wrong_actions": 0,
+        "missed_actions": 0
+      }
+    }
+  },
+  "rows": [
+    {
+      "visit": 0,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 256,
+        "batch_changed": false,
+        "loss": 2.99,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 256.0,
+        "loss": 2.99
+      },
+      "outcome": "Stop rur",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 1,
+      "truth": {
+        "spikes": 2,
+        "batch_size": 256,
+        "batch_changed": false,
+        "loss": 2.96,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 2.0,
+        "batch_size": 256.0,
+        "loss": 2.96
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 2,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 256,
+        "batch_changed": false,
+        "loss": 2.9,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 256.0,
+        "loss": 2.9
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 3,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 512,
+        "batch_changed": true,
+        "loss": 2.89,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 512.0,
+        "loss": 2.89
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 4,
+      "truth": {
+        "spikes": 0,
+        "batch_size": 512,
+        "batch_changed": false,
+        "loss": 2.82,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 0.0,
+        "batch_size": 512.0,
+        "loss": 2.82
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 5,
+      "truth": {
+        "spikes": 1,
+        "batch_size": 512,
+        "batch_changed": false,
+        "loss": 2.74,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 1.0,
+        "batch_size": 512.0,
+        "loss": 2.74
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 6,
+      "truth": {
+        "spikes": 0,
+        "batch_size": 512,
+        "batch_changed": false,
+        "loss": 2.65,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 0.0,
+        "batch_size": 512.0,
+        "loss": 2.65
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 7,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 1024,
+        "batch_changed": true,
+        "loss": 2.6,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 1024.0,
+        "loss": 2.6
+      },
+      "outcome": "none",
+      "dwell_s": 14.6,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 8,
+      "truth": {
+        "spikes": 1,
+        "batch_size": 1024,
+        "batch_changed": false,
+        "loss": 2.58,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 1.0,
+        "batch_size": 1024.0,
+        "loss": 2.58
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 9,
+      "truth": {
+        "spikes": 1,
+        "batch_size": 2048,
+        "batch_changed": true,
+        "loss": 2.56,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 1.0,
+        "batch_size": 2048.0,
+        "loss": 2.56
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 10,
+      "truth": {
+        "spikes": 1,
+        "batch_size": 2048,
+        "batch_changed": false,
+        "loss": 2.53,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 1.0,
+        "batch_size": 2048.0,
+        "loss": 2.53
+      },
+      "outcome": "none",
+      "dwell_s": 14.4,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 11,
+      "truth": {
+        "spikes": 1,
+        "batch_size": 4096,
+        "batch_changed": true,
+        "loss": 2.49,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 1.0,
+        "batch_size": 4096.0,
+        "loss": 2.49
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 12,
+      "truth": {
+        "spikes": 2,
+        "batch_size": 8192,
+        "batch_changed": true,
+        "loss": 2.4,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 2.0,
+        "batch_size": 8192.0,
+        "loss": 2.4
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 13,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 8192,
+        "batch_changed": false,
+        "loss": 2.38,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 8192.0,
+        "loss": 2.38
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 14,
+      "truth": {
+        "spikes": 1,
+        "batch_size": 8192,
+        "batch_changed": false,
+        "loss": 2.37,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 1.0,
+        "batch_size": 8192.0,
+        "loss": 2.37
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 15,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 8192,
+        "batch_changed": false,
+        "loss": 2.3,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 8192.0,
+        "loss": 2.3
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 16,
+      "truth": {
+        "spikes": 2,
+        "batch_size": 8192,
+        "batch_changed": false,
+        "loss": 2.22,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 2.0,
+        "batch_size": 8192.0,
+        "loss": 2.22
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 17,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 8192,
+        "batch_changed": false,
+        "loss": 2.16,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 8192.0,
+        "loss": 2.16
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 18,
+      "truth": {
+        "spikes": 2,
+        "batch_size": 8192,
+        "batch_changed": false,
+        "loss": 2.11,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 2.0,
+        "batch_size": 8192.0,
+        "loss": 2.11
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 19,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 16384,
+        "batch_changed": true,
+        "loss": 2.09,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 16384.0,
+        "loss": 2.09
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 20,
+      "truth": {
+        "spikes": 2,
+        "batch_size": 16384,
+        "batch_changed": false,
+        "loss": 2.07,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 2.0,
+        "batch_size": 16384.0,
+        "loss": 2.07
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 21,
+      "truth": {
+        "spikes": 1,
+        "batch_size": 16384,
+        "batch_changed": false,
+        "loss": 2.0,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 1.0,
+        "batch_size": 16384.0,
+        "loss": 2.0
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 22,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 16384,
+        "batch_changed": false,
+        "loss": 1.95,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 16384.0,
+        "loss": 1.95
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 23,
+      "truth": {
+        "spikes": 2,
+        "batch_size": 16384,
+        "batch_changed": false,
+        "loss": 1.91,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 2.0,
+        "batch_size": 16384.0,
+        "loss": 1.91
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 24,
+      "truth": {
+        "spikes": 2,
+        "batch_size": 32768,
+        "batch_changed": true,
+        "loss": 1.91,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 2.0,
+        "batch_size": 32768.0,
+        "loss": 1.91
+      },
+      "outcome": "none",
+      "dwell_s": 14.4,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 25,
+      "truth": {
+        "spikes": 1,
+        "batch_size": 32768,
+        "batch_changed": false,
+        "loss": 1.85,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 1.0,
+        "batch_size": 32768.0,
+        "loss": 1.85
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 26,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 65536,
+        "batch_changed": true,
+        "loss": 1.8,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 65536.0,
+        "loss": 1.8
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 27,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 65536,
+        "batch_changed": false,
+        "loss": 1.74,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 65536.0,
+        "loss": 1.74
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 28,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 131072,
+        "batch_changed": true,
+        "loss": 1.69,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 131072.0,
+        "loss": 1.69
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 29,
+      "truth": {
+        "spikes": 1,
+        "batch_size": 131072,
+        "batch_changed": false,
+        "loss": 1.65,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 1.0,
+        "batch_size": 131072.0,
+        "loss": 1.65
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 30,
+      "truth": {
+        "spikes": 0,
+        "batch_size": 131072,
+        "batch_changed": false,
+        "loss": 1.55,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 0.0,
+        "batch_size": 131072.0,
+        "loss": 1.55
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 31,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 131072,
+        "batch_changed": false,
+        "loss": 1.47,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 131072.0,
+        "loss": 1.47
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 32,
+      "truth": {
+        "spikes": 2,
+        "batch_size": 131072,
+        "batch_changed": false,
+        "loss": 1.39,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 2.0,
+        "batch_size": 131072.0,
+        "loss": 1.39
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 33,
+      "truth": {
+        "spikes": 0,
+        "batch_size": 131072,
+        "batch_changed": false,
+        "loss": 1.34,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 0.0,
+        "batch_size": 131072.0,
+        "loss": 1.34
+      },
+      "outcome": "none",
+      "dwell_s": 14.4,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 34,
+      "truth": {
+        "spikes": 0,
+        "batch_size": 131072,
+        "batch_changed": false,
+        "loss": 1.29,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 0.0,
+        "batch_size": 131072.0,
+        "loss": 1.29
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 35,
+      "truth": {
+        "spikes": 1,
+        "batch_size": 131072,
+        "batch_changed": false,
+        "loss": 1.24,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 1.0,
+        "batch_size": 131072.0,
+        "loss": 1.24
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 36,
+      "truth": {
+        "spikes": 2,
+        "batch_size": 131072,
+        "batch_changed": false,
+        "loss": 1.18,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 2.0,
+        "batch_size": 131072.0,
+        "loss": 1.18
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 37,
+      "truth": {
+        "spikes": 0,
+        "batch_size": 131072,
+        "batch_changed": false,
+        "loss": 1.14,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 0.0,
+        "batch_size": 131072.0,
+        "loss": 1.14
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 38,
+      "truth": {
+        "spikes": 2,
+        "batch_size": 262144,
+        "batch_changed": true,
+        "loss": 1.12,
+        "stop": false
+      },
+      "readouts": {
+        "spikes": 2.0,
+        "batch_size": 262144.0,
+        "loss": 1.12
+      },
+      "outcome": "none",
+      "dwell_s": 14.5,
+      "readouts_ok": true,
+      "outcome_ok": true
+    },
+    {
+      "visit": 39,
+      "truth": {
+        "spikes": 3,
+        "batch_size": 262144,
+        "batch_changed": false,
+        "loss": 1.04,
+        "stop": true
+      },
+      "readouts": {
+        "spikes": 3.0,
+        "batch_size": 262144.0,
+        "loss": 1.04
+      },
+      "outcome": "Stop run",
+      "dwell_s": 12.2,
+      "readouts_ok": true,
+      "outcome_ok": true
+    }
+  ]
+}

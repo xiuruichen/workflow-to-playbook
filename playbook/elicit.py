@@ -115,6 +115,37 @@ def apply_answers(decisions: list[Decision], answers: list[Answer]) -> list[Deci
     return decisions
 
 
+def vet(decisions: list[Decision], answers: list[Answer]) -> tuple[list[Answer], list[Answer]]:
+    """(kept, dropped): keep an answer only if the fact it names makes the rule explain more of the decisions.
+
+    A named condition is a claim that it explains the decisions it was tagged on. Answers are tried one at a
+    time, in order, on copies; one is kept if the refitted rule gets more of the decisions right, or leaves fewer
+    of them unexplained under leave-one-out, and is otherwise dropped (the person's words stay on record, the
+    condition just does not become a feature). Answers with no named condition are neither kept nor dropped here.
+    """
+    kept: list[Answer] = []
+    dropped: list[Answer] = []
+
+    def score(extra: list[Answer]) -> tuple[float, int]:
+        copy = [Decision(**{**d.__dict__, "features": dict(d.features)}) for d in decisions]
+        apply_answers(copy, extra)
+        return induce.accuracy(induce.fit(copy), copy), len(induce.disagreements(copy))
+
+    groups: dict[str, list[Answer]] = {}
+    for a in answers:  # answers naming the same condition are one claim, tagged piece by piece
+        if a.fact:
+            groups.setdefault(slug(a.fact), []).append(a)
+    best = score(kept)
+    for group in groups.values():
+        trial = score([*kept, *group])
+        if trial[0] > best[0] + 1e-9 or trial[1] < best[1]:
+            kept.extend(group)
+            best = trial
+        else:
+            dropped.extend(group)
+    return kept, dropped
+
+
 def save_answers(answers: list[Answer], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("".join(json.dumps(asdict(a), ensure_ascii=False) + "\n" for a in answers), encoding="utf-8")

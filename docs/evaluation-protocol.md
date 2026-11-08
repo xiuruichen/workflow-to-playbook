@@ -67,4 +67,66 @@ No dwell frames; no cross-session context; no elicitation round; skill without t
 
 ## Amendments
 
-(none yet)
+### Amendment 1 (2026-11-07, before any confirmatory run)
+
+**Code frozen as tag `freeze-1`.** Everything below was developed and tuned on seeds 0 and 100-109 only; seeds 1-5 have not been used for anything. Code changes after the tag are listed under "Deviations" at the end of this section.
+
+What changed since the protocol was first written, and why:
+- **Second domain exists** (`playbook/triage.py`, rule fixed in its docstring before results). Its base rates were adjusted on seeds 100-102 so every branch of the rule is learnable from 40 visits (the first version, with 4 escalations in 40 visits, was not). On-screen *words* are now features (`decisions.py`), and OCR spelling variants of a label are merged (`unify_names`).
+- **Two induction arms.** `induce.fit` is greedy by default; `lookahead=True` picks a split by how well its children fit after one more split and is used only if it adds at least 5% training accuracy. Both are reported for H1, H2 and H3. Reason: on development seeds the greedy tree reached 0.64 held-out agreement on triage at 40 visits (lookahead 0.83) and 1.0 on the dashboard (lookahead also 1.0); with 10% label noise the dashboard fell from 0.82 to 0.76 under lookahead.
+- **Prediction recorded before running:** H1 (>= 0.90 on every seed, 40 visits) will hold for the dashboard and **fail for triage** under greedy induction, and may fail under lookahead. We therefore also run **80 visits** for H1 on both domains. A failure on triage is a result, not a reason to retune.
+- **Baseline 3 (single-session fit) is not computable**: each session holds one decision, so there is nothing to fit; reported as n/a. The without-context ablation stands in for "no pooling of state across sessions".
+- **H3 is descriptive.** Without the non-action decisions the training set has a single outcome and the fitted rule can only ever say "act", so held-out agreement is poor by construction. We report it, but it does not test whether non-actions carry information beyond their obvious presence.
+- **H5 prompts**: variant A is `replay.model_decider` as it stands; variant B (`strict=True`) adds one sentence telling the model to apply the exported rules literally, to reason no further, and to ask a human when none applies. No other prompt variants.
+
+Exploratory studies (labelled exploratory in every report; run after the confirmatory runs; 5 seeds, both domains; held-out agreement unless stated, greedy and lookahead):
+- **E1 learning curve**: n in {10, 20, 30, 40, 60, 80, 120}.
+- **E2 label noise**: the person acts against their rule with p in {0, 0.05, 0.1, 0.2}, n = 60; also the share of `disagreements` that are the noisy visits.
+- **E3 OCR misreads**: a digit of a readout is wrong with p in {0, 0.02, 0.05, 0.1}, n = 60.
+- **E4a distractors**: k in {0, 2, 4, 8} irrelevant readouts, n = 60. **E4b drift**: the rule changes at visit 40 of 80; compare a rule fitted on all visits with one fitted on the visits after the change, on the last 20 visits.
+- **E5 imperfect expert**: n = 80 with the hidden warmup fact; the expert names the right fact with probability {1, 0.8, 0.6, 0}, and (separately) tags the wrong decisions with a wrong fact.
+- **E6 classifier check** (`knowledge.classify_decision`): ground truth per decision is O5 if the planted outcome depends on an earlier visit (`Domain.depends_on_history`), else O4 if the planted outcome is "none", else O3. Report the confusion matrix, n = 40, seeds 1-5. The current classifier calls every decision O5 once the fitted rule uses any cross-session feature, so low O5 precision is expected.
+
+H6 (real capture): triage seed 1 and dashboard seed 1, 40 visits each, on the real recorder with real mouse input. Scripted people.
+
+Hardware/time limits: all runs are on one Windows laptop (15 GB RAM); H5 uses a 4B Qwen3-VL (Q4_K_M, publisher checksums in `llama_runtime.py`) in place of the 2B used before, text only.
+
+#### Deviations (code or scripts changed after tag `freeze-1`)
+- `scripts/live_dashboard_test.py`, `scripts/live_triage_test.py`: added a foreground workaround (synthetic Alt key + SetForegroundWindow) and UTF-8 output. The first H6 attempt aborted immediately because our window was behind the terminal; the click guard stopped it, nothing was clicked elsewhere. Capture and analysis code unchanged.
+- `induce.path_features` and the use of it in `python -m playbook induce` and in the pilot report, so a decision is called cross-session (O5) only if its own path through the rule uses a cross-session feature. Made after E6 showed the frozen classifier calls almost everything O5. E6 reports both versions; H1-H4 and E1-E5 are unaffected (no change to fitting).
+- New scripts only: `run_confirmatory.py`, `run_exploratory.py`, `run_h5.py`, `summarize_h5.py`.
+- **Bug in H5 prompt variant B, found from the results.** The "strict" sentence was never added to the prompt (my edit of `replay.model_decider` silently did not apply), so the first 30 strict runs equalled variant A exactly. Noticed because the two arms had identical numbers in all 30 runs. Fixed, covered by `test_strict_prompt_variant_changes_the_system_message`, and the strict arm re-run in full; the invalid rows are kept in `docs/results/h5/results_strict_noop.jsonl`. Variant A and the other arms were not re-run. The summary script's verdict rule was also changed from "any difference" to "more than two points" after it called a 0.772 vs 0.767 tie a win.
+
+### Amendment 2 (2026-11-08, before any run on seeds 6-10)
+
+Motivation: the confirmatory runs showed the default greedy tree failing H1 on the triage domain. On development seeds 100-119 (20 seeds, never used for a claim) a search over `min_leaf` and the lookahead margin showed lookahead with `min_leaf = 3` (variant C) at or above the default (variant A: greedy, `min_leaf = 2`) in every cell tried, e.g. triage 40 visits 0.80 vs 0.65, 80 visits 0.92 vs 0.79, dashboard unchanged. Constants other than `min_leaf` stay as they are (the margin and penalty grid was flat, 0.86-0.89, so they are not tuned further).
+
+**Test (fresh seeds 6-10; code unchanged since `freeze-1`, apart from the deviations listed above):** held-out agreement of A and C on both domains at 40 and 80 visits and at 60 visits with 10% label noise (6 cells, mean over seeds). **C is adopted as the default only if** its mean is at least A's in every cell and it is better than A by at least 0.05 in the mean over cells; otherwise A stays and the result is reported as a negative one. Ties on the dashboard (1.00 vs 1.00) count as "at least".
+
+### Amendment 3 (2026-11-08, before any run of the service domain on seeds 6-10)
+
+New domain `playbook/service.py` (rule in its docstring, fixed before results): an on-call engineer; the rule turns on a *rate*, errors divided by requests, which the screen shows only as two counts, plus a latency threshold and a version-changed exception. Purpose: a tree that splits on one readout at a time cannot express a quotient, which is how people often reason. Development seeds 100-119 (not used for any claim) were used to set the request volumes (the first version let the raw error count stand in for the rate, which would have hidden the problem) and to build the option under test.
+
+Option R: `decisions.add_ratios` adds one feature `a/b` for every pair of readouts that are always present and positive (penalised like the other derived features in `induce.py`). Everything else is the default tree (variant A of amendment 2).
+
+**Predictions, before running:** A (no ratios) fails H1 on the service domain at 40 and 80 visits. R improves on A but does **not** reach 0.90 mean at 80 visits (development seeds: A 0.59 / 0.66, R 0.85 / 0.88 at 40 / 80 visits).
+**Test (seeds 6-10; cells: service at 40 and 80 visits and 60 visits with 10% label noise; dashboard and triage at 40 and 80 visits as a cost check):**
+- R is **adopted as an option to switch on** (it is never silently on) if on service it is at least A in every cell with a mean gain of at least 0.10, **and** on dashboard and triage its mean over the four cost cells is no more than 0.03 below A's.
+- Otherwise ratios stay out and the result is reported as negative.
+
+### Amendment 4 (2026-11-08, before any run on seeds 6-10 of the guard)
+
+E5 showed that a wrongly tagged answer can lower held-out agreement (triage 0.68 to 0.64 in the worst case). `elicit.vet` is the guard written in response: answers are grouped by the condition they name, and a group is kept only if the refitted rule gets more training decisions right or leaves fewer unexplained under leave-one-out; otherwise the person's words stay on record but the condition does not become a feature. Development seeds 100-114 (80 visits, hidden warmup fact) showed the guard roughly neutral with a perfect expert and slightly helpful with wrong tags; no threshold was tuned.
+
+**Test (seeds 6-10, both domains, 80 visits, hidden warmup, greedy tree; held-out agreement after one elicitation round, with and without the guard):** cells (a) perfect expert, (b) expert right 60% of the time and otherwise tagging the wrong decisions, (c) expert always tagging wrong decisions.
+**The guard is adopted into the interview (`pilot elicit`) if** the mean over both domains in (a) is no more than 0.01 below the unguarded value **and** the mean over (b) and (c) is at least 0.01 above it. Otherwise it stays an unused option and the result is reported as negative.
+
+Also in this amendment (code changes from a review of the branch, not experiments): the pilot report fits with the default tree, matching `pilot elicit`; the pilot page ignores modified keys and key repeat; repeated cases keep the item's settings and the batch size cycles instead of growing; judgment lists the readouts behind a ratio rule and the model prompt shows the quotient.
+
+### Amendment 5 (2026-11-08, before the run): H5 on the service domain with ratio features
+
+Question: when the exported rules contain a quotient (`errors/requests`) and the prompt shows the model that quotient, does the judgment section help a small model on a rate rule? Same setup as H5 (Qwen3-VL 4B text only, seeds 1-5, 40 visits, 3 repeats, temperature 0.3, prompt variants A and B as before, arms skill / skill+judgment / skill+judgment strict plus the mechanical rules and the majority baseline), service domain only, ratio features on. Exploratory: no pass/fail bar. The seeds are 1-5 because the domain is new to H5; the H1-H4 runs never touched it.
+
+### Amendment 6 (2026-11-08, before the run): E7, one continuous recording
+
+All capture checks so far record one visit per session, so every decision is the only pause in its recording. Real work is one long recording of many checks, where a person decides faster than the 8-second dwell threshold and moves on with a "Next" click that would be read as an action. E7 (exploratory): one recording of 15 dashboard checks with looks of 2-12 s (uniform), seeds 1-3; for dwell thresholds 8, 5, 3 and 2 s and with "Next run" counted as an action or ignored (`build_decisions(navigation=...)`), report how many decisions are found, for how many visits the readouts were read, and for how many the outcome is right. No bar; prediction: at the default 8 s only the looks of 8 s or more are found (about 40%), the others are missed; without the navigation setting every pause outcome becomes "Next run" and non-actions are lost.

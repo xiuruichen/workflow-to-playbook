@@ -114,7 +114,7 @@ def _copied_from(value: str, earlier: list[tuple[str, str]]) -> tuple[str, str] 
 THIN_SUPPORT = 5  # a rule backed by fewer decisions than this is a hint, not a habit
 
 
-def build_judgment(decisions: list[Decision], answers: list[Answer] | None = None) -> dict | None:
+def build_judgment(decisions: list[Decision], answers: list[Answer] | None = None, lookahead: bool | None = None) -> dict | None:
     """What was learned about *when to do what*, from pooled decisions (see decisions.py, induce.py).
 
     The rules are a fitted hypothesis about one person's habits, so each carries its support, the
@@ -124,11 +124,11 @@ def build_judgment(decisions: list[Decision], answers: list[Answer] | None = Non
         return None
     answers = answers or []
     apply_answers(decisions, answers)
-    tree = induce.fit(decisions)
-    odd = induce.disagreements(decisions)
-    used = {f for f in induce.features_used(tree) if not f.startswith(("changed_", "delta_"))}
+    tree = induce.fit(decisions, lookahead=lookahead)
+    odd = induce.disagreements(decisions, lookahead=lookahead)
+    used = {p for f in induce.features_used(tree) if not f.startswith(("changed_", "delta_")) for p in f.split("/")}
     names = sorted({f for d in decisions for f in d.readouts} & used)  # a value the rules ignore can drift freely
-    train, test = induce.holdout_accuracy(decisions)
+    train, test = induce.holdout_accuracy(decisions, lookahead=lookahead)
     tagged = {slug(a.fact): len({a.key, *a.also}) for a in answers if a.fact}
     return {
         "basis": {
@@ -185,6 +185,8 @@ def build_skill(pb: Playbook, judgment: dict | None = None) -> dict:
             "source": {"playbook_step": s.index, "t_start": round(s.t_start, 2), "t_end": round(s.t_end, 2)},
         })
     gated = sum(st["requires_confirmation"] for st in steps)
+    for st in steps:  # a step needs the step whose value it types
+        st["depends_on"] = [st["value_from"]["step"]] if st["value_from"] else []
     return {
         "name": skill_name(pb.title),
         "title": pb.title,
@@ -199,6 +201,7 @@ def build_skill(pb: Playbook, judgment: dict | None = None) -> dict:
             "required": [i.name for i in inputs],
         },
         "steps": steps,
+        "completion_checks": _completion_checks(steps, pb.goal),
         "excluded_steps": [{"playbook_step": s.index, "title": s.title, "reason": "Marked wrong in review"}
                            for s in pb.steps if s.review == "wrong"],
         "open_questions": pb.open_questions,
@@ -213,6 +216,23 @@ def build_skill(pb: Playbook, judgment: dict | None = None) -> dict:
             "steps_needing_confirmation": gated,
         },
     }
+
+
+def _completion_checks(steps: list[dict], goal: str | None) -> list[dict]:
+    """How an agent (or a replay) can tell the task was done, from what the recording already holds.
+
+    value_matches: a value typed from an earlier read must equal what was read this time (not what was
+    read in the recording). end_state: the last step's expected result, else the goal. Nothing is invented:
+    a skill whose steps carry no expected result and no goal has no end-state check.
+    """
+    checks = [{"kind": "value_matches", "step": st["id"], "equals_value_read_in": st["value_from"]["step"],
+               "check": f"The value typed in {st['id']} equals the value read in {st['value_from']['step']} on this run."}
+              for st in steps if st["value_from"]]
+    last = steps[-1] if steps else None
+    text = (last["expect"] if last and last["expect"] else None) or goal
+    if text:
+        checks.append({"kind": "end_state", "step": last["id"] if last else None, "check": text})
+    return checks
 
 
 def _description(pb: Playbook, gated: int) -> str:
@@ -254,6 +274,12 @@ def _judgment_md(j: dict) -> list[str]:
         out += ["In the rules, `changed_x` means: the value of x differs from what it was at the previous check "
                 "(1 = changed, 0 = not). It is not shown on the current screen; compare with the earlier check "
                 "or ask.", ""]
+    words = sorted({c.split()[0] for r in j["rules"] for c in r["when"] if "=" in c.split()[0]})
+    if words:
+        out += [f"`label=word > 0.5` means the screen shows that word for that label (here: {', '.join(f'`{w}`' for w in words)}); "
+                "`label=word <= 0.5` means it shows a different word or none.", ""]
+    if any("/" in c.split()[0] for r in j["rules"] for c in r["when"]):
+        out += ["`a/b` in a condition is the on-screen value of a divided by the on-screen value of b (a rate), not a label on the screen.", ""]
     stated = {slug(s["fact"]) for s in j["stated_by_person"] if s["fact"]}
     for r in j["rules"]:
         thin = " (few examples: treat as a hint)" if r["thin_evidence"] else ""
@@ -305,6 +331,8 @@ def render_skill_md(pb: Playbook, skill: dict | None = None) -> str:
         if st["requires_confirmation"]:
             out.append(f"   - **Ask a human first.** {st['confirmation_reason']}")
     out.append("")
+    if sk.get("completion_checks"):
+        out += ["## Done when", ""] + [f"- {c['check']}" for c in sk["completion_checks"]] + [""]
     if sk.get("judgment"):
         out += _judgment_md(sk["judgment"])
     if sk["excluded_steps"]:

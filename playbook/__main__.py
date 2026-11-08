@@ -137,13 +137,25 @@ def main(argv: list[str] | None = None) -> int:
     lab.add_argument("--out", type=Path, default=Path("labels.csv"))
     dc = sub.add_parser("decisions", help="log what was on screen at each pause and what you did next (one session)")
     dc.add_argument("session", nargs="?", default="latest", help="session id, path, or 'latest'")
+    dc.add_argument("--navigation", default="", help="comma-separated words on controls that only move to the next item (e.g. 'Next run,Next'); clicking one is not an action")
+    dc.add_argument("--dwell", type=float, default=None, help="shortest pause (seconds) that counts as a look; default 8")
     ind = sub.add_parser("induce", help="fit a readable rule to the decisions of several sessions and list the ones it can't explain")
     ind.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
+    ind.add_argument("--ratios", action="store_true", help="also try ratios of readouts (errors/requests) as features; helps when the rule is about a rate")
+    ind.add_argument("--without", choices=["context", "none"], help="ablation: fit without cross-session context, or without the non-action decisions")
     el = sub.add_parser("elicit", help="answer questions about the decisions the fitted rule can't explain, then refit")
     el.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
     rp = sub.add_parser("replay", help="test whether the judgment calls reproduce your later decisions (fit on the earliest 70%%)")
     rp.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
     rp.add_argument("--model", action="store_true", help="also ask the local model to decide with and without the judgment section (slow on a laptop)")
+    pl = sub.add_parser("pilot", help="a pilot with a real person: make the case page, then turn their log into a report")
+    pl.add_argument("action", choices=["make", "report", "elicit"], help="make: write the offline page; report: read the downloaded log; elicit: answer the questions about the choices the rule cannot explain")
+    pl.add_argument("path", nargs="?", type=Path, help="report: the pilot_log.json the page downloaded")
+    pl.add_argument("--theme", choices=["run", "invoice", "ticket"], default="run")
+    pl.add_argument("--cases", type=int, default=60)
+    pl.add_argument("--seed", type=int, default=7)
+    pl.add_argument("--ratios", action="store_true", help="report/elicit: also try ratios of readouts as features")
+    pl.add_argument("--out", type=Path, help="make: page path (default pilot.html); report: report path (default pilot_report.md)")
     args = p.parse_args(argv)
 
     from .recorder import import_video, is_archived, list_sessions, record_session, resolve_session
@@ -214,11 +226,42 @@ def main(argv: list[str] | None = None) -> int:
         from .decisions import build_decisions, save_decisions
 
         session = resolve_session(args.session, settings)
-        found = build_decisions(session)
+        kw = {"navigation": tuple(w.strip() for w in args.navigation.split(",") if w.strip())}
+        if args.dwell is not None:
+            kw["dwell_min_s"] = args.dwell
+        found = build_decisions(session, **kw)
         save_decisions(found, session / "decisions.jsonl")
         for d in found:
             print(f"{d.t0:7.1f}s  paused {d.dwell_s:5.1f}s  saw {d.readouts or 'no labelled numbers'}  then: {d.outcome}")
         print(f"{len(found)} decision(s) written to {session / 'decisions.jsonl'}")
+        return 0
+    if args.cmd == "pilot":
+        from . import pilot
+
+        if args.action == "make":
+            out = args.out or Path("pilot.html")
+            out.write_text(pilot.render_html(pilot.make_cases(args.theme, args.cases, args.seed), args.theme, args.seed), encoding="utf-8")
+            print(f"Wrote {out}. Open it in a browser (full screen is nice), do the {args.cases} cases, then download the log.")
+            return 0
+        if args.path is None or not args.path.is_file():
+            print("Give the pilot_log.json the page downloaded.", file=sys.stderr)
+            return 1
+        decisions, raw = pilot.load_log(args.path)
+        if args.ratios:
+            from .decisions import add_ratios
+
+            add_ratios(decisions)
+        if args.action == "elicit":
+            result = pilot.ask_loop(decisions, args.path.with_name("pilot_answers.jsonl"))
+            for label in ("before", "after"):
+                r = result[label]
+                print(f"\nRule {label} your answers ({r['accuracy']:.0%} of cases, {r['unexplained']} unexplained):")
+                for line in r["rule"]:
+                    print(f"  {line}")
+            return 0
+        out = args.out or Path("pilot_report.md")
+        out.write_text(pilot.report(decisions, raw), encoding="utf-8")
+        print(f"Wrote {out}")
         return 0
     if args.cmd == "induce":
         from . import induce
@@ -228,6 +271,10 @@ def main(argv: list[str] | None = None) -> int:
         dirs = [resolve_session(x, settings) for x in args.sessions] if args.sessions else list_sessions(settings)
         dirs = [d for d in dirs if args.sessions or has_saved(d)]
         decisions = pool(dirs)
+        if args.ratios:
+            from .decisions import add_ratios
+
+            add_ratios(decisions)
         if len(decisions) < 6:
             print(f"Only {len(decisions)} decision(s); need about 6 or more to fit a rule (20-40 is better).", file=sys.stderr)
             return 1
@@ -237,11 +284,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {line}")
         train, test = induce.holdout_accuracy(decisions)
         print(f"Fit on the earliest 70%: {train:.0%} on those, {test:.0%} on the later ones.")
+        if args.without:
+            ab = induce.holdout(decisions, without=args.without)
+            print(f"Ablation (without {args.without}): {ab['train_accuracy']:.0%} on the earliest 70%, {ab['test_accuracy']:.0%} on the later ones.")
+            for line in ab["rule"]:
+                print(f"  {line}")
         odd = induce.disagreements(decisions)
         print()
         print(f"{len(odd)} decision(s) the rule can't explain. Ask the person why:")
         for d, guess in odd:
-            c = classify_decision(d, induce.features_used(tree), rule_gets_it_right=False)
+            c = classify_decision(d, induce.path_features(tree, d), rule_gets_it_right=False)
             print(f"  {d.session} @ {d.t1:.0f}s  did: {d.outcome}; rule expected: {guess}; saw {d.readouts}  [{c.observability}, tacit {c.tacit_score}/4]")
         return 0
     if args.cmd == "elicit":

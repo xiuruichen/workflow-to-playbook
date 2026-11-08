@@ -49,6 +49,13 @@ MODELS = {
         "mmproj": ("Qwen/Qwen3-VL-2B-Instruct-GGUF", "mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf",
                    "f9a68fabba69c3b81e153367b2c7521030b0fa8bb0de400c9599c8e6725f9c82"),
     },
+    "qwen3-vl-4b": {  # checksums are the publisher's LFS object ids (Hugging Face tree API)
+        "tier": "small", "gb": 3.0,
+        "model": ("Qwen/Qwen3-VL-4B-Instruct-GGUF", "Qwen3VL-4B-Instruct-Q4_K_M.gguf",
+                  "66358cb18bb6b3b1b6675aa412c7a88ef01d228f481184d13668e5201c730a0a"),
+        "mmproj": ("Qwen/Qwen3-VL-4B-Instruct-GGUF", "mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf",
+                   "30ba2c7dd3127a4561b6cba9d13d0f711c91bdb38742e2f56d73c8cb596bd06d"),
+    },
 }
 DEFAULT_MODEL = "qwen3-vl-2b"
 CONTEXT = 8192

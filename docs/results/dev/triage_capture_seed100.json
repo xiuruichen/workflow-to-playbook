@@ -1,0 +1,18 @@
+{
+  "domain": "triage",
+  "visits": 40,
+  "seed": 100,
+  "train": 28,
+  "test": 12,
+  "capture_matches_planted_rule": 1.0,
+  "test_accuracy_with_context": 0.8333333333333334,
+  "test_accuracy_without_context": 0.8333333333333334,
+  "test_accuracy_majority_baseline": 0.5,
+  "rule": [
+    "vendor=known <= 0.5 -> none (15/18)",
+    "vendor=known > 0.5 and amount <= 4788.5 -> Approve (7/7)",
+    "vendor=known > 0.5 and amount > 4788.5 -> Escalate (3/3)"
+  ],
+  "disagreements": 8,
+  "sessions": "C:\\Users\\chenf\\AppData\\Local\\Temp\\triage_eval_asc5jbrr"
+}

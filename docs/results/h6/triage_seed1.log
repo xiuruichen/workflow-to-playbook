@@ -1,0 +1,87 @@
+40 live visits (seed 1); recordings in C:\Users\chenf\AppData\Local\Temp\live_triage_7fqv3jw9. Hands off the mouse. Esc in the window aborts.
+visit 1/40: amount=2372 days=58 vendor=Known -> Approve (pressed: Approve)
+visit 2/40: amount=2372 days=59 vendor=Known -> Approve (pressed: Approve)
+visit 3/40: amount=9860 days=51 vendor=New -> Escalate (pressed: Escalate)
+visit 4/40: amount=1262 days=11 vendor=New -> none (pressed: None)
+visit 5/40: amount=539 days=38 vendor=New -> none (pressed: None)
+visit 6/40: amount=3475 days=16 vendor=New -> none (pressed: None)
+visit 7/40: amount=3475 days=17 vendor=New -> none (pressed: None)
+visit 8/40: amount=3475 days=18 vendor=New -> none (pressed: None)
+visit 9/40: amount=7487 days=23 vendor=New -> none (pressed: None)
+visit 10/40: amount=3456 days=41 vendor=Known -> Approve (pressed: Approve)
+visit 11/40: amount=3458 days=28 vendor=Known -> Approve (pressed: Approve)
+visit 12/40: amount=1223 days=50 vendor=New -> none (pressed: None)
+visit 13/40: amount=1223 days=51 vendor=New -> none (pressed: None)
+visit 14/40: amount=7464 days=52 vendor=Known -> Escalate (pressed: Escalate)
+visit 15/40: amount=9864 days=35 vendor=Known -> Escalate (pressed: Escalate)
+visit 16/40: amount=7453 days=52 vendor=Known -> Escalate (pressed: Escalate)
+visit 17/40: amount=6111 days=38 vendor=Known -> Escalate (pressed: Escalate)
+visit 18/40: amount=7447 days=41 vendor=Known -> Escalate (pressed: Escalate)
+visit 19/40: amount=5278 days=47 vendor=New -> Escalate (pressed: Escalate)
+visit 20/40: amount=2364 days=24 vendor=Known -> Approve (pressed: Approve)
+visit 21/40: amount=3451 days=42 vendor=New -> none (pressed: None)
+visit 22/40: amount=6158 days=27 vendor=Known -> none (pressed: None)
+visit 23/40: amount=2366 days=59 vendor=Known -> Approve (pressed: Approve)
+visit 24/40: amount=511 days=33 vendor=Known -> Approve (pressed: Approve)
+visit 25/40: amount=7462 days=32 vendor=New -> Escalate (pressed: Escalate)
+visit 26/40: amount=6158 days=48 vendor=Known -> Escalate (pressed: Escalate)
+visit 27/40: amount=2370 days=47 vendor=Known -> Approve (pressed: Approve)
+visit 28/40: amount=5204 days=53 vendor=Known -> Escalate (pressed: Escalate)
+visit 29/40: amount=5204 days=54 vendor=Known -> none (pressed: None)
+visit 30/40: amount=5204 days=55 vendor=Known -> none (pressed: None)
+visit 31/40: amount=5204 days=56 vendor=Known -> none (pressed: None)
+visit 32/40: amount=3434 days=17 vendor=Known -> Approve (pressed: Approve)
+visit 33/40: amount=1221 days=20 vendor=New -> none (pressed: None)
+visit 34/40: amount=2384 days=27 vendor=New -> none (pressed: None)
+visit 35/40: amount=6163 days=40 vendor=Known -> Escalate (pressed: Escalate)
+visit 36/40: amount=6163 days=41 vendor=Known -> none (pressed: None)
+visit 37/40: amount=7424 days=26 vendor=Known -> none (pressed: None)
+visit 38/40: amount=7424 days=27 vendor=Known -> none (pressed: None)
+visit 39/40: amount=3477 days=37 vendor=Known -> Approve (pressed: Approve)
+visit 40/40: amount=3477 days=38 vendor=Known -> Approve (pressed: Approve)
+
+Reading decisions from the real recordings (local OCR)...
+40 decisions from 40 recordings in 28s
+{
+  "visits_recorded": 40,
+  "decisions": 40,
+  "decisions_per_recording": [
+    1
+  ],
+  "readouts_correct": "40/40",
+  "outcomes_correct": "40/40",
+  "rule_greedy_fitted_on_earliest_70pct": [
+    "amount <= 4339.5 and vendor=known <= 0.5 -> none (8/8)",
+    "amount <= 4339.5 and vendor=known > 0.5 -> Approve (8/8)",
+    "amount > 4339.5 and days_overdue <= 29.5 -> none (2/2)",
+    "amount > 4339.5 and days_overdue > 29.5 -> Escalate (10/10)"
+  ],
+  "test_accuracy_greedy": 0.6666666666666666,
+  "rule_lookahead_fitted_on_earliest_70pct": [
+    "amount <= 4339.5 and vendor=known <= 0.5 -> none (8/8)",
+    "amount <= 4339.5 and vendor=known > 0.5 -> Approve (8/8)",
+    "amount > 4339.5 and days_overdue <= 29.5 -> none (2/2)",
+    "amount > 4339.5 and days_overdue > 29.5 -> Escalate (10/10)"
+  ],
+  "test_accuracy_lookahead": 0.6666666666666666,
+  "replay": {
+    "majority": {
+      "n": 12,
+      "agreement": 0.083,
+      "ask_human": 0,
+      "agreement_when_answered": 0.083,
+      "wrong_actions": 11,
+      "missed_actions": 0
+    },
+    "rules": {
+      "n": 12,
+      "agreement": 0.667,
+      "ask_human": 0,
+      "agreement_when_answered": 0.667,
+      "wrong_actions": 4,
+      "missed_actions": 0
+    }
+  }
+}
+
+Full results: C:\Users\chenf\AppData\Local\Temp\live_triage_7fqv3jw9\live_results.json

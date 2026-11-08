@@ -1,0 +1,85 @@
+40 live visits (seed 1); recordings in C:\Users\chenf\AppData\Local\Temp\live_dashboard_jjlmap1e. Hands off the mouse. Esc in the window aborts.
+visit 1/40: spikes=3 batch=256 -> stop (button pressed: True)
+visit 2/40: spikes=2 batch=256 -> stop (button pressed: True)
+visit 3/40: spikes=3 batch=256 -> stop (button pressed: True)
+visit 4/40: spikes=3 batch=512 -> leave (button pressed: False)
+visit 5/40: spikes=0 batch=512 -> leave (button pressed: False)
+visit 6/40: spikes=1 batch=512 -> leave (button pressed: False)
+visit 7/40: spikes=0 batch=512 -> leave (button pressed: False)
+visit 8/40: spikes=3 batch=1024 -> leave (button pressed: False)
+visit 9/40: spikes=1 batch=1024 -> leave (button pressed: False)
+visit 10/40: spikes=1 batch=2048 -> leave (button pressed: False)
+visit 11/40: spikes=1 batch=2048 -> leave (button pressed: False)
+visit 12/40: spikes=1 batch=4096 -> leave (button pressed: False)
+visit 13/40: spikes=2 batch=8192 -> leave (button pressed: False)
+visit 14/40: spikes=3 batch=8192 -> stop (button pressed: True)
+visit 15/40: spikes=1 batch=8192 -> leave (button pressed: False)
+visit 16/40: spikes=3 batch=8192 -> stop (button pressed: True)
+visit 17/40: spikes=2 batch=8192 -> stop (button pressed: True)
+visit 18/40: spikes=3 batch=8192 -> stop (button pressed: True)
+visit 19/40: spikes=2 batch=8192 -> stop (button pressed: True)
+visit 20/40: spikes=3 batch=16384 -> leave (button pressed: False)
+visit 21/40: spikes=2 batch=16384 -> stop (button pressed: True)
+visit 22/40: spikes=1 batch=16384 -> leave (button pressed: False)
+visit 23/40: spikes=3 batch=16384 -> stop (button pressed: True)
+visit 24/40: spikes=2 batch=16384 -> stop (button pressed: True)
+visit 25/40: spikes=2 batch=32768 -> leave (button pressed: False)
+visit 26/40: spikes=1 batch=32768 -> leave (button pressed: False)
+visit 27/40: spikes=3 batch=65536 -> leave (button pressed: False)
+visit 28/40: spikes=3 batch=65536 -> stop (button pressed: True)
+visit 29/40: spikes=3 batch=131072 -> leave (button pressed: False)
+visit 30/40: spikes=1 batch=131072 -> leave (button pressed: False)
+visit 31/40: spikes=0 batch=131072 -> leave (button pressed: False)
+visit 32/40: spikes=3 batch=131072 -> stop (button pressed: True)
+visit 33/40: spikes=2 batch=131072 -> stop (button pressed: True)
+visit 34/40: spikes=0 batch=131072 -> leave (button pressed: False)
+visit 35/40: spikes=0 batch=131072 -> leave (button pressed: False)
+visit 36/40: spikes=1 batch=131072 -> leave (button pressed: False)
+visit 37/40: spikes=2 batch=131072 -> stop (button pressed: True)
+visit 38/40: spikes=0 batch=131072 -> leave (button pressed: False)
+visit 39/40: spikes=2 batch=262144 -> leave (button pressed: False)
+visit 40/40: spikes=3 batch=262144 -> stop (button pressed: True)
+
+Reading decisions from the real recordings (local OCR)...
+40 decisions from 40 recordings in 19s
+{
+  "visits_recorded": 40,
+  "decisions": 40,
+  "decisions_per_recording": [
+    1
+  ],
+  "readouts_correct": "40/40",
+  "outcomes_correct": "40/40",
+  "events_per_session": [
+    2,
+    2,
+    2,
+    1,
+    1
+  ],
+  "rule_fitted_on_earliest_70pct": [
+    "spikes <= 1.5 -> none (10/10)",
+    "spikes > 1.5 and changed_batch_size <= 0.5 -> Stop run (11/12)",
+    "spikes > 1.5 and changed_batch_size > 0.5 -> none (6/6)"
+  ],
+  "replay": {
+    "majority": {
+      "n": 12,
+      "agreement": 0.667,
+      "ask_human": 0,
+      "agreement_when_answered": 0.667,
+      "wrong_actions": 0,
+      "missed_actions": 4
+    },
+    "rules": {
+      "n": 12,
+      "agreement": 1.0,
+      "ask_human": 0,
+      "agreement_when_answered": 1.0,
+      "wrong_actions": 0,
+      "missed_actions": 0
+    }
+  }
+}
+
+Full results: C:\Users\chenf\AppData\Local\Temp\live_dashboard_jjlmap1e\live_results.json

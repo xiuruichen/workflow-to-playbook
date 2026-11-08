@@ -40,7 +40,28 @@ class Score:
 
     @property
     def recall(self) -> float:
+        """Documentation recall: expected steps found / expected steps."""
         return self.expected_found / self.expected_total if self.expected_total else 1.0
+
+    # Judgment: did the flags land on the planted mistake and nowhere else (WONDERBREAD splits listing
+    # steps from judging them). One planted mistake per scenario, so true positives are 0 or 1.
+    @property
+    def flag_tp(self) -> int:
+        return int(self.mistake_planted and self.mistake_flagged)
+
+    @property
+    def flag_precision(self) -> float:
+        flagged = self.flag_tp + self.false_flags
+        return self.flag_tp / flagged if flagged else 1.0
+
+    @property
+    def flag_recall(self) -> float:
+        return self.flag_tp / int(self.mistake_planted) if self.mistake_planted else 1.0
+
+    @property
+    def flag_f1(self) -> float:
+        p, r = self.flag_precision, self.flag_recall
+        return 2 * p * r / (p + r) if p + r else 0.0
 
 
 def _step_text(s: Step) -> str:
@@ -112,8 +133,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{s.scenario:<10} {s.steps:>5} {s.expected_found:>9}/{s.expected_total:<5} {mistake:>9} {s.false_flags:>12} {s.api_calls:>6} {s.seconds:>6.0f}s  {s.provider}/{s.model}")
         for m in s.missing:
             print(f"{'':<10} missing: {m}")
+    tp, fp = sum(s.flag_tp for s in scores), sum(s.false_flags for s in scores)
+    planted = sum(s.mistake_planted for s in scores)
+    found, total = sum(s.expected_found for s in scores), sum(s.expected_total for s in scores)
+    prec, rec = (tp / (tp + fp) if tp + fp else 1.0), (tp / planted if planted else 1.0)
+    print(f"\nStep recall {found}/{total} ({found / total if total else 1.0:.0%}); flags: precision {prec:.2f}, recall {rec:.2f}, "
+          f"F1 {2 * prec * rec / (prec + rec) if prec + rec else 0.0:.2f} ({tp} of {planted} planted mistakes caught, {fp} false flags)")
     out = eval_dir / "eval_results.json"
-    out.write_text(json.dumps([asdict(s) | {"recall": s.recall} for s in scores], indent=2), encoding="utf-8")
+    out.write_text(json.dumps([asdict(s) | {"recall": s.recall, "flag_precision": s.flag_precision, "flag_recall": s.flag_recall,
+                                            "flag_f1": s.flag_f1} for s in scores], indent=2), encoding="utf-8")
     print(f"\nSaved {out}")
     return 0
 

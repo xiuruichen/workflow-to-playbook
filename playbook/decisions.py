@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -28,6 +29,10 @@ from .ocr import SessionOCR
 
 NONE = "none"
 READOUT = re.compile(r"([A-Za-z][A-Za-z ./_%-]{1,30}?)\s*[:=]\s*(-?\d[\d,]*(?:\.\d+)?)")
+# A label with a word for a value ("Vendor: New"). Screens are full of these ("Window: Chrome"), so a
+# category only becomes a feature if it varies and recurs across the pooled decisions (see add_context).
+CATEGORY = re.compile(r"([A-Za-z][A-Za-z ./_%-]{1,30}?)\s*[:=]\s*([A-Za-z][A-Za-z_-]{1,20})")
+MIN_CATEGORY_SUPPORT = 2
 ACTION_KINDS = {"click", "double_click", "right_click", "drag", "type", "hotkey", "key"}
 
 
@@ -41,6 +46,7 @@ class Decision:
     outcome: str  # NONE, or a short label of the action taken next
     keyframe: str | None = None  # screenshot the readouts came from (evidence)
     features: dict[str, float] = field(default_factory=dict)  # readouts plus cross-session context
+    cats: dict[str, str] = field(default_factory=dict)  # words on screen: {"vendor": "new"}; become 0/1 features
 
     @property
     def dwell_s(self) -> float:
@@ -66,6 +72,15 @@ def parse_readouts(lines: list[str]) -> dict[str, float]:
     return found
 
 
+def parse_categories(lines: list[str]) -> dict[str, str]:
+    """'Vendor: New' -> {'vendor': 'new'}. Numbers are readouts, not categories."""
+    found: dict[str, str] = {}
+    for line in lines:
+        for name, word in CATEGORY.findall(line):
+            found[slug(name)] = word.lower()
+    return found
+
+
 Labeler = Callable[[Event, "SessionOCR | None", str | None], str]
 
 
@@ -85,8 +100,13 @@ def default_labeler(ev: Event, ocr: SessionOCR | None, keyframe: str | None) -> 
 
 
 def build_decisions(session_dir: Path, ocr: SessionOCR | None = None, labeler: Labeler = default_labeler,
-                    dwell_min_s: float = DWELL_MIN_S) -> list[Decision]:
-    """Decision points of one session, in time order. Needs OCR for the screen readouts."""
+                    dwell_min_s: float = DWELL_MIN_S, navigation: tuple[str, ...] = ()) -> list[Decision]:
+    """Decision points of one session, in time order. Needs OCR for the screen readouts.
+
+    `navigation` lists words on controls that only move on to the next item ("Next run"): clicking one after a
+    pause is not an action on the item, it is the end of the look, so the decision's outcome is "none". Without
+    this, one long recording of many checks would count every "Next" click as a decision to act.
+    """
     session_dir = Path(session_dir)
     m = Manifest.load(session_dir)
     ocr = ocr if ocr is not None else SessionOCR(session_dir)
@@ -105,10 +125,42 @@ def build_decisions(session_dir: Path, ocr: SessionOCR | None = None, labeler: L
             scale = ocr._image(after.path).shape[1] / m.width
             nxt = nxt.model_copy(update={"x": round(nxt.x * scale), "y": round((nxt.y or 0) * scale)})
         outcome = labeler(nxt, ocr, after.path) if starts_here else NONE
-        readouts = parse_readouts([b.text for b in ocr.boxes(seen.path)])
-        out.append(Decision(m.session_id, round(fr.t0, 3), round(fr.t1, 3), fr.window, readouts, outcome, seen.path))
+        if any(w.lower() in outcome.lower() for w in navigation if w):
+            outcome = NONE
+        lines = [b.text for b in ocr.boxes(seen.path)]
+        readouts = parse_readouts(lines)
+        cats = {k: v for k, v in parse_categories(lines).items() if k not in readouts}
+        out.append(Decision(m.session_id, round(fr.t0, 3), round(fr.t1, 3), fr.window, readouts, outcome, seen.path, cats=cats))
     ocr.save()
     return out
+
+
+def unify_names(decisions: list[Decision]) -> None:
+    """OCR sometimes drops the space in a label ("Batchsize" for "Batch size"), which would split one
+    readout into two features that each look constant. Names that differ only by underscores are one
+    readout; the most common spelling wins (a tie goes to the one with underscores)."""
+    count: dict[str, int] = {}
+    for d in decisions:
+        for name in d.readouts:
+            count[name] = count.get(name, 0) + 1
+    groups: dict[str, list[str]] = {}
+    for name in count:
+        groups.setdefault(name.replace("_", ""), []).append(name)
+    rename = {n: max(names, key=lambda x: (count[x], "_" in x)) for names in groups.values() if len(names) > 1 for n in names}
+    if rename:
+        for d in decisions:
+            d.readouts = {rename.get(k, k): v for k, v in d.readouts.items()}
+
+
+def _recurring_categories(decisions: list[Decision]) -> dict[str, set[str]]:
+    """label -> the words worth a feature: the label takes at least two such words, each seen at least
+    MIN_CATEGORY_SUPPORT times (a word seen once is OCR noise or a one-off, and would only fit by luck)."""
+    seen: dict[str, Counter] = {}
+    for d in decisions:
+        for label, word in d.cats.items():
+            seen.setdefault(label, Counter())[word] += 1
+    words = {label: {w for w, n in c.items() if n >= MIN_CATEGORY_SUPPORT} for label, c in seen.items()}
+    return {label: ws for label, ws in words.items() if len(ws) >= 2}
 
 
 def add_context(decisions: list[Decision]) -> list[Decision]:
@@ -117,15 +169,37 @@ def add_context(decisions: list[Decision]) -> list[Decision]:
     changed_<name> is 1.0 when the value differs from the previous decision's (a change the
     person remembers but no single screen shows); delta_<name> is the difference.
     """
+    unify_names(decisions)
+    kept = _recurring_categories(decisions)
     prev: dict[str, float] = {}
     for d in decisions:
         feats = dict(d.readouts)
+        for label, word in d.cats.items():
+            if label in kept:  # one 0/1 feature per word, e.g. vendor=new
+                feats.update({f"{label}={w}": float(w == word) for w in kept[label]})
         for name, value in d.readouts.items():
             if name in prev:
                 feats[f"changed_{name}"] = float(value != prev[name])
                 feats[f"delta_{name}"] = value - prev[name]
         d.features = feats
         prev = {**prev, **d.readouts}
+    return decisions
+
+
+def add_ratios(decisions: list[Decision]) -> list[Decision]:
+    """Add one feature per pair of readouts that are always present and positive: "errors/requests".
+
+    People decide on rates ("1% of requests failing") while screens show counts, and a tree that splits on one
+    readout at a time cannot express a quotient. The names contain "/", which no readout name does, so these can
+    be told apart from on-screen values (and are penalised like the other derived features in induce.py).
+    Alphabetical order picks the direction; for a tree a/b and b/a split identically.
+    """
+    names = sorted({k for d in decisions for k in d.readouts})
+    usable = [n for n in names if decisions and all(d.readouts.get(n, 0) > 0 for d in decisions)]
+    for d in decisions:
+        for i, a in enumerate(usable):
+            for b in usable[i + 1:]:
+                d.features[f"{a}/{b}"] = d.readouts[a] / d.readouts[b]
     return decisions
 
 

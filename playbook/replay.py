@@ -70,25 +70,34 @@ def rules_decider(judgment: dict) -> Decider:
 
 
 def _screen(d: Decision, facts: list[str], context: list[str] = ()) -> str:
-    seen = ", ".join(f"{k.replace('_', ' ')} = {v:g}" for k, v in d.readouts.items())
+    seen = ", ".join([f"{k.replace('_', ' ')} = {v:g}" for k, v in d.readouts.items()]
+                     + [f"{k.replace('_', ' ')} = {v}" for k, v in d.cats.items()])
     known = [f"{f.replace('_', ' ')}: {'yes' if d.features.get(f) else 'no'}" for f in facts]
     # What the rules call changed_x is not on this screen: it compares with the previous check.
     prior = [f"{c.removeprefix('changed_').replace('_', ' ')} changed since the previous check: "
              f"{'yes' if d.features.get(c) else 'no'}" for c in context if c.startswith("changed_")]
+    seen += "".join(f", {c} = {d.features[c]:.4g}" for c in context if "/" in c and c in d.features)  # a rule on a quotient: do the division for the model
     return (f"The screen shows: {seen}." + (f" From earlier checks: {'; '.join(prior)}." if prior else "")
             + (f" A human confirms - {'; '.join(known)}." if known else ""))
 
 
+STRICT = ("Apply the rules in the 'Judgment calls' section literally and in order, using only what the screen shows. "
+          "Do not reason beyond them. If no rule applies, or a value is outside the observed range, choose the ask-a-human option.")
+
+
 def model_decider(chat: Callable[[list[dict], dict], str], skill_md: str, options: list[str], facts: list[str] = (),
-                  context: list[str] = ()) -> Decider:
-    """A language model that reads the skill and picks one of `options` (or asks a human)."""
+                  context: list[str] = (), strict: bool = False) -> Decider:
+    """A language model that reads the skill and picks one of `options` (or asks a human).
+
+    `strict` is the second prompt variant declared for the H5 runs: the same prompt plus an instruction to follow the rules literally."""
     choices = [*options, ASK]
     fmt = {"type": "json_schema", "json_schema": {"name": "choice", "schema": {
         "type": "object", "properties": {"choice": {"type": "string", "enum": choices}}, "required": ["choice"]}}}
 
     def decide(d: Decision) -> str:
         messages = [
-            {"role": "system", "content": "You act for a person using the skill below. Choose what they would do now.\n\n" + skill_md},
+            {"role": "system", "content": "You act for a person using the skill below. Choose what they would do now."
+                                         + (f" {STRICT}" if strict else "") + "\n\n" + skill_md},
             {"role": "user", "content": f"{_screen(d, list(facts), list(context))}\nOptions: {', '.join(choices)}. "
                                         f"('{NONE}' means take no action.) Reply as JSON: {{\"choice\": ...}}"},
         ]
@@ -114,23 +123,24 @@ def score(decider: Decider, test: list[Decision]) -> dict:
     }
 
 
-def run(decisions: list[Decision], answers=None, chat=None, procedure_md: str = "", train_fraction: float = 0.7) -> dict:
+def run(decisions: list[Decision], answers=None, chat=None, procedure_md: str = "", train_fraction: float = 0.7,
+        lookahead: bool | None = None, strict: bool = False) -> dict:
     """Fit on the earliest decisions, replay the rest. `chat(messages, response_format) -> str` enables the model arms."""
     apply_answers(decisions, answers or [])  # facts a human would confirm, for the held-out decisions too
     train, test = split(decisions, train_fraction)
     if not test:
         raise ValueError("no held-out decisions: need more decisions")
-    judgment = build_judgment(train, answers)
+    judgment = build_judgment(train, answers, lookahead=lookahead)
     if judgment is None:
         raise ValueError("need at least 6 training decisions")
     options = sorted({d.outcome for d in train if d.outcome != NONE} | {NONE})
     facts = [slug(s["fact"]) for s in judgment["stated_by_person"] if s["fact"]]
-    context = sorted({c.split()[0] for r in judgment["rules"] for c in r["when"] if c.startswith(("changed_", "delta_"))})
+    context = sorted({c.split()[0] for r in judgment["rules"] for c in r["when"] if c.startswith(("changed_", "delta_")) or "/" in c.split()[0]})
     arms: dict[str, Decider] = {"majority": majority_decider(train), "rules": rules_decider(judgment)}
     if chat is not None:
         with_judgment = procedure_md + "\n\n" + _judgment_text(judgment)
         arms["skill"] = model_decider(chat, procedure_md or "Check the run and decide whether to act.", options)
-        arms["skill+judgment"] = model_decider(chat, with_judgment, options, facts, context)
+        arms["skill+judgment"] = model_decider(chat, with_judgment, options, facts, context, strict=strict)
     return {"train": len(train), "test": len(test), "options": options,
             "arms": {name: score(decide, test) for name, decide in arms.items()}}
 
