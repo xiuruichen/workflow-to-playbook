@@ -257,3 +257,20 @@ def test_vet_keeps_a_fact_that_explains_and_drops_one_that_does_not():
     kept2, dropped2 = elicit.vet(train, bad)
     assert not kept2 and dropped2, "a condition tagged on unrelated decisions explains nothing"
     assert all(a.fact is None for a in elicit.vet(train, [elicit.Answer("s", 0.0, "no idea", None)])[0])
+
+
+@pytest.mark.skipif(not ocr.available(), reason="needs the local OCR engine")
+def test_service_capture_reads_the_counts_and_the_button_clicked(settings, tmp_path):
+    from playbook import service
+
+    visits = service.make_visits(10, 100)
+    got = pool(service.build_sessions(settings.model_copy(update={"use_ocr": True}), tmp_path, visits))
+    direct = study.build(study.domains()["service"], 10, 100).decisions
+    assert len(got) == 10
+
+    def norm(o):
+        return "".join(ch for ch in o.lower() if ch.isalnum())
+
+    for c, d, v in zip(got, direct, visits):
+        assert {k: c.readouts.get(k) for k in ("requests", "errors", "latency")} == {k: d.readouts[k] for k in ("requests", "errors", "latency")}
+        assert (norm(c.outcome) if c.outcome != NONE else NONE) == (norm(v.outcome) if v.outcome != "none" else NONE)

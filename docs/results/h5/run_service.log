@@ -1,0 +1,6 @@
+  Qwen3VL-4B-Instruct-Q4_K_M.gguf: already downloaded
+  mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf: already downloaded
+Starting the local model...
+service seed 1 rep 0 majority               agree 0.42 ask 0 wrong 0 missed 7 (0.0s)
+service seed 1 rep 0 rules                  agree 0.67 ask 2 wrong 0 missed 2 (0.0s)
+service seed 1 rep 0 skill                  agree 0.42 ask 0 wrong 0 missed 7 (32.6s)
