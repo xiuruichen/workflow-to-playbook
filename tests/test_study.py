@@ -334,3 +334,30 @@ def test_judge_computes_words_changes_and_quotients_the_rules_mention():
     assert replay.judge(j, {"errors": 10.0, "requests": 8000.0, "amount": 5.0}, {"vendor": "known"}, {"amount": 5.0})["outcome"] == "Approve"
     assert replay.judge(j, {"errors": 10.0, "requests": 8000.0, "amount": 6.0}, {"vendor": "known"}, {"amount": 5.0})["outcome"] == "none"
     assert replay.judge({"basis": {"observed_ranges": {}}, "rules": []}, {"x": 1.0})["outcome"] == replay.ASK
+
+
+def test_misread_thousands_separators_are_repaired_only_with_evidence_from_the_same_label():
+    from playbook.decisions import Decision, add_context, repair_separators
+
+    def row(i, amount, raw, loss="2.314"):
+        return Decision(f"s{i}", i, i + 1, "w", {"amount": amount, "loss": float(loss)}, "none", raw={"amount": raw, "loss": loss})
+
+    rows = [row(0, 5200.0, "5,200"), row(1, 9.871, "9.871"), row(2, 7400.0, "7400"), row(3, 3.456, "3.456")]
+    assert repair_separators(rows) == 2
+    assert [r.readouts["amount"] for r in rows] == [5200.0, 9871.0, 7400.0, 3456.0]
+    assert all(r.readouts["loss"] == 2.314 for r in rows), "a loss of 2.314 is a loss of 2.314"
+    small = [row(i, v, t) for i, (v, t) in enumerate([(2.5, "2.5"), (1.234, "1.234"), (0.75, "0.75")])]
+    assert repair_separators(small) == 0, "no grouped or 1000+ readings of this label: leave it"
+    again = [row(0, 5200.0, "5,200"), row(1, 9.871, "9.871")]
+    add_context(again)
+    assert again[1].readouts["amount"] == 9871.0, "pooling repairs"
+
+
+@pytest.mark.skipif(not ocr.available(), reason="needs the local OCR engine")
+def test_triage_amounts_with_separators_are_read_exactly_through_ocr(settings, tmp_path):
+    from playbook import triage
+
+    visits = triage.make_visits(10, 11)
+    got = pool(triage.build_sessions(settings.model_copy(update={"use_ocr": True}), tmp_path, visits, separators=True))
+    assert len(got) == 10
+    assert [d.readouts.get("amount") for d in got] == [float(v.amount) for v in visits]

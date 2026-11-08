@@ -204,11 +204,14 @@ def rules(tree: Node, prefix: str = "") -> list[str]:
 
 
 def disagreements(decisions: list[Decision], max_depth: int = MAX_DEPTH, min_leaf: int = MIN_LEAF,
-                  lookahead: bool | None = None) -> list[tuple[Decision, str]]:
+                  lookahead: bool | None = None, stable: bool = False) -> list[tuple[Decision, str]]:
     """Decisions whose outcome the rule fitted on all the *other* decisions would not predict.
 
-    Leave-one-out, so a decision can't be explained by itself. Returns (decision, predicted outcome).
+    Leave-one-out, so a decision can't be explained by itself. Returns (decision, predicted outcome). With `stable=True`
+    only those that disagree across bootstrap fits (see `stable_disagreements`).
     """
+    if stable:
+        return stable_disagreements(decisions, max_depth=max_depth, min_leaf=min_leaf)
     out = []
     for i, d in enumerate(decisions):
         rest = decisions[:i] + decisions[i + 1:]
@@ -218,6 +221,89 @@ def disagreements(decisions: list[Decision], max_depth: int = MAX_DEPTH, min_lea
         if guess != d.outcome:
             out.append((d, guess))
     return out
+
+
+def stable_disagreements(decisions: list[Decision], rounds: int = 30, threshold: float = 0.7, seed: int = 0,
+                         max_depth: int = MAX_DEPTH, min_leaf: int = MIN_LEAF) -> list[tuple[Decision, str]]:
+    """Decisions that disagree with the rule *whichever sample it was fitted on*: fit `rounds` trees on bootstrap resamples and
+    flag a decision only if at least `threshold` of the trees that did not see it get it wrong (and at least five did not see
+    it). One leave-one-out fit is unstable on noisy or thin data, and a flag from it is weak evidence of a hidden reason; a
+    flag that survives resampling is stronger. Returns (decision, the label most of those trees predicted)."""
+    import random
+
+    rng = random.Random(seed)
+    n = len(decisions)
+    if n < 6:
+        return []
+    trees, samples = [], []
+    for _ in range(rounds):
+        idx = [rng.randrange(n) for _ in range(n)]
+        if len({decisions[i].outcome for i in idx}) < 1:
+            continue
+        trees.append(fit([decisions[i] for i in idx], max_depth, min_leaf))
+        samples.append(set(idx))
+    out = []
+    for i, d in enumerate(decisions):
+        votes = [predict(t, d) for t, s in zip(trees, samples) if i not in s]
+        if len(votes) < 5:
+            continue
+        wrong = [v for v in votes if v != d.outcome]
+        if len(wrong) / len(votes) >= threshold:
+            out.append((d, Counter(wrong).most_common(1)[0][0]))
+    return out
+
+
+def shared_conditions(misfits: list[Decision], decisions: list[Decision], top: int = 3) -> list[dict]:
+    """What a group of misfits have in common, as the simplest threshold conditions that hold for (nearly) all of them.
+
+    For two or more choices the rule cannot explain, the conditions on one readout that cover at least 80% of them and as
+    few of the other decisions as possible, with the counts: a hint at a rare factor (two kills out of fifty, both with
+    low GPU use) that a tree cannot learn from two examples but a person can confirm in one sentence. Pure counting."""
+    if len(misfits) < 2:
+        return []
+    ids = {id(d) for d in misfits}
+    others = [d for d in decisions if id(d) not in ids]
+    found = []
+    for f in sorted({k for d in misfits for k in d.features if not k.startswith(("changed_", "delta_"))}):
+        vals = sorted({d.features[f] for d in decisions if f in d.features})
+        for a, b in zip(vals, vals[1:]):
+            t = (a + b) / 2
+            for op in ("<=", ">"):
+                test = (lambda d: d.features.get(f, float("-inf")) <= t) if op == "<=" else (lambda d: d.features.get(f, float("-inf")) > t)
+                covered = sum(test(d) for d in misfits)
+                if covered / len(misfits) < 0.8:
+                    continue
+                extra = sum(test(d) for d in others)
+                found.append({"condition": f"{f} {op} {t:g}", "covers": covered, "of": len(misfits), "also_true_of": extra,
+                              "precision": covered / (covered + extra), "kind": "plain" if "/" not in f else "ratio"})
+    found.sort(key=lambda r: (-r["precision"], -r["covers"], r["kind"] == "ratio"))
+    seen, out = set(), []
+    for r in found:  # one condition per feature, the most precise
+        feat = r["condition"].split(" ")[0]
+        if feat not in seen:
+            seen.add(feat)
+            out.append(r)
+    return out[:top]
+
+
+def fit_windowed(decisions: list[Decision], windows: tuple[float, ...] = (1.0, 0.5), min_window: int = 20, probe: float = 0.25, margin: float = 0.02):
+    """Fit on all the decisions, or only the recent ones if a recent window predicts the latest decisions clearly better.
+
+    The rule a person follows can change (a new threshold after an incident). For each window (a share of the history
+    ending before the most recent `probe` share) a tree is fitted and scored on those latest decisions; the full history
+    wins unless a shorter window beats it by `margin`. Returns (tree, the share of history used)."""
+    n = len(decisions)
+    cut = n - max(4, int(n * probe))
+    if cut < 2 * min_window:
+        return fit(decisions), 1.0
+    scores = {}
+    for w in windows:
+        lo = max(0, cut - max(min_window, int(round(cut * w))))
+        scores[w] = accuracy(fit(decisions[lo:cut]), decisions[cut:])
+    best = max(windows, key=lambda w: (scores[w], -windows.index(w)))
+    chosen = best if scores[best] >= scores[windows[0]] + margin else windows[0]
+    lo = max(0, n - max(min_window, int(round(n * chosen))))
+    return fit(decisions[lo:]), chosen
 
 
 WITHOUT = ("context", "none")

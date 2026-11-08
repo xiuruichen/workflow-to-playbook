@@ -181,6 +181,11 @@ Amendments 8-11 were written together on 2026-11-08, before any code of the fixe
 - **H17, drift:** on the E4b protocol (the rule changes at visit 40 of 80, tested on the last 20), the window chosen by cross-validation reaches at least the better of the two fixed windows minus 0.02, both domains, seeds 11-15.
 - **H18, thin support (smoke-test data):** the report's thin-support section lists a pattern involving `gpu_util`.
 
+**Addendum to amendment 9, written on 2026-11-09 before its test run (parameters fixed on development seeds 100-111; the bars above are unchanged).**
+- `fit_auto` uses all six variants (plain or ratio features, each with the greedy tree, the lookahead tree and the rule list) with a cross-validated margin of 0.04. On development seeds it moved triage at 40 visits from 0.65 to 0.77 (80 visits 0.84 to 0.89) and the rate domain from 0.63 to 0.79 (80 visits 0.69 to 0.89), and left the dashboard at 1.00. The margin made no difference between 0 and 0.12. The rule list on its own was not better than the tree (triage 40 visits 0.69 against 0.65, worse on the other cells).
+- **Predictions, written before the run:** H14's bar of 0.90 on triage at 40 visits will **not** be met (development: 0.77), and the service domain at 40 visits will not be within 0.02 of the plain-tree-with-`--ratios` baseline (development: 0.79 against 0.83). H17 will fail on the dashboard (development: the window choice kept the full history in 18 of 20 cases).
+- Stable misfits: the threshold is **0.8**, not the 0.7 in the amendment text. On development seeds (triage, 80 visits, 10% noise) 0.7 gave precision 0.63 and 0.8 gave 0.77 (recall 0.92 and 0.85); the test reports both, and H16 is judged at 0.8.
+
 ### Amendment 10: an executable judgment for the agent
 
 **Baseline:** H5's arms (procedure only, with the judgment text, the rules read mechanically) at tag `freeze-5`, re-run on the same seeds.

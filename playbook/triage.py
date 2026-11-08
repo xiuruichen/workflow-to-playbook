@@ -70,11 +70,11 @@ def make_visits(n: int, seed: int = 0) -> list[Visit]:
     return visits
 
 
-def triage_screen(v: Visit, done: str | None = None) -> np.ndarray:
+def triage_screen(v: Visit, done: str | None = None, separators: bool = False) -> np.ndarray:
     img = canvas((250, 250, 252))
     titlebar(img, TITLE)
     text(img, "AP / overdue / top of queue", 40, 80, 0.9, thick=2)
-    rows = [("Amount", str(v.amount)), ("Days overdue", str(v.days_overdue)), ("Vendor", v.vendor)]
+    rows = [("Amount", f"{v.amount:,}" if separators else str(v.amount)), ("Days overdue", str(v.days_overdue)), ("Vendor", v.vendor)]
     for i, (label, value) in enumerate(rows):
         y = 150 + i * 60
         box(img, 40, y - 32, 400, y + 18, fill=(255, 255, 255))
@@ -90,16 +90,16 @@ def triage_screen(v: Visit, done: str | None = None) -> np.ndarray:
     return img
 
 
-def visit_scenario(v: Visit, name: str, dwell_s: float = 12.0) -> Scenario:
+def visit_scenario(v: Visit, name: str, dwell_s: float = 12.0, separators: bool = False) -> Scenario:
     def build() -> Script:
-        s = Script(triage_screen(v), "excel.exe", TITLE)
+        s = Script(triage_screen(v, separators=separators), "excel.exe", TITLE)
         s.wait(1.0)
         s.click(200, 80, hold=0.5)  # open the queue (an ordinary click, so the visit starts with an event)
         s.wait(dwell_s)  # reads the invoice
         if v.outcome == "Escalate":
-            s.click(*ESCALATE_BTN, then=triage_screen(v, "Escalate"), hold=1.5)
+            s.click(*ESCALATE_BTN, then=triage_screen(v, "Escalate", separators), hold=1.5)
         elif v.outcome == "Approve":
-            s.click(*APPROVE_BTN, then=triage_screen(v, "Approve"), hold=1.5)
+            s.click(*APPROVE_BTN, then=triage_screen(v, "Approve", separators), hold=1.5)
         else:
             s.wait(2.0)
         return s
@@ -120,10 +120,10 @@ def rule_recovery(decisions, visits: list[Visit]) -> float:
     return ok / len(visits) if visits else 0.0
 
 
-def build_sessions(settings: Settings, root: Path, visits: list[Visit]) -> list[Path]:
+def build_sessions(settings: Settings, root: Path, visits: list[Visit], separators: bool = False) -> list[Path]:
     from .scenarios import simulate
 
-    return [simulate(visit_scenario(v, f"visit{i:03d}"), settings, root / f"visit{i:03d}") for i, v in enumerate(visits)]
+    return [simulate(visit_scenario(v, f"visit{i:03d}", separators=separators), settings, root / f"visit{i:03d}") for i, v in enumerate(visits)]
 
 
 def _drifted_outcome(v: Visit) -> str:

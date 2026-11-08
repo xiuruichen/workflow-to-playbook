@@ -47,6 +47,7 @@ class Decision:
     keyframe: str | None = None  # screenshot the readouts came from (evidence)
     features: dict[str, float] = field(default_factory=dict)  # readouts plus cross-session context
     cats: dict[str, str] = field(default_factory=dict)  # words on screen: {"vendor": "new"}; become 0/1 features
+    raw: dict[str, str] = field(default_factory=dict)  # each readout as OCR wrote it, to repair misread separators
 
     @property
     def dwell_s(self) -> float:
@@ -58,6 +59,21 @@ class Decision:
 
 def slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
+def parse_readouts_raw(lines: list[str]) -> tuple[dict[str, float], dict[str, str]]:
+    """Like `parse_readouts`, and also the number as OCR wrote it ("9,871", "9.871"), so that a misread separator can be
+    repaired once the other readings of the same label are known (`repair_separators`)."""
+    found: dict[str, float] = {}
+    raw: dict[str, str] = {}
+    for line in lines:
+        for name, num in READOUT.findall(line):
+            try:
+                found[slug(name)] = float(num.replace(",", ""))
+                raw[slug(name)] = num
+            except ValueError:
+                continue
+    return found, raw
 
 
 def parse_readouts(lines: list[str]) -> dict[str, float]:
@@ -128,11 +144,37 @@ def build_decisions(session_dir: Path, ocr: SessionOCR | None = None, labeler: L
         if any(w.lower() in outcome.lower() for w in navigation if w):
             outcome = NONE
         lines = [b.text for b in ocr.boxes(seen.path)]
-        readouts = parse_readouts(lines)
+        readouts, raw = parse_readouts_raw(lines)
         cats = {k: v for k, v in parse_categories(lines).items() if k not in readouts}
-        out.append(Decision(m.session_id, round(fr.t0, 3), round(fr.t1, 3), fr.window, readouts, outcome, seen.path, cats=cats))
+        out.append(Decision(m.session_id, round(fr.t0, 3), round(fr.t1, 3), fr.window, readouts, outcome, seen.path, cats=cats, raw=raw))
     ocr.save()
     return out
+
+
+_THOUSANDS_AS_DECIMAL = re.compile(r"^[1-9]\d{0,2}\.\d{3}$")  # "9.871": three decimals after a one to three digit integer
+_GROUPED = re.compile(r"^\d{1,3}(,\d{3})+$")  # "9,871"
+
+
+def repair_separators(decisions: list[Decision]) -> int:
+    """OCR sometimes reads the comma of "9,871" as a full stop, so the number becomes 9.871. A reading shaped like that is
+    taken to be thousands when *other readings of the same label show it*: some are written with comma grouping or are
+    whole numbers of 1,000 or more. Without such evidence it is left alone (a loss of 2.314 is a loss of 2.314).
+    Returns how many readings were repaired."""
+    seen: dict[str, list[str]] = {}
+    for d in decisions:
+        for name, tok in d.raw.items():
+            seen.setdefault(name, []).append(tok)
+    fixed = 0
+    for name, toks in seen.items():
+        evidence = any(_GROUPED.match(t) or (t.isdigit() and int(t) >= 1000) for t in toks)
+        if not evidence:
+            continue
+        for d in decisions:
+            tok = d.raw.get(name)
+            if tok and _THOUSANDS_AS_DECIMAL.match(tok):
+                d.readouts[name] = float(tok.replace(".", ""))
+                fixed += 1
+    return fixed
 
 
 def unify_names(decisions: list[Decision]) -> None:
@@ -150,6 +192,7 @@ def unify_names(decisions: list[Decision]) -> None:
     if rename:
         for d in decisions:
             d.readouts = {rename.get(k, k): v for k, v in d.readouts.items()}
+            d.raw = {rename.get(k, k): v for k, v in d.raw.items()}
 
 
 def _recurring_categories(decisions: list[Decision]) -> dict[str, set[str]]:
@@ -170,6 +213,7 @@ def add_context(decisions: list[Decision]) -> list[Decision]:
     person remembers but no single screen shows); delta_<name> is the difference.
     """
     unify_names(decisions)
+    repair_separators(decisions)
     kept = _recurring_categories(decisions)
     prev: dict[str, float] = {}
     for d in decisions:
