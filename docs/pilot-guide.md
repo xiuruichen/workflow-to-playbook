@@ -6,12 +6,12 @@ Why: everything so far was checked on scripted "people" who follow a rule we pla
 
 - **Consent.** The person is told what is recorded (the cases shown, each choice, how long it took, any reasons and the rule they write), that nothing leaves the computer, and that they can stop at any time and have the files deleted. If it is not the researcher themself, write down that they agreed. Ethics for anyone beyond the researcher is still an open item in the roadmap.
 - **Pick a theme the person knows.** `run` (checking a training run), `invoice` or `ticket`. A theme where they have real experience gives a real rule; an unfamiliar one gives a rule made up on the spot (still a rule, but not tacit knowledge).
-- Fix the seed and the number of cases in advance and note them (default seed 7, 40 cases). Do not look at the cases first.
+- Fix the seed and the number of cases in advance and note them (default seed 7, 60 cases: the learning curve in `docs/results/exploratory.md` shows 40 is thin for a rule with more than one condition; at about 10 seconds a case, 60 takes 10-15 minutes). Do not look at the cases first.
 
 ## Run it
 
 ```bash
-python -m playbook pilot make --theme run --cases 40 --seed 7      # writes pilot.html
+python -m playbook pilot make --theme run --cases 60 --seed 7      # writes pilot.html
 ```
 
 1. Open `pilot.html` in a browser, full screen. Optionally start `python -m playbook record` first to also record the screen (this tests the capture path on a human; the pilot itself does not need it).
@@ -38,7 +38,7 @@ python -m playbook pilot elicit pilot_log.json     # interview about the unexpla
 | Better after the correction | after `pilot elicit`, the rule explains more of their choices and has fewer unexplained ones, and the person agrees it reads closer to how they decide |
 | Match with their own words | `pilot_report.md` lists which fitted features the person did and did not mention |
 
-Report all four, including a no. Held-out accuracy in the report uses the first 70% of cases to fit and the last 30% to test (12 cases at 40), so one case moves it by 8 points.
+Report all four, including a no. Held-out accuracy in the report uses the first 70% of cases to fit and the last 30% to test (18 cases at 60), so one case moves it by 8 points.
 
 ## Limits
 

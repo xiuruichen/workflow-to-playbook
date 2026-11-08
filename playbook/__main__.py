@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
     pl.add_argument("action", choices=["make", "report", "elicit"], help="make: write the offline page; report: read the downloaded log; elicit: answer the questions about the choices the rule cannot explain")
     pl.add_argument("path", nargs="?", type=Path, help="report: the pilot_log.json the page downloaded")
     pl.add_argument("--theme", choices=["run", "invoice", "ticket"], default="run")
-    pl.add_argument("--cases", type=int, default=40)
+    pl.add_argument("--cases", type=int, default=60)
     pl.add_argument("--seed", type=int, default=7)
     pl.add_argument("--ratios", action="store_true", help="report/elicit: also try ratios of readouts as features")
     pl.add_argument("--out", type=Path, help="make: page path (default pilot.html); report: report path (default pilot_report.md)")
