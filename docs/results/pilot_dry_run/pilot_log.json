@@ -1,0 +1,911 @@
+{
+ "meta": {
+  "theme": "run",
+  "seed": 11,
+  "act": "Stop the run",
+  "leave": "Leave it running"
+ },
+ "stated_rule": "Mostly: two or more spikes means I stop the run, unless I just changed the batch size, then I wait. I am a bit more patient when the dataset is new.",
+ "cases": [
+  {
+   "index": 0,
+   "readouts": {
+    "Spikes": 0,
+    "Batch size": 256,
+    "Loss": 2.94,
+    "Hours since last check": 12
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 1,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 512,
+    "Loss": 2.88,
+    "Hours since last check": 8
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 2,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 512,
+    "Loss": 2.81,
+    "Hours since last check": 11
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 3,
+   "readouts": {
+    "Spikes": 0,
+    "Batch size": 512,
+    "Loss": 2.79,
+    "Hours since last check": 14
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 4,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 1024,
+    "Loss": 2.7,
+    "Hours since last check": 5
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 5,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 1024,
+    "Loss": 2.7,
+    "Hours since last check": 20
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 6,
+   "readouts": {
+    "Spikes": 0,
+    "Batch size": 1024,
+    "Loss": 2.61,
+    "Hours since last check": 25
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 7,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 2048,
+    "Loss": 2.59,
+    "Hours since last check": 22
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 8,
+   "readouts": {
+    "Spikes": 1,
+    "Batch size": 2048,
+    "Loss": 2.59,
+    "Hours since last check": 22
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 9,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 2048,
+    "Loss": 2.57,
+    "Hours since last check": 15
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 10,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 2048,
+    "Loss": 2.53,
+    "Hours since last check": 13
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 11,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 4096,
+    "Loss": 2.47,
+    "Hours since last check": 19
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 12,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 4096,
+    "Loss": 2.47,
+    "Hours since last check": 30
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 13,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 4096,
+    "Loss": 2.41,
+    "Hours since last check": 6
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 14,
+   "readouts": {
+    "Spikes": 0,
+    "Batch size": 4096,
+    "Loss": 2.41,
+    "Hours since last check": 6
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 15,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 4096,
+    "Loss": 2.4,
+    "Hours since last check": 29
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 16,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 256,
+    "Loss": 2.34,
+    "Hours since last check": 4
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 17,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 256,
+    "Loss": 2.34,
+    "Hours since last check": 24
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 18,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 256,
+    "Loss": 2.34,
+    "Hours since last check": 24
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 19,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 256,
+    "Loss": 2.34,
+    "Hours since last check": 24
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 20,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 256,
+    "Loss": 2.34,
+    "Hours since last check": 15
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 21,
+   "readouts": {
+    "Spikes": 0,
+    "Batch size": 256,
+    "Loss": 2.28,
+    "Hours since last check": 20
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 22,
+   "readouts": {
+    "Spikes": 0,
+    "Batch size": 512,
+    "Loss": 2.19,
+    "Hours since last check": 30
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 23,
+   "readouts": {
+    "Spikes": 0,
+    "Batch size": 512,
+    "Loss": 2.19,
+    "Hours since last check": 27
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 24,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 512,
+    "Loss": 2.09,
+    "Hours since last check": 24
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 25,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 512,
+    "Loss": 2.04,
+    "Hours since last check": 15
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 26,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 512,
+    "Loss": 1.99,
+    "Hours since last check": 8
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 27,
+   "readouts": {
+    "Spikes": 1,
+    "Batch size": 512,
+    "Loss": 1.99,
+    "Hours since last check": 8
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 28,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 512,
+    "Loss": 1.92,
+    "Hours since last check": 23
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 29,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 512,
+    "Loss": 1.82,
+    "Hours since last check": 5
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 30,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 512,
+    "Loss": 1.72,
+    "Hours since last check": 15
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 31,
+   "readouts": {
+    "Spikes": 1,
+    "Batch size": 512,
+    "Loss": 1.69,
+    "Hours since last check": 7
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 32,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 512,
+    "Loss": 1.59,
+    "Hours since last check": 18
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 33,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 512,
+    "Loss": 1.59,
+    "Hours since last check": 18
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 34,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 512,
+    "Loss": 1.55,
+    "Hours since last check": 29
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 35,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 512,
+    "Loss": 1.55,
+    "Hours since last check": 29
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 36,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 512,
+    "Loss": 1.55,
+    "Hours since last check": 12
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 37,
+   "readouts": {
+    "Spikes": 0,
+    "Batch size": 512,
+    "Loss": 1.52,
+    "Hours since last check": 29
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 38,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 512,
+    "Loss": 1.45,
+    "Hours since last check": 12
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 39,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 1024,
+    "Loss": 1.39,
+    "Hours since last check": 18
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 40,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 1024,
+    "Loss": 1.39,
+    "Hours since last check": 18
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 41,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 1024,
+    "Loss": 1.39,
+    "Hours since last check": 29
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 42,
+   "readouts": {
+    "Spikes": 0,
+    "Batch size": 1024,
+    "Loss": 1.36,
+    "Hours since last check": 27
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 43,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 1024,
+    "Loss": 1.28,
+    "Hours since last check": 30
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 44,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 2048,
+    "Loss": 1.26,
+    "Hours since last check": 7
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 45,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 2048,
+    "Loss": 1.22,
+    "Hours since last check": 23
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 46,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 2048,
+    "Loss": 1.22,
+    "Hours since last check": 23
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 47,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 4096,
+    "Loss": 1.19,
+    "Hours since last check": 12
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 48,
+   "readouts": {
+    "Spikes": 1,
+    "Batch size": 256,
+    "Loss": 1.09,
+    "Hours since last check": 22
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 49,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 256,
+    "Loss": 1.09,
+    "Hours since last check": 22
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 50,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 256,
+    "Loss": 1.09,
+    "Hours since last check": 27
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 51,
+   "readouts": {
+    "Spikes": 0,
+    "Batch size": 256,
+    "Loss": 1.03,
+    "Hours since last check": 17
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 52,
+   "readouts": {
+    "Spikes": 3,
+    "Batch size": 256,
+    "Loss": 1.01,
+    "Hours since last check": 12
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "act",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 53,
+   "readouts": {
+    "Spikes": 1,
+    "Batch size": 256,
+    "Loss": 0.98,
+    "Hours since last check": 13
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 54,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 256,
+    "Loss": 0.94,
+    "Hours since last check": 8
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 55,
+   "readouts": {
+    "Spikes": 0,
+    "Batch size": 256,
+    "Loss": 0.93,
+    "Hours since last check": 25
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 56,
+   "readouts": {
+    "Spikes": 0,
+    "Batch size": 256,
+    "Loss": 0.93,
+    "Hours since last check": 19
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 57,
+   "readouts": {
+    "Spikes": 2,
+    "Batch size": 256,
+    "Loss": 0.93,
+    "Hours since last check": 19
+   },
+   "cats": {
+    "Dataset": "new"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 58,
+   "readouts": {
+    "Spikes": 1,
+    "Batch size": 256,
+    "Loss": 0.87,
+    "Hours since last check": 21
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  },
+  {
+   "index": 59,
+   "readouts": {
+    "Spikes": 1,
+    "Batch size": 256,
+    "Loss": 0.78,
+    "Hours since last check": 9
+   },
+   "cats": {
+    "Dataset": "clean"
+   },
+   "choice": "leave",
+   "dwell_s": 6.0,
+   "reason": ""
+  }
+ ]
+}

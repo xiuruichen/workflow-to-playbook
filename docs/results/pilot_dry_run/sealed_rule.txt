@@ -1,0 +1,5 @@
+MY HIDDEN RULE (written before seeing any case; sealed):
+1. Stop the run when there are 2 or more loss spikes, UNLESS I just raised the batch size since the previous case (then I wait one more check).
+2. If the run has not been checked for a long time (hours since last check above about 24) and there is even 1 spike, I stop it (neglected runs worry me).
+3. If the dataset is NEW I am patient: I only stop at 3 spikes.
+Otherwise leave it alone. I apply this by feel, so I may be sloppy near the edges.
