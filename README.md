@@ -55,7 +55,7 @@ Capture is the screen, input events, app and window titles, and (on Windows) the
 | Is a rule recovered from 40 visits? | A single-condition rule, exactly. A rule with several regimes needs about 100 visits (0.87 held-out agreement at 40) |
 | Is the real capture path reliable? | Yes: every readout, word and outcome correct on 40/40 (two domains) and 50/50 (smoke test) |
 | Do rules about rates need help? | Yes: one-readout trees score 0.57–0.72, with ratio features 0.78–0.93 |
-| Does one round of questions help? | A little (+0.03 to +0.12 with a perfect expert) |
+| Does one round of questions help? | A little (+0.03 to +0.12 with a perfect expert); a local 4B model running the interview recovers about half of that, held back by reading answers |
 | Does handing an agent the rules help? | A 4B model mostly asks a human more often; it clearly helps on one of three domains |
 | Where does it break? | Label noise, rare factors, fast continuous decisions (needs `--dwell` and `--navigation`) |
 
@@ -96,7 +96,7 @@ No GPU is needed; on a laptop CPU a playbook takes minutes per request, once (re
 | [docs/playbooks.md](docs/playbooks.md) | how a recording becomes a playbook; confidence, checks, the agent skill |
 | [docs/getting-started.md](docs/getting-started.md) | install, local models, low-power mode, the UI and CLI |
 | [docs/configuration.md](docs/configuration.md), [docs/privacy-and-archives.md](docs/privacy-and-archives.md) | settings; privacy, encryption, archives |
-| [docs/pilot-guide.md](docs/pilot-guide.md) | running the pilot with one real person |
+| [docs/pilot-guide.md](docs/pilot-guide.md), [docs/interview-guide.md](docs/interview-guide.md) | running the pilot with one real person; designing the interview questions and scoring answers |
 | [docs/ROADMAP.md](docs/ROADMAP.md), [docs/open-questions.md](docs/open-questions.md) | what is done, what is next, what needs a decision |
 | [docs/evaluation-protocol.md](docs/evaluation-protocol.md), [docs/results/](docs/results/README.md) | hypotheses, criteria, amendments; the data and the command for every number |
 | [docs/design-notes.md](docs/design-notes.md), [docs/related-work.md](docs/related-work.md) | why it is built this way; literature and references |

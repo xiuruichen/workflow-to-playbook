@@ -15,11 +15,11 @@ Recover **tacit knowledge** from observed computer work: not only what an expert
 | Capture and playbooks (what) | built | four scripted scenarios, local model ([results.md](results.md#playbooks-on-four-scripted-scenarios)) |
 | Decision log, including non-actions | built | real-capture check 40/40 on two domains; 50/50 in the [smoke test](smoke-test.md) |
 | Rule induction (when) | built | a single-regime rule from 40 visits; compound rules need about 100; ratio rules need `--ratios` |
-| Elicitation (why) | built, scripted experts only | one round helps a little (+0.03 to +0.12) with a perfect expert |
+| Elicitation (why) | built, scripted experts only | one round helps a little (+0.03 to +0.12) with a perfect expert; an LLM-driven version (4B) recovers about half that gain, held back by extraction |
 | Agent export with judgment | built | a 4B model asks a human more often and helps clearly only on one domain |
 | Observability classes | built, heuristic | checked only against planted ground truth |
 | Real-person pilot | **kit ready, not run** | [pilot-guide.md](pilot-guide.md) |
-| Evaluation | pre-registered, synthetic only | [evaluation-protocol.md](evaluation-protocol.md) with six amendments |
+| Evaluation | pre-registered, synthetic only | [evaluation-protocol.md](evaluation-protocol.md) with seven amendments |
 
 Nothing has been tested with a real expert. Everything so far used a scripted person, or an AI that wrote the rule it applied.
 
@@ -28,10 +28,11 @@ Nothing has been tested with a real expert. Everything so far used a scripted pe
 1. **Run the pilot with one real person** (about 45 minutes; [pilot-guide.md](pilot-guide.md)). Done when the four scoring questions in the guide are answered, including a no. This is the only step that can show the goal is met, and it decides what is worth building next.
 2. **A second stage with a real recorded task** (`record`, then `decisions --dwell 3 --navigation <words>`, `induce`, `elicit`, `replay`). Needs readouts that are text on screen.
 3. **A human-labelled set for H7**: which steps a reviewer calls "reason not visible", to check the observability classes against people rather than planted truth.
-4. **Show the ratio fit by default when the person's own words mention a rate** (the smoke test found the ratio only with `--ratios`).
-5. **Re-score the four scripted scenarios** with the step-recall and flag-F1 metrics (needs a model run).
-6. **Handle thousands separators** in OCR'd numbers (`9,871` is read as `9.871`) and merge more label spelling variants.
-7. Only then: think-aloud audio for the reasons that are off-screen; cross-session memory and task models.
+4. **Improve the interview's extraction** (the weakest step: 3 of 6 clear answers read correctly), and design the questions and the scoring of answers with the team member working on them ([interview-guide.md](interview-guide.md)); then re-test on fresh seeds under a new amendment.
+5. **Show the ratio fit by default when the person's own words mention a rate** (the smoke test found the ratio only with `--ratios`).
+6. **Re-score the four scripted scenarios** with the step-recall and flag-F1 metrics (needs a model run).
+7. **Handle thousands separators** in OCR'd numbers (`9,871` is read as `9.871`) and merge more label spelling variants.
+8. Only then: think-aloud audio for the reasons that are off-screen; cross-session memory and task models.
 
 ## Not built, on purpose
 
@@ -47,7 +48,7 @@ Nothing has been tested with a real expert. Everything so far used a scripted pe
 |---|---|---|---|
 | Iyamu 2026 (`iyamu2026activityframes`) | Model-free compilation of raw capture into evidence-linked episodes | `frames.py` | built |
 | Wornow 2024 (`wornow2024wonderbread`) | Evaluate documentation (step recall) separately from judgment | `evaluate.py` | built; not re-scored |
-| Brennig 2025, Zuin 2025 | Ask targeted questions to draw out tacit knowledge | `elicit.py`, `pilot elicit` | built; scripted experts |
+| Brennig 2025, Zuin 2025 | Ask targeted questions to draw out tacit knowledge; iterate with self-critique | `elicit.py`; `interview.py` (`--llm`) | built; scripted experts; pre-registered bars on extraction and end-to-end gain not met with a 4B model |
 | Ng and Russell 2000 (`ng2000irl`) | Recover the rule behind behaviour, here as a readable classifier including the "no action" outcome | `induce.py` | built |
 | Polanyi 1966, Nonaka and Takeuchi 1995 | Tacit versus explicit framing | `knowledge.py` | built; heuristic |
 | Huang 2026 (`huang2026work2skill`) | Skills carry rules, dependencies and completion checks | `skill.py` | built; no agent replay yet |

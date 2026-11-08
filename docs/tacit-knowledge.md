@@ -59,6 +59,17 @@ python -m playbook elicit [sessions...]
 
 For each choice the rule gets wrong, `elicit.py` shows the person what the rule expected, what they did, what was on screen, and how it differs from the most similar choices where they did what the rule expected. They answer in their own words and may name a condition ("warming up") and tag which other choices it held for. A named condition becomes a 0/1 feature and the rule is refitted. Answers are stored verbatim with a timestamp.
 
+### The same interview, driven by a local model
+
+```bash
+python -m playbook elicit --llm [--questions v0_open]
+python -m playbook pilot elicit pilot_log.json --llm [--questions v0_counterfactual]
+```
+
+With `--llm` (`playbook/interview.py`, adapted from Brennig 2025 and Zuin et al. 2025, whose abstracts only were read) a local model writes one short question per misfit, reads the person's free-text answer into a short named condition, and a follow-up asks which other offered cases it held for. The condition becomes a feature, the refit's effect is measured, and the interview stops when nothing is left to explain, after 8 questions, or after four answers in a row that explained nothing. Anything that can be checked is checked in code, not left to the model: the model never sees the fitted rule, a question may not contain a digit, a condition is at most five words, vague answers must yield none, and only offered cases can be tagged; the case numbers are read from the reply by code, and the model's own 0–1 rating of an answer is recorded beside the measured effect and never overrides it. Without `--llm` nothing changes.
+
+The wording of the questions lives in `playbook/interview_prompts.py` as named strategies, and answers can be scored by hand and compared with what they did ([interview-guide.md](interview-guide.md) is the brief for whoever designs the questions). Measured results with simulated experts are in [results.md](results.md#the-llm-driven-interview).
+
 ## Observability classes
 
 `knowledge.py` sorts every playbook step and decision by what a recording can show:

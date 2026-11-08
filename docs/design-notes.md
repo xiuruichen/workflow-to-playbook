@@ -30,6 +30,7 @@ keyframes.py (two-scale change detection, video import, click annotation, crops)
      └── Decisions (when and why)
          frames.py ──► decisions.py (pauses + OCR readouts + words + next action; pooled across sessions)
               ──► induce.py (readable tree) ──► elicit.py (questions on the misfits) ──► skill.py judgment ──► replay.py (deciders)
+         interview.py + interview_prompts.py: an optional model-driven interview (questions, answers read into conditions, stopping)
          knowledge.py: observability class and tacit score
          pilot.py: offline case page, report and interview for a real person
 
