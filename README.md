@@ -54,10 +54,10 @@ Capture is the screen, input events, app and window titles, and (on Windows) the
 |---|---|
 | Is a rule recovered from 40 visits? | A single-condition rule, exactly. A rule with several regimes needs about 100 visits (0.87 held-out agreement at 40) |
 | Is the real capture path reliable? | Yes: every readout, word and outcome correct on 40/40 (two domains) and 50/50 (smoke test) |
-| Do rules about rates need help? | Yes: one-readout trees score 0.57–0.72, with ratio features 0.78–0.93 |
-| Does one round of questions help? | A little (+0.03 to +0.12 with a perfect expert); a local 4B model running the interview recovers about half of that, held back by reading answers |
+| Do rules about rates need help? | Yes: one-readout trees score 0.57–0.72, with ratio features 0.78–0.93; the default now tries ratios, a lookahead tree and a rule list by cross-validation and found the planted ratio on the smoke-test recording without any flag |
+| Does one round of questions help? | A little (+0.03 to +0.12 with a perfect expert). A local 4B model can run the interview: with a gated extraction it read 17 of 20 clear answers and recovered the full (small) structured gain on fresh seeds |
 | Does handing an agent the rules help? | A 4B model mostly asks a human more often; it clearly helps on one of three domains |
-| Where does it break? | Label noise, rare factors, fast continuous decisions (needs `--dwell` and `--navigation`) |
+| Where does it break? | Compound rules at 40 visits (0.72 on the invoice domain, with or without the automatic choice), label noise, rare factors, a rule that drifts, fast continuous decisions (needs `--dwell` and `--navigation`) |
 
 Hypotheses and criteria were fixed before the runs, and results that were negative or contradicted a written prediction are reported as such: [docs/results.md](docs/results.md), [docs/evaluation-protocol.md](docs/evaluation-protocol.md).
 

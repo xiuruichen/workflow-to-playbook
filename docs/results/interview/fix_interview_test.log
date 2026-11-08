@@ -1,0 +1,23 @@
+  Qwen3VL-4B-Instruct-Q4_K_M.gguf: already downloaded
+  mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf: already downloaded
+Starting the local model...
+v0/time/single           dashboard seed 11: gain +0.125 (structured +0.125), 3 questions, facts ['waiting_for_a_package']
+v0/time/single           dashboard seed 12: gain +0.000 (structured +0.167), 3 questions, facts []
+v0/time/single           dashboard seed 13: gain +0.167 (structured +0.167), 2 questions, facts ['end_of_a_long_week', 'it_was_raining_outside']
+v0/time/single           dashboard seed 14: gain +0.000 (structured +0.000), 4 questions, facts ['on_my_way_to_lunch']
+v0/time/single           dashboard seed 15: gain +0.125 (structured +0.125), 2 questions, facts ['one_had_restarted_earlier']
+v0/time/single           triage    seed 11: gain +0.125 (structured +0.125), 4 questions, facts ['end_of_a_long_week', 'it_was_raining_outside']
+v0/time/single           triage    seed 12: gain +0.000 (structured +0.000), 4 questions, facts ['it_was_raining_outside', 'on_my_way_to_lunch']
+v0/time/single           triage    seed 13: gain +0.042 (structured +0.000), 4 questions, facts ['end_of_a_long_week', 'it_was_raining_outside']
+v0/time/single           triage    seed 14: gain +0.000 (structured +0.000), 4 questions, facts ['on_my_way_to_lunch']
+v0/time/single           triage    seed 15: gain +0.000 (structured +0.000), 4 questions, facts ['fire_drill_later', 'my_chair_was_uncomfortable', 'waiting_for_a_package']
+gated/time/single        dashboard seed 11: gain +0.125 (structured +0.125), 3 questions, facts ['i_was_waiting_for_a_package']
+gated/time/single        dashboard seed 12: gain +0.167 (structured +0.167), 2 questions, facts ['it_had_only_just_resumed_after_the_restart']
+gated/time/single        dashboard seed 13: gain +0.167 (structured +0.167), 3 questions, facts ['it_was_newly_started_again']
+gated/time/single        dashboard seed 14: gain +0.000 (structured +0.000), 4 questions, facts []
+gated/time/single        dashboard seed 15: gain +0.125 (structured +0.125), 1 questions, facts ['early_hours_after_being_brought_back']
+gated/time/single        triage    seed 11: gain +0.125 (structured +0.125), 4 questions, facts ['i_was_waiting_for_a_package']
+gated/time/single        triage    seed 12: gain +0.000 (structured +0.000), 4 questions, facts []
+gated/time/single        triage    seed 13: gain +0.000 (structured +0.000), 4 questions, facts []
+gated/time/single        triage    seed 14: gain +0.000 (structured +0.000), 4 questions, facts []
+gated/time/single        triage    seed 15: gain +0.000 (structured +0.000), 4 questions, facts ['it_was_newly_started_again']

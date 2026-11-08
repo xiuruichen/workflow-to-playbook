@@ -1,0 +1,52 @@
+  Qwen3VL-4B-Instruct-Q4_K_M.gguf: already downloaded
+  mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf: already downloaded
+Starting the local model...
+clear      | v0 run had been relaunched      | gated run had been relaunched shor | The run had been relaunched shortly beforehand
+clear      | v0 None                         | gated i'd restarted it not long be | I'd restarted it not long before, so I wasn't 
+clear      | v0 still early after the restar | gated None                         | Still early after the restart, so I gave it so
+clear      | v0 None                         | gated just back from a restart     | It was just back from a restart, and those rea
+clear      | v0 None                         | gated i don't stop a run           | I don't stop a run during its warm-up after a 
+clear      | v0 None                         | gated the job had come back up tha | The job had come back up that morning, so I le
+clear      | v0 fresh from a relaunch        | gated fresh from a relaunch        | Fresh from a relaunch, it needed time to settl
+clear      | v0 restarted a little while ago | gated was restarted a little while | It was restarted a little while ago and hadn't
+clear      | v0 right after a restart        | gated None                         | Right after a restart I hold off, as a rule.
+clear      | v0 newly restarted run          | gated too early to tell            | That was a newly restarted run, so too early t
+clear      | v0 None                         | gated it had only just resumed aft | It had only just resumed after the restart.
+clear      | v0 None                         | gated anything that restarted rece | I let anything that restarted recently run in 
+clear      | v0 early hours of run           | gated early hours after being brou | The run was in its early hours after being bro
+clear      | v0 None                         | gated shortly after the relaunch   | Shortly after the relaunch I treat it as still
+clear      | v0 newly started again          | gated it was newly started again   | It was newly started again, so I gave it a day
+clear      | v0 one had restarted earlier    | gated had restarted earlier and wa | That one had restarted earlier and was still r
+clear      | v0 restart that recent          | gated that recent means i wait     | A restart that recent means I wait before judg
+clear      | v0 resumed from checkpoint      | gated resumed from a checkpoint    | It had been resumed from a checkpoint not long
+clear      | v0 None                         | gated None                         | Warm-up after the restart wasn't over yet.
+clear      | v0 just been relaunched         | gated having just been relaunched  | Having just been relaunched, it wasn't ready t
+vague      | v0 None                         | gated None                         | I really couldn't tell you.
+vague      | v0 None                         | gated None                         | No special reason.
+vague      | v0 None                         | gated None                         | It just seemed right at the time.
+vague      | v0 None                         | gated None                         | I'm not sure, to be honest.
+vague      | v0 None                         | gated None                         | Call it instinct.
+vague      | v0 None                         | gated None                         | I didn't have a reason.
+vague      | v0 None                         | gated None                         | It's hard to put into words.
+vague      | v0 None                         | gated None                         | Nothing in particular.
+vague      | v0 None                         | gated None                         | I can't explain it.
+vague      | v0 None                         | gated None                         | Just a hunch.
+irrelevant | v0 on my way to lunch           | gated None                         | I was on my way to lunch.
+irrelevant | v0 phone rang just then         | gated None                         | The phone rang just then.
+irrelevant | v0 None                         | gated None                         | I had another tab open.
+irrelevant | v0 end of a long week           | gated None                         | It was the end of a long week.
+irrelevant | v0 None                         | gated None                         | I was thinking about dinner.
+irrelevant | v0 my chair was uncomfortable   | gated None                         | My chair was uncomfortable.
+irrelevant | v0 fire drill later             | gated None                         | There was a fire drill later.
+irrelevant | v0 waiting for a package        | gated i was waiting for a package  | I was waiting for a package.
+irrelevant | v0 it was raining outside       | gated None                         | It was raining outside.
+irrelevant | v0 None                         | gated None                         | I'd just had a haircut.
+
+# Extraction on the `test` paraphrases (amendment 8, H11)
+
+| method | clear answers read | vague answers left empty | irrelevant answers left empty | seconds per answer |
+|---|---|---|---|---|
+| v0 | 12/20 | 10/10 | 3/10 | 3.1 |
+| gated | 17/20 | 10/10 | 9/10 | 3.4 |
+
+**H11 (gated): clear answers >= 80%: holds (17/20); vague and irrelevant left empty >= 80%: holds (19/20).**

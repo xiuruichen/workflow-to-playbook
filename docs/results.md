@@ -99,6 +99,26 @@ A three-part hidden rule written first; 60 cases judged by reading them. The def
 
 Capture on drawn frames 40/40, with the fitted rule exact and 12/12 on the rest. A first live run (24 visits) found four problems that drawn frames could not: the outcome label was "Button" instead of "Stop run" and click positions needed scaling from screen pixels; a split on a drifting readout (`loss`) made every held-out decision ask a human, so splits must now improve training accuracy; 24 visits were too few to learn the exception; and the test script froze its own window. A second live run (40 visits, after the fixes) recovered the rule exactly. The first replay with the 2B model found the judgment section hurt (1/12 against 5/12): the rules used `changed_batch_size` but nothing said what it meant, which the skill now defines. A simulated expert with one tagged answer cleared all 7 unexplained decisions (88% → 100%).
 
+## Round 2: fixing what failed
+
+Amendments 8-11 ([evaluation-protocol.md](evaluation-protocol.md#round-2-fixing-what-failed-amendments-8-11)) took the failures above, changed what was believed to cause each, and re-tested on **fresh seeds 11-15** and **fresh paraphrases** written before the code was touched. The designs were made after seeing the failures; the bars were not. Predictions written beforehand are marked.
+
+| Failure | Fix | Result (fresh data) |
+|---|---|---|
+| Interview read only half of clear answers (H8) | three-way ITEM / SELF / NONE classification, then a phrase quoted from the answer, majority of three wordings | **H11 holds:** 17 of 20 clear answers read (the first version 12), 19 of 20 vague and irrelevant answers left empty (13). On 60 development paraphrases the first try (a yes/no "is there a reason?" gate) read only 16 of 30 clear answers and was replaced |
+| Interview captured 47% of the structured gain (H9) | the extraction above | **H13 holds:** 100% of the structured gain (+0.071), the first version 82% on the same data. Caveats: the structured gain is small, ten interviews, and the first version also clears the 70% bar on the new phrasings |
+| Misfit order put irrelevant questions first | rank by surprise / temporal bursts / cluster | **H12 fails** (predicted): the best order raises the share of the first four questions that concern the hidden fact from 0.23 to 0.30 (bar +0.15). In triage the hidden-fact misfits are 5-10% of the first four whatever the order; they look like the misfits caused by the rule itself being wrong |
+| Group question (one question about several similar misfits) | `group_first` | no better than one-by-one on development seeds; not adopted |
+| Compound rules need ~100 visits (H1) | `fit_auto`: choose between plain or ratio features and the tree, lookahead tree or rule list by blocked cross-validation | **H14 fails on its main bar** (predicted): triage at 40 visits 0.717 (the plain tree 0.717), bar 0.90. It does not cost anything (dashboard 40 visits 0.98 against 0.83, triage 80 visits 0.87 against 0.84) and finds the rate rule alone (service 0.92 against 0.72 at 40 visits, within 0.02 of ratios switched on; a prediction that it would not be within 0.02 was wrong) |
+| Ratios found only with a flag (smoke test) | the same | **H15 holds:** on the untouched smoke-test recording, with no flags, the fitted rule uses `train_loss/val_loss` and the same-run exception (cross-validated 0.92 against 0.72 for the plain tree) |
+| A misfit is weak evidence under label noise (E2) | stable misfits: a decision is flagged only if it disagrees across at least 80% of bootstrap fits | **H16 holds, barely:** precision 0.71 against 0.56 for one leave-one-out fit, at the cost of recall 0.71 against 0.90. The threshold was 0.7 in the amendment and was changed to 0.8 on development seeds before the run (0.7 gave 0.60) |
+| Drift not followed (E4b) | choose the window of history by cross-validation | **H17 fails** (predicted): it kept the full history in nearly every case (dashboard 0.860 against 0.970 for the last 20 only) |
+| Rare factors missed (the GPU rule) | list what the unexplained choices have in common | **H18 fails:** on the smoke-test data the hint was dominated by ratio conditions that cover both unexplained choices by chance, not the plain `gpu_util <= 29` that is true |
+| Capture of numbers with separators | keep the raw OCR token and repair `9.871` to `9,871` when the label's other readings show it | **H20 holds, but not demonstrated by the test**: all 40 amounts were read exactly even before the repair (OCR misread none). On development seed 100, where a comma was once misread, the repair takes 11 of 12 to 12 of 12. The repair is also unit-tested |
+| 4B model misapplies the rules (H5) | an executable evaluator the model calls (`python -m playbook judge`) | H19: see below |
+
+What did not work: the rule list as a learner (development: triage at 40 visits 0.69 against 0.65 for the tree, worse on the other cells); the ordering heuristics; the window choice. What is still open: triage-type rules at 40 visits (0.72), rare factors, drift, and everything with a real person.
+
 ## Playbooks on four scripted scenarios
 
 Scenarios (`playbook.evaluate`, [playbooks.md](playbooks.md#evaluating-playbooks)) have one planted mistake each. The mistakes are caught by the deterministic checks, not the model.

@@ -16,7 +16,7 @@
 
 ## Known problems (not fixed)
 
-- Local OCR can read `9,871` as `9.871`, silently turning thousands into decimals. The triage screen shows amounts without separators to avoid it.
+- Local OCR can read `9,871` as `9.871`. The pool now repairs it when the label's other readings show thousands (comma-grouped, or 1,000 or more); if every reading of a label is misread there is no evidence and it stays wrong.
 - OCR can drop the space in a label (`Batchsize`). Names that differ only by underscores are merged (`decisions.unify_names`); other variants, two spellings on one screen, and category labels are not.
 - The decision log needs readouts as `Label: value` text; charts and unlabelled numbers are not read.
 - A long recording of many checks needs `--dwell` and `--navigation`; nothing infers which controls only move to the next item (experiment E7).

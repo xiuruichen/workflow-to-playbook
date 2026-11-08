@@ -28,10 +28,10 @@ Nothing has been tested with a real expert. Everything so far used a scripted pe
 1. **Run the pilot with one real person** (about 45 minutes; [pilot-guide.md](pilot-guide.md)). Done when the four scoring questions in the guide are answered, including a no. This is the only step that can show the goal is met, and it decides what is worth building next.
 2. **A second stage with a real recorded task** (`record`, then `decisions --dwell 3 --navigation <words>`, `induce`, `elicit`, `replay`). Needs readouts that are text on screen.
 3. **A human-labelled set for H7**: which steps a reviewer calls "reason not visible", to check the observability classes against people rather than planted truth.
-4. **Improve the interview's extraction** (the weakest step: 3 of 6 clear answers read correctly), and design the questions and the scoring of answers with the team member working on them ([interview-guide.md](interview-guide.md)); then re-test on fresh seeds under a new amendment.
-5. **Show the ratio fit by default when the person's own words mention a rate** (the smoke test found the ratio only with `--ratios`).
+4. **Design the interview questions and the scoring of answers with the team member working on them** ([interview-guide.md](interview-guide.md)), now that extraction works (17 of 20 clear answers); the open problem is *which* misfit to ask about, where nothing tried beat time order.
+5. **Triage-type rules at 40 visits** (0.72 held-out, with or without automatic selection): the remaining failure of the induction fixes. Untried: structure from the person's own stated rule, and asking about thresholds.
 6. **Re-score the four scripted scenarios** with the step-recall and flag-F1 metrics (needs a model run).
-7. **Handle thousands separators** in OCR'd numbers (`9,871` is read as `9.871`) and merge more label spelling variants.
+7. **A hint about rare factors** that is not dominated by chance ratio conditions (the H18 failure).
 8. Only then: think-aloud audio for the reasons that are off-screen; cross-session memory and task models.
 
 ## Not built, on purpose

@@ -16,6 +16,11 @@ All commands run from the project root with the project's `.venv`. Seeds and com
 | Pilot dry run with an AI as the person | `pilot_dry_run/` | `python -m playbook pilot make --theme run --cases 60 --seed 11`, then `pilot report pilot_dry_run/pilot_log.json` | 11 | current `main` |
 | Hidden-rule smoke test, real window, AI as the person | `smoke_test/` | `python scripts/live_hidden_rule_test.py OUT 50 5`, answer each case, then `python scripts/analyze_hidden_rule_test.py OUT` | 5 | current `main` |
 | LLM-driven interview (amendment 7) | `interview.md`, `interview/` | `python scripts/run_interview.py`, then `--summarize`; `--expert llm --strategy template,v0_open,...` for question quality | 6-10 (dev: 100-109) | tag `freeze-5` |
+| Round 2: extraction on fresh paraphrases (amendment 8, H11) | `fix_extraction_dev.md`, `fix_extraction_test.md`, `interview/extraction_*.json`, `interview/paraphrases.json` | `python scripts/run_fix_extraction.py --set dev` / `--set test` | fresh paraphrases | tag `freeze-6b` |
+| Round 2: ordering (H12) and end-to-end interview (H13) | `fix_order.md`, `fix_interview_test.md`, `interview/fix_interview_*.jsonl` | `python scripts/run_fix_interview.py --order-test`; `--test --arms v0/time/single,gated/time/single`; then `--summarize --test --chosen gated/time/single` | 11-15 (dev 100-104) | tag `freeze-6b` |
+| Round 2: induction (H14-H18) | `fix_induction.md` | `python scripts/run_fix_induction.py` | 11-15 and the smoke-test recording | tag `freeze-6a` |
+| Round 2: executable judgment for the agent (H19) | `fix_agent.md`, `fix_agent/results.jsonl` | `python scripts/run_fix_agent.py`, then `--summarize` | 11-15 | tag `freeze-6b` |
+| Round 2: thousands separators (H20) | `fix_capture.md`, `fix_capture_seed100.md` | `python scripts/run_fix_capture.py [seed count]` | 11 (post hoc: 100) | tag `freeze-6a` |
 | Triage capture on a development seed | `dev/triage_capture_seed100.json` | `python -m playbook.dashboard --domain triage --visits 40 --seed 100` | 100 | development only |
 
 Development seeds (0 and 100-119) were used to build and tune; no claim rests on them. `docs/evaluation-protocol.md` holds the hypotheses, criteria, amendments and the list of deviations.

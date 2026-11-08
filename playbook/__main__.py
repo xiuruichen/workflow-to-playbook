@@ -141,7 +141,8 @@ def main(argv: list[str] | None = None) -> int:
     dc.add_argument("--dwell", type=float, default=None, help="shortest pause (seconds) that counts as a look; default 8")
     ind = sub.add_parser("induce", help="fit a readable rule to the decisions of several sessions and list the ones it can't explain")
     ind.add_argument("sessions", nargs="*", help="session ids or paths (default: every session with decisions)")
-    ind.add_argument("--ratios", action="store_true", help="also try ratios of readouts (errors/requests) as features; helps when the rule is about a rate")
+    ind.add_argument("--ratios", action="store_true", help="always add ratios of readouts (errors/requests) as features (the default already tries them and keeps them when they clearly help)")
+    ind.add_argument("--plain", action="store_true", help="fit the plain tree only, without the automatic choice between ratio features, a lookahead tree and a rule list")
     ind.add_argument("--without", choices=["context", "none"], help="ablation: fit without cross-session context, or without the non-action decisions")
     el = sub.add_parser("elicit", help="answer questions about the decisions the fitted rule can't explain, then refit")
     el.add_argument("--llm", action="store_true", help="a local model writes the questions and reads your answers (needs the local model)")
@@ -308,11 +309,20 @@ def main(argv: list[str] | None = None) -> int:
         if len(decisions) < 6:
             print(f"Only {len(decisions)} decision(s); need about 6 or more to fit a rule (20-40 is better).", file=sys.stderr)
             return 1
-        tree = induce.fit(decisions)
-        print(f"{len(decisions)} decisions from {len(dirs)} session(s). Fitted rule (matches {induce.accuracy(tree, decisions):.0%} of them):")
-        for line in induce.rules(tree):
+        if args.plain or args.without:
+            tree = induce.fit(decisions)
+            fits, lines = induce.accuracy(tree, decisions), induce.rules(tree)
+            train, test = induce.holdout_accuracy(decisions)
+        else:  # tries ratios, a lookahead tree and a rule list, and keeps one only if it clearly predicts better
+            auto = induce.fit_auto(decisions)
+            decisions, tree = auto.prepare(decisions), auto.model
+            fits, lines = auto.accuracy(decisions), auto.rules()
+            cut = max(1, int(len(decisions) * 0.7))
+            train, test = auto.accuracy(decisions[:cut]), induce.fit_auto(decisions[:cut]).accuracy(decisions[cut:])
+            print(f"Chose: {auto.choice} (cross-validated accuracy {auto.cv.get(('ratios' if auto.ratios else 'plain') + '/' + auto.kind)}, plain tree {auto.cv.get('plain/tree')}).")
+        print(f"{len(decisions)} decisions from {len(dirs)} session(s). Fitted rule (matches {fits:.0%} of them):")
+        for line in lines:
             print(f"  {line}")
-        train, test = induce.holdout_accuracy(decisions)
         print(f"Fit on the earliest 70%: {train:.0%} on those, {test:.0%} on the later ones.")
         if args.without:
             ab = induce.holdout(decisions, without=args.without)

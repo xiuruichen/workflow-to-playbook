@@ -40,10 +40,14 @@ Without these, the 8-second default finds about 38% of fast decisions and a "Nex
 ## Fitting a rule
 
 ```bash
-python -m playbook induce [sessions...] [--ratios] [--without context|none]
+python -m playbook induce [sessions...] [--plain] [--ratios] [--without context|none]
 ```
 
-`induce.py` fits a depth-3 decision tree over the features, prints it as sentences, reports how many choices it fits and how well it predicts the later ones (fit on the earliest 70%), and lists the choices it cannot explain (leave-one-out). A tree is used because the person has to be able to read, dispute and correct it. `--without` drops the cross-session features or the non-actions, for ablations. `lookahead=True` (a Python option, not on the command line) chooses each split by how well its children fit after one more split; it recovers more of a compound rule from few observations and fits noise more, so it is opt-in.
+`induce.py` fits a short rule over the features, prints it as sentences, reports how many choices it fits and how well it predicts the later ones (fit on the earliest 70%), and lists the choices it cannot explain (leave-one-out). A depth-3 tree is the base because the person has to be able to read, dispute and correct it.
+
+**Automatic choice (the default).** `fit_auto` fits the plain tree and also tries ratios of readouts (`errors/requests`), a lookahead tree (each split chosen by how well its children fit after one more split) and a rule list (`rulelist.py`: "if A and B then X; otherwise if C then Y; otherwise Z", learned by sequential covering). It keeps one of the more elaborate variants only if its blocked cross-validated accuracy beats the plain tree's by 0.04, and says what it chose and why. On the untouched smoke-test recording it found the planted loss ratio with no flag. `--plain` forces the plain tree; `--ratios` forces ratio features; `--without` drops the cross-session features or the non-actions, for ablations.
+
+**Other options in the code, not the default.** `stable_disagreements` (a choice is flagged only if it disagrees across at least 80% of bootstrap fits: better precision under label noise, at the cost of recall), `fit_windowed` (choose how much history to fit by cross-validation: did not find real drift), and `shared_conditions` (what a few unexplained choices have in common, used for a hint in the pilot report). Their results, including the ones that did not help, are in [results.md](results.md#round-2-fixing-what-failed).
 
 ```
 spikes <= 1.5 -> keep                                         (13/13)
@@ -85,6 +89,17 @@ The wording of the questions lives in `playbook/interview_prompts.py` as named s
 
 Each also gets a 0–4 tacit score. A playbook step is `O6` only on measured evidence (calibrated confidence below the review threshold, or the model hesitating between targets), never because the model wrote a remark. A decision is `O5` only if its own path through the fitted rule uses a cross-session feature. These are heuristics, built on the framing of Polanyi and of Nonaka and Takeuchi ([related-work.md](related-work.md)); they have not been checked against human labels.
 
+## Giving the rules to an agent as code
+
+`python -m playbook export --judgment` writes the rules into the skill. To apply them without trusting a model to compare thresholds, the skill tells the agent to call the evaluator instead:
+
+```bash
+python -m playbook judge --rules skill/skill.json --readouts '{"spikes": 2, "batch_size": 512}' [--cats '{"vendor": "known"}'] [--previous '{"batch_size": 256}']
+# {"outcome": "Stop run", "rule": "spikes > 1.5 and changed_batch_size <= 0.5", "reason": "matches: ..."}
+```
+
+It returns the outcome, the rule that fired, and whether to ask a human instead (a value outside the range seen, or no rule matches); it computes the words, changes and quotients the rules mention. The mechanical reader used in the replay tests is the same function, so the two cannot disagree.
+
 ## Replay: do later choices follow the rules?
 
 `python -m playbook replay [sessions...] [--model]` fits on the earliest 70% of decisions and replays the rest through deciders: the most common outcome, a mechanical reader of the exported rules, and (with `--model`) a language model given the skill with and without the judgment section. It reports agreement, how often the decider asked a human, and wrong versus missed actions.
@@ -116,7 +131,7 @@ Tested with scripted and AI persons and under node; **not yet run with a human**
 ## Limits
 
 - Readouts must be text on screen (`Label: value`); charts and unlabelled numbers are not read.
-- Local OCR can read `9,871` as `9.871` (not handled) and drop the space in a label (`Batchsize`; merged only when names differ by underscores).
+- Local OCR can read `9,871` as `9.871` (repaired when the label's other readings are grouped or 1,000+) and drop the space in a label (`Batchsize`; merged only when names differ by underscores).
 - A pause is a rough proxy for attention.
 - Rules are depth-3 trees: one condition per regime, and about 100 observations for a rule with several. Rare factors (two examples in fifty) are missed.
 - Label noise hurts compound rules quickly, and a disagreement with the rule is weak evidence of a hidden reason when the rule is itself poorly learned.
