@@ -1,12 +1,31 @@
 # Roadmap: implementing ideas from the literature
 
-Status: **Phase A is partly built** (marked ✅ below); everything else is planned. Citation keys refer to [`references.bib`](references.bib). Notes on each paper are from abstracts; read the full text before relying on a detail (marked **check**).
+Status (2026-11-08): **Phases A and B are built and checked on synthetic benchmarks; Phase C is partly built; nothing has been tested with a real expert yet.** The table below is the state of every roadmap item; the sections after it hold the detail. Citation keys refer to [`references.bib`](references.bib). Notes on each paper are from abstracts; read the full text before relying on a detail (marked **check**).
 
 ## Goal
 
 Move from "one recording → one playbook" to capturing **tacit knowledge**: decisions an expert makes but has never stated. The hard cases are (1) rules visible only across many sessions, (2) decisions that are *non-actions* (looked, did nothing), and (3) reasons that depend on context from days earlier. Target use case: an ML engineer deciding over two weeks which training runs to kill, restart or leave alone.
 
 Constraint: everything must run on a light-load laptop, so deterministic code comes first and the small local model is used only where nothing else works.
+
+## Status at a glance (2026-11-08)
+
+| Item | State | Evidence / where |
+|---|---|---|
+| 1 Frames and dwell (`frames.py`) | built | used by every decision experiment |
+| 2 Documentation vs judgment metrics (`evaluate.py`) | built, **not re-scored** | step recall, flag precision/recall/F1 implemented and unit-tested; the four scripted scenarios were not re-run (needs a model; no cloud calls were allowed) |
+| 3 Elicitation (`elicit.py`) | built, simulated expert only | H4 narrow gain; interview also in `pilot elicit`; **no real person yet** |
+| 4 Rule induction (`induce.py`) | built | H1 holds on the dashboard, fails on triage; options `lookahead`, `--ratios`, `--without` |
+| 5 Observability classes (`knowledge.py`) | built, heuristics | cross-session class by the decision's own path; proxy check E6; **H7 (human labels) not run** |
+| 6 Cross-session memory (`memory.py`) | **not built, on purpose** | pooling already supplies the cross-session context the experiments needed |
+| 7 Task models (`taskmodel.py`) | not built | no evidence yet that it is the bottleneck |
+| 8 Skill dependencies and completion checks (`skill.py`) | built | `depends_on`, `completion_checks`; no agent replay scores against them yet |
+| 9 Long-horizon evaluation | not started | needs real multi-day data |
+| Second and third domains | built | `triage.py`, `service.py` |
+| Think-aloud audio (B8) | not built | needs a speech-to-text dependency; typed reasons in the pilot cover it at small scale |
+| Real expert sessions (C12) | **pilot kit ready, not run** | `playbook/pilot.py`, [pilot-guide.md](pilot-guide.md) |
+
+**What to do next, in order:** (1) run the pilot with one real person (about 45 minutes) and score it as the guide says; (2) if it works, a second stage with a real recorded task (needs `--dwell` and `--navigation`, see E7); (3) label a set of steps for H7; (4) re-score the scripted scenarios with the new metrics; (5) only then Phase C items 6, 7 and 9. Open decisions are in [open-questions.md](open-questions.md).
 
 ## What we take from each paper
 
@@ -64,32 +83,32 @@ Observability class, assigned per extracted item:
 - **O5** cross-session context (the reason is in an earlier session)
 - **O6** unobservable (off-screen; needs narration or an interview)
 
-Tacit rubric, 0–2 each: articulability, observability class, context dependence, horizon (step / session / multi-session), verifiability against held-out decisions. The class picks the method: record (O1–O2), pool and induce (O3–O5), ask (O6 and every disagreement).
+Implemented as a 0-4 score (a count of reasons, see `knowledge.py`), not as the five 0-2 axes below, which remain the proposal. Since 2026-11-08 a decision is O5 only if its own path through the fitted rule uses a cross-session feature. Tacit rubric, 0–2 each: articulability, observability class, context dependence, horizon (step / session / multi-session), verifiability against held-out decisions. The class picks the method: record (O1–O2), pool and induce (O3–O5), ask (O6 and every disagreement).
 
 ## Phases
 
 **Phase A: foundations (weeks 1–3)**
-1. `frames.py`, dwell events and a per-session `decisions.jsonl` (`{t, screen values, action or "none"}`).
-2. `dashboard` scenario in `scenarios.py` with a planted rule (two grad-norm spikes within N steps means kill, unless batch size just changed), plus a second domain so the result isn't one trick.
+1. ✅ `frames.py`, dwell events and a per-session `decisions.jsonl` (`{t, screen values, action or "none"}`).
+2. ✅ `dashboard.py` with a planted rule (two grad-norm spikes means kill, unless batch size just changed), plus second and third domains (`triage.py`, `service.py`) so the result isn't one trick.
 3. ✅ [`evaluation-protocol.md`](evaluation-protocol.md), written *before* running: hypotheses H1–H7, metrics, baselines, ablations, seeds (1–5 for confirmatory runs; seeds 0 and 100–109 are development seeds), success criteria. Amendment 1 (2026-11-07) freezes the code as tag `freeze-1`, adds the exploratory studies E1–E6 and records a prediction that H1 fails on the triage domain at 40 visits. Confirmatory runs are next.
-4. WONDERBREAD-style metrics in `evaluate.py`.
-5. `knowledge.py` classifier (rules first), shown in the playbook and in the skill export as "ask the expert" gates.
+4. ✅ (implemented, not re-scored) WONDERBREAD-style metrics in `evaluate.py`.
+5. ✅ `knowledge.py` classifier (rules first), shown in the playbook and in the skill export as "ask the expert" gates.
 
 **Phase B: the core research contribution (weeks 4–8)**
-6. `induce.py`: fit a rule on pooled decisions; report accuracy on held-out decisions, with and without "no action" labels and cross-session context.
-7. `elicit.py`: surface rule-vs-behaviour disagreements with the two screens side by side; store the expert's answer as a stated rule with provenance; refit.
+6. ✅ `induce.py`: fit a rule on pooled decisions; report accuracy on held-out decisions, with and without "no action" labels and cross-session context.
+7. ✅ (simulated expert) `elicit.py`: surface rule-vs-behaviour disagreements with the two screens side by side; store the expert's answer as a stated rule with provenance; refit.
 8. Optional think-aloud audio, transcribed locally and aligned to decisions (the cheapest way into O6).
 
 **Phase C: scale and reuse (months 2–4)**
 9. `memory.py` cross-session store with context facts.
 10. `taskmodel.py` goal hierarchy and branches.
-11. Skill completion checks and dependencies; replay an exported skill with a computer-use agent and compare end state.
-12. Real expert sessions (consent and ethics handled with the research partner; not decided here) and long-horizon evaluation.
+11. ✅ (checks and dependencies) / open (replay with an agent): skill completion checks and dependencies; replay an exported skill with a computer-use agent and compare end state.
+12. Real expert sessions (consent and ethics handled with the research partner; not decided here) and long-horizon evaluation. Pilot kit ready; not run.
 
 ## Evaluation, summarised
 
 - **Metrics:** step recall; correct/incorrect judgment F1; flag precision and recall; rule-recovery accuracy on held-out decisions; fraction of disagreements the expert confirms as a real missing rule.
-- **Baselines:** the current flat-playbook pipeline; single-session (no pooling).
+- **Baselines:** the current flat-playbook pipeline; the most common outcome. A single-session fit is not computable with one decision per session (protocol amendment 1).
 - **Ablations:** no dwell events; no cross-session context; no elicitation round.
 - **Success statement:** the expert recognizes the induced rule as partly right and corrects it, and the corrected rule predicts held-out decisions better than the first fit.
 
@@ -98,11 +117,15 @@ Tacit rubric, 0–2 each: articulability, observability class, context dependenc
 - Synthetic scenarios show the plumbing works, not real-world accuracy. Real data comes before any strong claim.
 - Dwell time is a noisy proxy for attention (the person may have stepped away).
 - A cross-session decision log is more sensitive than one recording; keep the egress guard and archive encryption, and add redaction.
-- Small local models judge poorly; keep rule fitting symbolic.
+- Small local models judge poorly; keep rule fitting symbolic. (H5 with a 4B model: the exported rules are followed worse than a mechanical reader follows them.)
+- The scripted "person" follows a clean rule; real people are inconsistent and drift. The noise studies (E2, E4) show compound rules degrade quickly.
+- Capture assumes `Label: value` text, one check per recording by default, and a few OCR formats (E7, thousands separators, split labels); real recordings need `--dwell` and `--navigation`.
+- Seeds and criteria were fixed in advance, but several choices (base rates of the domains, which options to test) were made by the same party who reads the results; amendments 1-6 list them.
 
 ## Open items for the research partner
 
 - Confirm or correct the O1–O6 classes and the rubric.
-- Name the second domain for the synthetic benchmark.
+- Second domain: done (invoice triage; a third, service health, was added). Still to name: the domain or task for the real-person pilot.
 - Decide the consent / ethics route for recording real experts.
-- Decide whether the first paper centers on the benchmark, the elicitation loop, or both.
+- Decide whether the first paper centers on the benchmark, the elicitation loop, or both. The results lean towards a careful paper with negative and mixed results unless the pilot works.
+- The full list of open decisions and known problems is in [open-questions.md](open-questions.md).
