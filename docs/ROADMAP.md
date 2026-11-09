@@ -14,9 +14,9 @@ Recover **tacit knowledge** from observed computer work: not only what an expert
 |---|---|---|
 | Capture and playbooks (what) | built | four scripted scenarios, local model ([results.md](results.md#playbooks-on-four-scripted-scenarios)) |
 | Decision log, including non-actions | built | real-capture check 40/40 on two domains; 50/50 in the [smoke test](smoke-test.md) |
-| Rule induction (when) | built | a single-regime rule from 40 visits; compound rules need about 100; ratio rules need `--ratios` |
-| Elicitation (why) | built, scripted experts only | one round helps a little (+0.03 to +0.12) with a perfect expert; an LLM-driven version (4B) recovers about half that gain, held back by extraction |
-| Agent export with judgment | built | a 4B model asks a human more often and helps clearly only on one domain |
+| Rule induction (when) | built; chooses automatically between plain, ratio and rule-list fits | a single-regime rule from 40 visits; rate rules found with no flag; compound rules still need about 100 visits (invoice domain 0.72 at 40) |
+| Elicitation (why) | built, scripted experts only | one round helps a little (+0.03 to +0.12) with a perfect expert; the 4B-driven interview now reads 17 of 20 clear answers and recovers the full (small) gain on fresh seeds; which misfit to ask first is unsolved |
+| Agent export with judgment | built; rules callable as a tool (`judge`) | the 4B model with the tool scores what a mechanical reader of the rules scores; the rules fitted from 28 visits are the ceiling |
 | Observability classes | built, heuristic | checked only against planted ground truth |
 | Real-person pilot | **kit ready, not run** | [pilot-guide.md](pilot-guide.md) |
 | Evaluation | pre-registered, synthetic only | [evaluation-protocol.md](evaluation-protocol.md) with seven amendments |
