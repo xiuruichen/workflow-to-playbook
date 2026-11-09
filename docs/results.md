@@ -115,7 +115,20 @@ Amendments 8-11 ([evaluation-protocol.md](evaluation-protocol.md#round-2-fixing-
 | Drift not followed (E4b) | choose the window of history by cross-validation | **H17 fails** (predicted): it kept the full history in nearly every case (dashboard 0.860 against 0.970 for the last 20 only) |
 | Rare factors missed (the GPU rule) | list what the unexplained choices have in common | **H18 fails:** on the smoke-test data the hint was dominated by ratio conditions that cover both unexplained choices by chance, not the plain `gpu_util <= 29` that is true |
 | Capture of numbers with separators | keep the raw OCR token and repair `9.871` to `9,871` when the label's other readings show it | **H20 holds, but not demonstrated by the test**: all 40 amounts were read exactly even before the repair (OCR misread none). On development seed 100, where a comma was once misread, the repair takes 11 of 12 to 12 of 12. The repair is also unit-tested |
-| 4B model misapplies the rules (H5) | an executable evaluator the model calls (`python -m playbook judge`) | H19: see below |
+| 4B model misapplies the rules (H5) | an executable evaluator the model calls (`python -m playbook judge`) | **H19 fails on two of three domains, but for a different reason than expected** (below): the evaluator arm scores exactly what the mechanical reader scores on triage and service (0.67 and 0.70) and within 0.08 on the dashboard, so the model now follows the rules; the ceiling is the rules themselves, fitted from 28 visits |
+
+**H19 in detail** (Qwen3-VL 4B, text only, seeds 11-15, 40 visits, **one repetition per seed**, not three as the amendment said: a repetition took about six minutes). Agreement with the person's later decisions:
+
+| | procedure only | + judgment as text | + evaluator (model reads the screen) | + evaluator (post hoc: code reads the screen) | the same rules read mechanically |
+|---|---|---|---|---|---|
+| dashboard | 0.63 | 0.52 | 0.75 | 0.73 | 0.83 |
+| triage | 0.43 | 0.43 | 0.67 | 0.67 | 0.67 |
+| service | 0.70 | 0.92 | 0.70 | 0.70 | 0.70 |
+
+- The bars (evaluator within 0.05 of the mechanical reader and at least 0.10 above procedure only): triage holds; dashboard misses on the gap (0.08); service misses because procedure only already scores 0.70 (the person acted on 5 of 12 held-out visits on average, so "do nothing" is right 70% of the time) and the mechanical reader, which asks a human whenever a value is outside the range seen, scores 0.70 too.
+- **What changed:** the model now does what the rules say. Before, on the same kind of setup, the 4B model with the rules as text scored 0.43-0.56 where the rules read mechanically scored 0.67-1.00; with the evaluator it scores the same as the mechanical reader. On triage that is +0.24 over the text version. On the service domain the *text* version scored 0.92, above both: the model sometimes does better than a strict reader (it uses the text loosely, which here helped) and the strict reader asks a human on 15 of 60 visits.
+- **What limits it:** the rules, fitted from the first 28 visits, are wrong on some seeds (the mechanical reader ranges from 0.17 to 1.00 on the service domain). An executable evaluator cannot fix a rule that is not right.
+- Reading the numbers off the screen text was not the problem: the model copied the needed readouts exactly on triage and service (108 of 108, 144 of 144) and on 95 of 108 on the dashboard; code parsing, tried afterwards, was no better (83 of 108 on the dashboard, because of how the dashboard's names are printed) and gave the same agreement. (An earlier version of this summary reported 62% because the counter divided by every readout, not only the ones the rules need.)
 
 What did not work: the rule list as a learner (development: triage at 40 visits 0.69 against 0.65 for the tree, worse on the other cells); the ordering heuristics; the window choice. What is still open: triage-type rules at 40 visits (0.72), rare factors, drift, and everything with a real person.
 

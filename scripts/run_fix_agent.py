@@ -82,7 +82,7 @@ def evaluator_decider(chat, skill_md: str, options: list[str], judgment: dict, p
                 got = {}
         readouts = {k: float(v) for k, v in got.items() if k in nums and isinstance(v, (int, float))}
         words = {k: str(v).lower() for k, v in got.items() if k in cats}
-        stats["readouts_total"] += len(d.readouts)
+        stats["readouts_total"] += len(set(d.readouts) & set(nums))  # only the readouts the rules need
         stats["readouts_right"] += sum(readouts.get(k) == v for k, v in d.readouts.items() if k in nums)
         tool = replay.judge(judgment, readouts, words, previous.get(id(d)))
         msgs = [{"role": "system", "content": "You act for a person using the skill below. The judge tool has applied the skill's rules to the screen; "
@@ -110,10 +110,25 @@ def summarize(rows: list[dict]) -> str:
             per = [st.fmean(r["agreement"] for r in sel if r["seed"] == s) for s in sorted({r["seed"] for r in sel})]
             mean[(dn, arm)] = st.fmean(per)
             lines.append(f"| {dn} | {arm} | {st.fmean(per):.2f} ({min(per):.2f}-{max(per):.2f}) | {sum(r['ask_human'] for r in sel)} | {sum(r['wrong_actions'] for r in sel)} | {sum(r['missed_actions'] for r in sel)} |")
+    doms = study.domains()
+    needed = {}
+
+    def need(dn: str, seed: int) -> int:  # readouts the rules use, over the 12 held-out decisions (the stored totals counted all readouts)
+        if (dn, seed) not in needed:
+            ds = study.build(doms[dn], 40, seed, ratios=dn == "service").decisions
+            train, test = replay.split(ds)
+            nums, _ = parse_names(build_judgment(train, None))
+            needed[(dn, seed)] = sum(len(set(d.readouts) & set(nums)) for d in test)
+        return needed[(dn, seed)]
+
     for arm, what in (("skill+evaluator", "the model copied"), ("skill+evaluator (code parses)", "the parser read")):
-        ev = [r for r in rows if r["arm"] == arm and r.get("readouts_total")]
-        if ev:
-            lines += ["", f"Readouts {what} correctly from the screen text ({arm}): {sum(r['readouts_right'] for r in ev)}/{sum(r['readouts_total'] for r in ev)}."]
+        parts = []
+        for dn in ("dashboard", "triage", "service"):
+            ev = [r for r in rows if r["arm"] == arm and r["domain"] == dn and r["repeat"] == 0 and "readouts_right" in r]
+            if ev:
+                parts.append(f"{dn} {sum(r['readouts_right'] for r in ev)}/{sum(need(dn, r['seed']) for r in ev)}")
+        if parts:
+            lines += ["", f"Readouts {what} correctly from the screen text ({arm}), counting the ones the rules need: " + ", ".join(parts) + "."]
     lines += ["", "## Verdict against the bar (evaluator arm within 0.05 of the mechanical reader and at least 0.10 above procedure only)", ""]
     for dn in ("dashboard", "triage", "service"):
         if all(k in mean for k in ((dn, "skill+evaluator"), (dn, "rules"), (dn, "skill"))):

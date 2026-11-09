@@ -1,0 +1,18 @@
+  Qwen3VL-4B-Instruct-Q4_K_M.gguf: already downloaded
+  mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf: already downloaded
+Starting the local model...
+dashboard seed 11 rep 0 skill+evaluator (code parses) agree 0.83 ask 0 wrong 0 missed 2 (73.1s)
+dashboard seed 12 rep 0 skill+evaluator (code parses) agree 1.00 ask 0 wrong 0 missed 0 (49.9s)
+dashboard seed 13 rep 0 skill+evaluator (code parses) agree 0.75 ask 0 wrong 0 missed 3 (57.0s)
+dashboard seed 14 rep 0 skill+evaluator (code parses) agree 0.58 ask 0 wrong 0 missed 5 (51.7s)
+dashboard seed 15 rep 0 skill+evaluator (code parses) agree 0.50 ask 0 wrong 0 missed 6 (53.5s)
+triage seed 11 rep 0 skill+evaluator (code parses) agree 0.50 ask 0 wrong 0 missed 6 (69.7s)
+triage seed 12 rep 0 skill+evaluator (code parses) agree 0.58 ask 3 wrong 1 missed 1 (64.9s)
+triage seed 13 rep 0 skill+evaluator (code parses) agree 0.42 ask 0 wrong 4 missed 3 (69.4s)
+triage seed 14 rep 0 skill+evaluator (code parses) agree 0.83 ask 2 wrong 0 missed 0 (65.6s)
+triage seed 15 rep 0 skill+evaluator (code parses) agree 1.00 ask 0 wrong 0 missed 0 (64.4s)
+service seed 11 rep 0 skill+evaluator (code parses) agree 0.83 ask 1 wrong 0 missed 1 (67.1s)
+service seed 12 rep 0 skill+evaluator (code parses) agree 0.75 ask 2 wrong 1 missed 0 (76.3s)
+service seed 13 rep 0 skill+evaluator (code parses) agree 0.92 ask 1 wrong 0 missed 0 (69.6s)
+service seed 14 rep 0 skill+evaluator (code parses) agree 0.17 ask 10 wrong 0 missed 0 (57.2s)
+service seed 15 rep 0 skill+evaluator (code parses) agree 0.83 ask 1 wrong 0 missed 1 (60.1s)
